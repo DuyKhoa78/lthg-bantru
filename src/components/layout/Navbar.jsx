@@ -72,7 +72,7 @@ export default function Navbar({ collapsed, onToggle }) {
 
       <div className="marquee-wrap">
         <span className="marquee-text">
-          ✦ Chào mừng bạn đến với hệ thống Quản lý Bán trú của Trường THPT Lê Thị Hồng Gấm! ✦
+          🏫 Chào mừng bạn đến với Hệ thống Quản lý Bán trú — Trường THPT Lê Thị Hồng Gấm · Phân hiệu TP. Hồ Chí Minh · Năm học 2025–2026 🎓
         </span>
       </div>
 

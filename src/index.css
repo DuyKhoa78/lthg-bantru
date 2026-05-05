@@ -62,6 +62,11 @@ body {
   100% { transform: translateX(-150%); }
 }
 
+@keyframes shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
 @keyframes onlinePulse {
   0%, 100% { transform: scale(1); opacity: 0.6; }
   50%       { transform: scale(1.8); opacity: 0; }
@@ -256,11 +261,12 @@ body {
 .marquee-text {
   display: inline-block; font-weight: 700; font-size: 0.95rem;
   white-space: nowrap;
-  background: linear-gradient(90deg, #0052D4, #4364F7, #6FB1FC);
+  background: linear-gradient(90deg, #f59e0b, #ef4444, #ec4899, #8b5cf6, #3b82f6, #10b981, #f59e0b);
+  background-size: 200% auto;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
   padding-left: 100%;
-  animation: marquee 22s linear infinite;
+  animation: marquee 30s linear infinite, shimmer 4s linear infinite;
 }
 .marquee-wrap:hover .marquee-text { animation-play-state: paused; }
 
