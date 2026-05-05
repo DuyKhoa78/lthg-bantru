@@ -164,49 +164,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── General Info ── */}
-      <div className="section-header">
-        <div className="section-header-bar"></div>
-        <h3>Tổng quan học sinh bán trú</h3>
-        {data?.nam_hoc && <span className="section-badge">NH {data.nam_hoc}</span>}
-      </div>
-      <div className="general-container">
-        <div className="main-total-card">
-          <div className="total-info">
-            <i className="fas fa-school main-icon"></i>
-            <div className="total-info-text">
-              <p>Tổng số học sinh đăng ký</p>
-              <h1>{stat.total ?? 0}</h1>
-            </div>
-          </div>
-          <div className="total-gender-split">
-            <div className="gender-box male-bg">
-              <i className="fas fa-mars"></i> Nam <span>{stat.male ?? 0}</span>
-            </div>
-            <div className="gender-box female-bg">
-              <i className="fas fa-venus"></i> Nữ <span>{stat.female ?? 0}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grade-info-grid">
-          {stat.khoi && Object.entries(stat.khoi).map(([name, g]) => (
-            <div className="grade-stat-card" key={name}>
-              <div className="grade-stat-header">
-                <i className="fas fa-layer-group"></i> KHỐI {name}
-              </div>
-              <div className="grade-total-num">
-                <small>Sĩ số:</small>
-                <span>{g.total ?? 0}</span>
-              </div>
-              <div className="grade-gender-info">
-                <div className="m-count"><i className="fas fa-mars"></i> Nam <b>{g.male ?? 0}</b></div>
-                <div className="f-count"><i className="fas fa-venus"></i> Nữ <b>{g.female ?? 0}</b></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </>
   );
 }
