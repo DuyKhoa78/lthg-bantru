@@ -18,6 +18,14 @@ dist-ssr
 .env.development.local
 .env.test.local
 
+# Thư mục frontend Django cũ (không dùng nữa)
+Front-end/
+
+# Assets mẫu Vite (không dùng)
+src/assets/react.svg
+src/assets/vite.svg
+src/assets/hero.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
