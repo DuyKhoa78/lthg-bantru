@@ -87,9 +87,9 @@ export default function CauHinh() {
             <div className="form-group">
               <label className="form-label">Năm học</label>
               <select className="form-control" value={heThong.nam_hoc || ''} disabled={!canEdit} onChange={(e) => setHeThong({ ...heThong, nam_hoc: e.target.value })}>
-                {(!heThong.nam_hoc || heThong.nam_hoc < '2026-2027') && <option value={heThong.nam_hoc}>{heThong.nam_hoc}</option>}
+                {(!heThong.nam_hoc || heThong.nam_hoc < '2025-2026') && <option value={heThong.nam_hoc}>{heThong.nam_hoc}</option>}
                 {Array.from({ length: 10 }, (_, i) => {
-                  const y = 2026 + i;
+                  const y = 2025 + i;
                   return `${y}-${y + 1}`;
                 }).map(y => (
                   <option key={y} value={y}>{y}</option>
