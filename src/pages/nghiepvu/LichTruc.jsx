@@ -170,8 +170,8 @@ export default function LichTruc() {
     const we2 = addDays(ws2, 4);
 
     let allRec = [...pcData];
-    let namHoc = '2024-2025';
-    let phuTrach = 'Trần Văn Phủ';
+    let namHoc = '2025-2026';
+    let phuTrach = 'Tạ Thị Diệu Lê';
 
     try {
       const [r2, rConf] = await Promise.all([
