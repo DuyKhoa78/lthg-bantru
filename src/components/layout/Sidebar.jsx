@@ -89,7 +89,7 @@ export default function Sidebar({ collapsed, mobileOpen }) {
         <div className="sidebar-user">
           <div className="avatar-wrap">
             <img
-              src={user.avatar || '/user.jpg'}
+              src={user.avatar_url || '/user.jpg'}
               alt="avatar"
               onError={(e) => { e.target.src = avatarFallback; }}
             />

@@ -87,9 +87,12 @@ export default function Profile() {
       <div className="profile-layout">
         {/* Avatar Card */}
         <div className="profile-avatar-card">
-          <div className="profile-avatar-wrap">
-            <img src={user?.avatar || '/user.jpg'} alt="avatar" className="profile-avatar"
-              onError={(e) => { e.target.src = avatarFallback; }} />
+          <div className="profile-avatar-wrap" title="Nhấn để xem ảnh gốc">
+            <a href={user?.avatar_url || '/user.jpg'} target="_blank" rel="noopener noreferrer">
+              <img src={user?.avatar_url || '/user.jpg'} alt="avatar" className="profile-avatar"
+                onError={(e) => { e.target.src = avatarFallback; }}
+                style={{ cursor: 'pointer' }} />
+            </a>
           </div>
           <h3 className="profile-name">{user?.fullname || user?.username}</h3>
           <span className="badge badge-info" style={{ margin: '4px 0 8px' }}>{roleLabel[user?.role] || user?.role}</span>

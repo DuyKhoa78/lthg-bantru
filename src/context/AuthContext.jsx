@@ -21,12 +21,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (username, password, remember = false) => {
-    const res = await api.post('/login/', { username, password, remember });
-    if (res.data?.ok) {
-      setUser(res.data.user);
-      return res.data.user;
+    try {
+      const res = await api.post('/login/', { username, password, remember });
+      if (res.data?.ok) {
+        setUser(res.data.user);
+        return res.data.user;
+      }
+      throw new Error(res.data?.error || 'Đăng nhập thất bại');
+    } catch (err) {
+      if (err.response?.data?.error) {
+        throw new Error(err.response.data.error, { cause: err });
+      }
+      throw err;
     }
-    throw new Error(res.data?.error || 'Đăng nhập thất bại');
   }, []);
 
   const logout = useCallback(async () => {

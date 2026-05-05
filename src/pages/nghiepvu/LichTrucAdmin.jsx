@@ -199,6 +199,25 @@ export default function LichTrucAdmin() {
     finally { setLoading(false); }
   };
 
+  const clearDay = async (d) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa TOÀN BỘ lịch phân công ngày ${toDateStr(d)} (đánh dấu là ngày nghỉ bán trú)?`)) return;
+    try {
+      const res = await api.post('/api/lichtruc/clear-day/', { ngay: toDateStr(d) });
+      if (res.data?.ok) { showAlert(res.data.message, 'success'); await loadWeek(weekStart); }
+    } catch (err) { showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger'); }
+  };
+
+  const applyDay = async (d) => {
+    try {
+      const sourceThu = d.getDay() - 1; // 1=T2 -> sourceThu=0
+      if (d.getDay() === 0 || d.getDay() === 6) {
+        showAlert('Chỉ có thể nạp tự động cho T2-T6', 'warning'); return;
+      }
+      const res = await api.post('/api/lichtruc/apply-day-bu/', { targetDate: toDateStr(d), sourceThu, force: false });
+      if (res.data?.ok) { showAlert(res.data.message, 'success'); await loadWeek(weekStart); }
+    } catch (err) { showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger'); }
+  };
+
   const getCellData = useCallback((phong_id, ngayStr, loai_truc) =>
     (pcData || []).filter(p => p.ma_phong_id === phong_id && p.ngay === ngayStr && p.loai_truc === loai_truc), [pcData]);
 
@@ -324,12 +343,37 @@ export default function LichTrucAdmin() {
           <thead>
             <tr>
               <th style={{ width: 150 }}>Phòng</th>
-              {(weekDays || []).map((d, i) => (
-                <th key={i} style={toDateStr(d) === toDateStr(new Date()) ? { background: 'var(--primary)', color: '#fff' } : {}}>
-                  <div>{DOW_SHORT[d.getDay()]}</div>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 400 }}>{p2(d.getDate())}/{p2(d.getMonth() + 1)}</div>
-                </th>
-              ))}
+              {(weekDays || []).map((d, i) => {
+                const isToday = toDateStr(d) === toDateStr(new Date());
+                const dayHasSchedule = (pcData || []).some(pc => pc.ngay === toDateStr(d));
+                return (
+                  <th key={i} style={isToday ? { background: 'var(--primary)', color: '#fff' } : {}}>
+                    <div>{DOW_SHORT[d.getDay()]}</div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 400, marginBottom: dayHasSchedule ? 6 : 8 }}>{p2(d.getDate())}/{p2(d.getMonth() + 1)}</div>
+                    {user?.is_admin && (
+                      <div style={{ fontSize: '0.65rem', fontWeight: 'normal', display: 'flex', justifyContent: 'center' }}>
+                        {dayHasSchedule ? (
+                          <button 
+                            style={{ background: isToday ? 'rgba(255,255,255,0.2)' : '#fee2e2', border: 'none', borderRadius: 4, padding: '3px 8px', color: isToday ? '#fff' : '#ef4444', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 600 }}
+                            onClick={() => clearDay(d)}
+                            title="Đánh dấu ngày này là ngày nghỉ bán trú"
+                          >
+                            <i className="fas fa-ban"></i> Nghỉ
+                          </button>
+                        ) : (
+                          <button 
+                            style={{ background: isToday ? 'rgba(255,255,255,0.2)' : '#dcfce7', border: 'none', borderRadius: 4, padding: '3px 8px', color: isToday ? '#fff' : '#10b981', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 600 }}
+                            onClick={() => applyDay(d)}
+                            title="Tạo lịch phân công từ khung cố định cho ngày này"
+                          >
+                            <i className="fas fa-plus"></i> Có bán trú
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

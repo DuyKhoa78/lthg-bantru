@@ -72,7 +72,7 @@ export default function Navbar({ collapsed, onToggle }) {
 
       <div className="marquee-wrap">
         <span className="marquee-text">
-          🏫 Chào mừng bạn đến với Hệ thống Quản lý Bán trú — Trường THPT Lê Thị Hồng Gấm · Phân hiệu TP. Hồ Chí Minh · Năm học 2025–2026 🎓
+          🏫 Chào mừng bạn đến với Hệ thống Quản lý Bán trú — Trường THPT Lê Thị Hồng Gấm!🎓
         </span>
       </div>
 
@@ -87,8 +87,8 @@ export default function Navbar({ collapsed, onToggle }) {
         >
           <div className="avatar-wrap">
             <img
-              src={user?.avatar || '/user.jpg'}
-              alt="User"
+              src={user?.avatar_url || '/user.jpg'}
+              alt="Avatar"
               onError={(e) => { e.target.src = avatarFallback; }}
             />
             <span className="online-dot status-online"></span>
