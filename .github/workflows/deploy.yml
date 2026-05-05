@@ -32,8 +32,6 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Copy index.html → 404.html (SPA fallback)
         run: cp dist/index.html dist/404.html
