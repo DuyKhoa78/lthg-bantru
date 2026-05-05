@@ -1,0 +1,52 @@
+.profile-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-avatar-card {
+  background: #fff; border-radius: 16px; padding: 28px 20px;
+  border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  position: sticky; top: calc(var(--navbar-height) + 16px);
+}
+.profile-avatar-wrap { position: relative; margin-bottom: 16px; }
+.profile-avatar {
+  width: 100px; height: 100px; border-radius: 50%;
+  object-fit: cover; border: 3px solid #bfdbfe;
+  box-shadow: 0 4px 16px rgba(0,156,255,0.2);
+}
+.profile-avatar-edit {
+  position: absolute; bottom: 2px; right: 2px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--primary); color: #fff; border: 2px solid #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; transition: background 0.2s;
+}
+.profile-avatar-edit:hover { background: #0052D4; }
+.profile-name { font-size: 1.1rem; font-weight: 800; color: #1a202c; margin-bottom: 4px; }
+.profile-info-list { width: 100%; margin-top: 12px; }
+.profile-info-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f1f5f9; font-size: 0.82rem; color: #64748b; }
+.profile-info-item i { color: var(--primary); width: 16px; text-align: center; }
+
+.profile-content-card {
+  background: #fff; border-radius: 16px;
+  border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.profile-tabs { display: flex; border-bottom: 1.5px solid var(--border); }
+.profile-tab {
+  flex: 1; padding: 14px; text-align: center;
+  font-size: 0.875rem; font-weight: 700; font-family: 'Be Vietnam Pro', sans-serif;
+  border: none; background: none; cursor: pointer;
+  color: #64748b; display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.2s; border-bottom: 2.5px solid transparent;
+}
+.profile-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f9ff; }
+.profile-tab-body { padding: 24px; }
+
+@media (max-width: 768px) {
+  .profile-layout { grid-template-columns: 1fr; }
+  .profile-avatar-card { position: static; }
+}

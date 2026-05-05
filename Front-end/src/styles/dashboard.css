@@ -1,0 +1,295 @@
+/* =========================================================
+   DASHBOARD – Trang chủ thống kê
+   ========================================================= */
+
+/* ----- PAGE HEADER ----- */
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.page-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1a202c;
+  letter-spacing: -.3px;
+}
+.today-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #009CFF18, #0052D410);
+  border: 1px solid rgba(0, 156, 255, .2);
+  border-radius: 30px;
+  padding: 7px 16px;
+  font-size: .875rem;
+  font-weight: 600;
+  color: #0052D4;
+}
+.today-badge i { color: #009CFF; font-size: 1rem; }
+
+/* ----- STAT CARDS (4 cards row) ----- */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 28px;
+}
+@media (max-width: 1100px) { .stats-container { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .stats-container { grid-template-columns: 1fr; } }
+
+.card-item {
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px 20px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.06);
+  border: 1px solid #edf2f7;
+  transition: transform .22s, box-shadow .22s;
+  animation: fadeUp .35s ease both;
+}
+.card-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(0,156,255,.13);
+}
+.card-item:nth-child(1) { animation-delay: .05s; }
+.card-item:nth-child(2) { animation-delay: .10s; }
+.card-item:nth-child(3) { animation-delay: .15s; }
+.card-item:nth-child(4) { animation-delay: .20s; }
+
+.card-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.card-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+.card-item:nth-child(1) .card-icon-wrap { background: linear-gradient(135deg,#e0f2fe,#bae6fd); color: #0284c7; }
+.card-item:nth-child(2) .card-icon-wrap { background: linear-gradient(135deg,#dcfce7,#bbf7d0); color: #16a34a; }
+.card-item:nth-child(3) .card-icon-wrap { background: linear-gradient(135deg,#ede9fe,#ddd6fe); color: #7c3aed; }
+.card-item:nth-child(4) .card-icon-wrap { background: linear-gradient(135deg,#fff7ed,#fed7aa); color: #ea580c; }
+
+.card-text p {
+  font-size: .78rem;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 4px;
+}
+.card-text h3 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1a202c;
+  line-height: 1;
+}
+.card-sub-text {
+  margin-top: 6px;
+  font-size: .75rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+.card-sub-text b { color: #ea580c; }
+
+/* ----- GRADE DETAIL SECTION ----- */
+.detail-section {
+  margin-bottom: 28px;
+}
+.section-subtitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.grade-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+@media (max-width: 900px) { .grade-container { grid-template-columns: 1fr; } }
+
+.grade-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  border: 1px solid #edf2f7;
+  animation: fadeUp .4s ease both;
+  transition: transform .22s, box-shadow .22s;
+}
+.grade-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,156,255,.1);
+}
+.grade-card:nth-child(1) { animation-delay: .08s; }
+.grade-card:nth-child(2) { animation-delay: .14s; }
+.grade-card:nth-child(3) { animation-delay: .20s; }
+
+.grade-header {
+  background: linear-gradient(135deg, #0052D4, #009CFF);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.grade-header i { font-size: 1rem; opacity: .9; }
+
+.grade-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.metric-box {
+  padding: 14px 10px;
+  text-align: center;
+  border-right: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.metric-box:last-child { border-right: none; }
+.metric-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  margin-bottom: 4px;
+}
+.metric-box p  { font-size: .68rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+.metric-box h4 { font-size: 1.3rem; font-weight: 800; color: #1a202c; }
+
+.bg-blue-light   { background: #eff6ff; } .bg-blue-light   .metric-icon { background: #dbeafe; color: #2563eb; }
+.bg-yellow-light { background: #fffbeb; } .bg-yellow-light .metric-icon { background: #fef3c7; color: #d97706; }
+.bg-red-light    { background: #fff1f2; } .bg-red-light    .metric-icon { background: #ffe4e6; color: #e11d48; }
+
+.grade-progress { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.progress-item  {}
+.progress-info  { display: flex; justify-content: space-between; font-size: .78rem; margin-bottom: 5px; color: #64748b; }
+.progress-info b { color: #1a202c; font-weight: 700; }
+.progress-info .percent { font-weight: 700; color: #009CFF; }
+.progress-bar   { height: 7px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+.bar-fill       { height: 100%; border-radius: 99px; transition: width .6s ease; }
+.bg-green  { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.bg-purple { background: linear-gradient(90deg, #7c3aed, #a855f7); }
+
+/* ----- GENERAL INFO CARDS ----- */
+.general-container {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) { .general-container { grid-template-columns: 1fr; } }
+
+.main-total-card {
+  background: linear-gradient(135deg, #0052D4, #009CFF);
+  border-radius: 16px;
+  padding: 24px 20px;
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(0,156,255,.25);
+  animation: fadeUp .4s ease .1s both;
+}
+.total-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.main-icon { font-size: 2.2rem; opacity: .85; }
+.total-info p  { font-size: .8rem; font-weight: 600; opacity: .85; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.total-info h1 { font-size: 2.6rem; font-weight: 900; line-height: 1; }
+
+.total-gender-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.gender-box {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: .85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gender-box i   { font-size: 1rem; }
+.gender-box span { margin-left: auto; font-size: 1.3rem; font-weight: 800; }
+.male-bg   { background: rgba(255,255,255,.2); }
+.female-bg { background: rgba(255,255,255,.15); }
+
+.grade-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 600px) { .grade-info-grid { grid-template-columns: 1fr; } }
+
+.grade-stat-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  border: 1px solid #edf2f7;
+  animation: fadeUp .4s ease both;
+  transition: transform .22s;
+}
+.grade-stat-card:hover { transform: translateY(-3px); }
+.grade-stat-card:nth-child(1) { animation-delay: .08s; }
+.grade-stat-card:nth-child(2) { animation-delay: .14s; }
+.grade-stat-card:nth-child(3) { animation-delay: .20s; }
+
+.grade-stat-header {
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #009CFF;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e0f2fe;
+}
+.grade-total-num {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.grade-total-num small { font-size: .72rem; color: #94a3b8; font-weight: 500; }
+.grade-total-num span  { font-size: 2rem; font-weight: 800; color: #1a202c; line-height: 1; }
+
+.grade-gender-info { display: flex; flex-direction: column; gap: 5px; }
+.m-count, .f-count {
+  font-size: .8rem;
+  font-weight: 500;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.m-count i { color: #3b82f6; }
+.f-count i { color: #ec4899; }
+.m-count b, .f-count b { color: #1a202c; font-weight: 700; margin-left: 2px; }

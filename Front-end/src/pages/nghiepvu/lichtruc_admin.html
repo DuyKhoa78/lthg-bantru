@@ -1,0 +1,542 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Phân công trực GV – Admin | QL Bán trú{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'homepage/css/admin.css' %}">
+<style>
+    .menu-group-label{font-size:.68rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray-500);padding:14px 18px 4px;pointer-events:none}
+
+    /* ── WEEK NAV ── */
+    .week-nav-card{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:16px 20px;margin-bottom:18px;}
+    .week-nav-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .week-nav-title{font-size:1rem;font-weight:800;color:var(--text-main);}
+    .week-nav-title small{font-weight:600;color:var(--text-muted);font-size:.82rem;margin-left:8px;}
+    .week-btn{height:34px;border:none;border-radius:8px;padding:0 14px;cursor:pointer;font-size:.8rem;font-weight:700;transition:all .2s;font-family:'Be Vietnam Pro',sans-serif;}
+    .week-btn.outline{background:#f1f5f9;color:var(--text-main);}
+    .week-btn.outline:hover{background:#e2e8f0;}
+    .week-btn.today{background:var(--primary-color);color:#fff;}
+    .week-btn.apply{background:linear-gradient(135deg,#10b981,#059669);color:#fff;}
+    .week-btn.export{background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;}
+    .week-days-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px;}
+    .week-day-cell{border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .18s;background:#f8faff;}
+    .week-day-cell:hover{background:#e8f4ff;border-color:var(--primary-color);}
+    .week-day-cell.selected{background:linear-gradient(135deg,var(--primary-color),var(--primary-dark));color:#fff!important;border-color:transparent;box-shadow:0 4px 14px rgba(0,156,255,.3);}
+    .week-day-cell.today-cell{border-color:var(--primary-color);}
+    .week-day-name{font-size:.7rem;font-weight:800;text-transform:uppercase;color:var(--text-muted);letter-spacing:.5px;}
+    .week-day-cell.selected .week-day-name{color:rgba(255,255,255,.85);}
+    .week-day-num{font-size:1.3rem;font-weight:800;color:var(--text-main);margin:4px 0;}
+    .week-day-cell.selected .week-day-num,.week-day-cell.selected .week-day-badge{color:#fff;}
+    .week-day-badge{font-size:.7rem;font-weight:700;color:var(--text-muted);}
+    .week-day-dots{display:flex;justify-content:center;gap:3px;margin-top:4px;}
+    .wd-dot{width:6px;height:6px;border-radius:50%;}
+    .wd-dot.an{background:#f59e0b;}
+    .wd-dot.ngu{background:#6c5ce7;}
+    .week-day-cell.selected .wd-dot{opacity:.85;}
+
+    /* ── DAY PANEL ── */
+    .lt-day-panel{display:flex;flex-direction:column;gap:16px;}
+    .lt-day-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;}
+    .lt-day-title h2{font-size:1.2rem;font-weight:800;color:var(--text-main);margin:0;}
+    .lt-ca-card{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;}
+    .lt-ca-header{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .lt-ca-header.ca-an{background:linear-gradient(135deg,#f7971e22,#ffd20014);border-left:4px solid #f39c12;}
+    .lt-ca-header.ca-ngu{background:linear-gradient(135deg,#6c5ce722,#a29bfe14);border-left:4px solid #6c5ce7;}
+    .lt-ca-title{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1rem;}
+    .lt-ca-title i.an{color:#f39c12;}
+    .lt-ca-title i.ngu{color:#6c5ce7;}
+    .lt-ca-badge{padding:3px 10px;border-radius:50px;font-size:.75rem;font-weight:800;}
+    .lt-ca-badge.an{background:rgba(253,203,110,.25);color:#b7791f;}
+    .lt-ca-badge.ngu{background:rgba(162,155,254,.25);color:#6c5ce7;}
+    .lt-ca-body{padding:0 16px 16px;}
+    .lt-room-row{display:grid;grid-template-columns:80px 1fr auto;align-items:start;gap:12px;padding:12px 14px;border-radius:10px;margin-bottom:6px;transition:background .15s;}
+    .lt-room-row:hover{background:var(--bg-light);}
+    .lt-room-badge{padding:6px 10px;border-radius:8px;font-weight:800;font-size:.82rem;text-align:center;}
+    .lt-room-badge.an{background:rgba(253,203,110,.2);color:#b7791f;}
+    .lt-room-badge.ngu-nam{background:rgba(0,156,255,.12);color:#0076c2;}
+    .lt-room-badge.ngu-nu{background:rgba(253,118,177,.12);color:#d63031;}
+    .lt-room-label{font-size:.68rem;color:var(--text-muted);font-weight:600;margin-top:2px;}
+    .lt-gv-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+    .lt-gv-tag{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--gray-200);border-radius:50px;padding:4px 10px 4px 6px;font-size:.8rem;font-weight:600;color:var(--text-main);transition:all .2s;}
+    .lt-gv-tag:hover{border-color:var(--primary-color);background:rgba(0,156,255,.04);}
+    .lt-gv-avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--primary-color),var(--primary-dark));color:#fff;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .lt-gv-tag.thay .lt-gv-avatar{background:linear-gradient(135deg,#f39c12,#fdcb6e);}
+    .lt-gv-tag.thay{border-style:dashed;border-color:#f39c12;}
+    .lt-gv-del{margin-left:2px;color:var(--text-muted);cursor:pointer;font-size:.65rem;padding:0 2px;transition:color .2s;}
+    .lt-gv-del:hover{color:var(--danger);}
+    .lt-gv-empty{font-size:.8rem;color:var(--text-muted);font-style:italic;padding:4px 6px;}
+    .lt-add-gv-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px dashed var(--gray-300);border-radius:50px;font-size:.78rem;font-weight:600;color:var(--text-muted);cursor:pointer;background:transparent;transition:all .2s;font-family:'Be Vietnam Pro',sans-serif;}
+    .lt-add-gv-btn:hover{border-color:var(--primary-color);color:var(--primary-color);background:rgba(0,156,255,.04);}
+    .lt-day-empty{text-align:center;padding:48px 20px;color:var(--text-muted);}
+    .lt-day-empty i{font-size:3rem;display:block;opacity:.25;margin-bottom:14px;}
+</style>
+{% endblock %}
+
+{% block main-content %}
+<div>
+    <!-- Page header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="breadcrumb">
+                <a href="{% url 'index' %}">Dashboard</a>
+                <span class="breadcrumb-sep"><i class="fas fa-chevron-right"></i></span>
+                <span>Phân công trực GV</span>
+            </div>
+            <h2><i class="fas fa-calendar-check" style="color:var(--primary-color);margin-right:8px;"></i>Phân công trực Giáo viên</h2>
+            <p>Quản lý phân công GV trực theo tuần. Nạp từ lịch cố định và điều chỉnh linh hoạt theo từng ngày.</p>
+        </div>
+        <div class="page-header-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-them-pc"><i class="fas fa-plus"></i> Thêm phân công</button>
+            <button class="week-btn export" id="btn-export-excel"><i class="fas fa-file-excel"></i> Xuất 2 tuần</button>
+        </div>
+    </div>
+
+    <!-- ===== WEEK NAVIGATOR ===== -->
+    <div class="week-nav-card">
+        <div class="week-nav-bar">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="week-btn outline" id="btn-prev-week"><i class="fas fa-chevron-left"></i> Tuần trước</button>
+                <div class="week-nav-title">
+                    <span id="week-label">Tuần ...</span>
+                    <small id="week-range"></small>
+                </div>
+                <button class="week-btn outline" id="btn-next-week">Tuần sau <i class="fas fa-chevron-right"></i></button>
+                <button class="week-btn today" id="btn-this-week"><i class="fas fa-crosshairs"></i> Tuần này</button>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="week-btn apply" id="btn-apply-khung"><i class="fas fa-magic"></i> Nạp từ Lịch Khung</button>
+            </div>
+        </div>
+        <!-- 5-day grid -->
+        <div class="week-days-grid" id="week-days-grid"></div>
+    </div>
+
+    <!-- ===== DAY DETAIL PANEL ===== -->
+    <div class="lt-day-panel" id="lt-day-panel"></div>
+
+    <!-- ===== MODAL THÊM PHÂN CÔNG ===== -->
+    <div class="modal-overlay" id="pcModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-calendar-plus"></i><span id="pc-modal-title">Thêm phân công</span></div>
+                <button class="modal-close" data-modal-close><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="pc-form" novalidate>
+                    <div class="form-group">
+                        <label class="form-label">Ngày trực <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="pc-ngay">
+                        <span class="form-error">Chọn ngày trực</span>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Loại ca <span class="required">*</span></label>
+                            <select class="form-control" id="pc-loai">
+                                <option value="">-- Chọn --</option>
+                                <option value="0">🍽️ Ca Ăn</option>
+                                <option value="1">🛏️ Ca Ngủ</option>
+                            </select>
+                            <span class="form-error">Chọn loại ca</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phòng <span class="required">*</span></label>
+                            <select class="form-control" id="pc-phong">
+                                <option value="">-- Chọn ca trước --</option>
+                            </select>
+                            <span class="form-error">Chọn phòng</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Giáo viên phân công <span class="required">*</span></label>
+                            <select class="form-control" id="pc-gv">
+                                <option value="">-- Chọn GV --</option>
+                            </select>
+                            <span class="form-error" id="pc-gv-err">Chọn giáo viên</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">GV trực thay <small style="color:var(--text-muted)">(nếu có)</small></label>
+                            <select class="form-control" id="pc-gv-thay">
+                                <option value="">-- Không có --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="pc-conflict-alert" style="display:none;" class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="pc-conflict-msg">GV đã có ca trong ngày này!</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" data-modal-close>Huỷ</button>
+                <button class="btn btn-primary" id="btn-save-pc"><i class="fas fa-save"></i> Lưu phân công</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+'use strict';
+
+const MOCK_GV    = {{ gv_json|safe }};
+const MOCK_PHONG = {{ phong_json|safe }};
+let   MOCK_PC    = {{ pc_json|safe }};
+let   currentWeekMon = mondayOf('{{ tuan_bat_dau }}');
+
+/* ── Helpers ── */
+const gvById    = id => MOCK_GV.find(g => g.id === id);
+const phongById = id => MOCK_PHONG.find(p => p.ma_phong === id);
+const gvInitials = name => name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase();
+const todayStr   = () => isoDate(new Date());
+
+function isoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function mondayOf(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay(); // 0=Sun
+    const diff = (day === 0) ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d;
+}
+function addDays(d, n) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    return r;
+}
+function weekNum(d) {
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    return Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+}
+
+const DAYS_VI   = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6'];
+let selectedDate = todayStr();
+let pcModal;
+
+/* =====================================================
+   WEEK GRID
+   ===================================================== */
+function renderWeekGrid() {
+    const grid = document.getElementById('week-days-grid');
+    if (!grid) return;
+
+    const mon = currentWeekMon;
+    const fri = addDays(mon, 4);
+
+    document.getElementById('week-label').textContent = `Tuần ${weekNum(mon)}, ${mon.getFullYear()}`;
+    document.getElementById('week-range').textContent =
+        `${mon.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})} – ${fri.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
+
+    const today = todayStr();
+    let html = '';
+    for (let i = 0; i < 5; i++) {
+        const d   = addDays(mon, i);
+        const ds  = isoDate(d);
+        const isSel   = ds === selectedDate;
+        const isToday = ds === today;
+        const pcDay   = MOCK_PC.filter(p => p.ngay === ds);
+        const hasAn   = pcDay.some(p => p.loai_truc === 0);
+        const hasNgu  = pcDay.some(p => p.loai_truc === 1);
+        const cnt     = pcDay.length;
+
+        html += `<div class="week-day-cell${isSel?' selected':''}${isToday?' today-cell':''}" data-date="${ds}">
+            <div class="week-day-name">${DAYS_VI[i]}</div>
+            <div class="week-day-num">${d.getDate()}</div>
+            <div class="week-day-badge">${cnt > 0 ? cnt + ' GV' : '––'}</div>
+            <div class="week-day-dots">
+                ${hasAn  ? '<span class="wd-dot an"   title="Có ca Ăn"></span>'  : ''}
+                ${hasNgu ? '<span class="wd-dot ngu"  title="Có ca Ngủ"></span>' : ''}
+            </div>
+        </div>`;
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll('.week-day-cell').forEach(el => {
+        el.addEventListener('click', () => {
+            selectedDate = el.dataset.date;
+            renderWeekGrid();
+            renderDayPanel();
+        });
+    });
+}
+
+/* =====================================================
+   DAY PANEL
+   ===================================================== */
+function renderDayPanel() {
+    const panel = document.getElementById('lt-day-panel');
+    if (!panel) return;
+
+    const pcDay = MOCK_PC.filter(p => p.ngay === selectedDate);
+    const pcAn  = pcDay.filter(p => p.loai_truc === 0);
+    const pcNgu = pcDay.filter(p => p.loai_truc === 1);
+
+    const phongsAn  = MOCK_PHONG.filter(p => p.loai_phong === 0);
+    const phongsNgu = MOCK_PHONG.filter(p => p.loai_phong === 1);
+    const dayLabel  = new Date(selectedDate + 'T00:00:00').toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+
+    panel.innerHTML = `
+    <div class="lt-day-title">
+        <h2><i class="fas fa-calendar-day" style="color:var(--primary-color);margin-right:8px;"></i>${dayLabel}</h2>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" id="btn-them-an"><i class="fas fa-plus"></i> Thêm ca Ăn</button>
+            <button class="btn btn-primary btn-sm" id="btn-them-ngu" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);"><i class="fas fa-plus"></i> Thêm ca Ngủ</button>
+        </div>
+    </div>
+    <div class="lt-ca-card">
+        <div class="lt-ca-header ca-an">
+            <div class="lt-ca-title"><i class="fas fa-utensils an"></i> CA ĂN – Phòng ăn</div>
+            <span class="lt-ca-badge an">${pcAn.length} GV · ${phongsAn.length} phòng</span>
+        </div>
+        <div class="lt-ca-body">${renderRoomRows(phongsAn, pcAn, 0)}</div>
+    </div>
+    <div class="lt-ca-card">
+        <div class="lt-ca-header ca-ngu">
+            <div class="lt-ca-title"><i class="fas fa-bed ngu"></i> CA NGỦ – Phòng ngủ</div>
+            <span class="lt-ca-badge ngu">${pcNgu.length} GV · ${phongsNgu.length} phòng</span>
+        </div>
+        <div class="lt-ca-body">${renderRoomRows(phongsNgu, pcNgu, 1)}</div>
+    </div>`;
+
+    document.getElementById('btn-them-an')?.addEventListener('click',  () => openAddModal(0));
+    document.getElementById('btn-them-ngu')?.addEventListener('click', () => openAddModal(1));
+
+    panel.querySelectorAll('.lt-gv-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const pcId = parseInt(btn.dataset.id);
+            const ok = await Confirm.ask('Xóa phân công?','Bạn chắc chắn muốn xóa phân công này?');
+            if (!ok) return;
+            try {
+                const res = await fetch('/api/lichtruc/delete/', {
+                    method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':_getCsrfToken()},
+                    body: JSON.stringify({id:pcId})
+                });
+                if (res.ok) {
+                    MOCK_PC = MOCK_PC.filter(p => p.id !== pcId);
+                    renderWeekGrid(); renderDayPanel();
+                    Toast.success('Đã xóa phân công');
+                } else { Toast.error('Lỗi khi xóa phân công.'); }
+            } catch { Toast.error('Không kết nối được với máy chủ.'); }
+        });
+    });
+
+    panel.querySelectorAll('.lt-add-gv-btn').forEach(btn => {
+        btn.addEventListener('click', () => openAddModal(parseInt(btn.dataset.loai), btn.dataset.phong));
+    });
+}
+
+function renderRoomRows(phongs, pcCa, loai) {
+    return phongs.map(phong => {
+        const pcPhong = pcCa.filter(p => p.ma_phong_id === phong.ma_phong);
+        const badgeClass = loai===0 ? 'an' : (phong.gioi_tinh===0 ? 'ngu-nam' : 'ngu-nu');
+        const gtLabel = phong.gioi_tinh===null ? '' : (phong.gioi_tinh===0 ? 'Nam' : 'Nữ');
+        return `<div class="lt-room-row">
+            <div>
+                <div class="lt-room-badge ${badgeClass}">${phong.ma_phong}</div>
+                <div class="lt-room-label">${loai===0?'Phòng ăn':'Ngủ · '+gtLabel} · ${phong.suc_chua} chỗ</div>
+            </div>
+            <div class="lt-gv-tags">
+                ${pcPhong.length===0
+                    ? '<span class="lt-gv-empty"><i class="fas fa-exclamation-circle" style="color:#e17055;"></i> Chưa có GV</span>'
+                    : pcPhong.map(pc => renderGVTag(pc)).join('')
+                }
+                <button class="lt-add-gv-btn" data-loai="${loai}" data-phong="${phong.ma_phong}"><i class="fas fa-plus"></i> Thêm GV</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderGVTag(pc) {
+    const gv = gvById(pc.ma_gv_id);
+    const thay = pc.ma_gv_truc_thay_id ? gvById(pc.ma_gv_truc_thay_id) : null;
+    if (!gv) return '';
+    return `<span class="lt-gv-tag${thay?' thay':''}" title="${gv.ho_ten}${thay?` (thay: ${thay.ho_ten})`:''}">
+        <span class="lt-gv-avatar">${gvInitials(gv.ho_ten)}</span>
+        <span>${gv.ho_ten.split(' ').pop()}${thay?` <small style="color:#f39c12">(thay bởi ${thay.ho_ten.split(' ').pop()})</small>`:''}</span>
+        <span class="lt-gv-del" data-id="${pc.id}" title="Xóa phân công"><i class="fas fa-times"></i></span>
+    </span>`;
+}
+
+/* =====================================================
+   MODAL THÊM PHÂN CÔNG
+   ===================================================== */
+function openAddModal(loaiPre=null, phongPre=null) {
+    document.getElementById('pc-ngay').value = selectedDate;
+    document.getElementById('pc-conflict-alert').style.display = 'none';
+    if (loaiPre !== null) {
+        document.getElementById('pc-loai').value = String(loaiPre);
+        filterPhongsByLoai(loaiPre);
+        if (phongPre) setTimeout(()=>{ document.getElementById('pc-phong').value = phongPre; },10);
+    } else {
+        document.getElementById('pc-loai').value = '';
+        document.getElementById('pc-phong').innerHTML = '<option value="">-- Chọn ca trước --</option>';
+    }
+    fillGVOptions();
+    pcModal.open();
+}
+
+function filterPhongsByLoai(loai) {
+    const sel = document.getElementById('pc-phong');
+    sel.innerHTML = MOCK_PHONG.filter(p => p.loai_phong === parseInt(loai)).map(p => {
+        const gtLabel = p.gioi_tinh===0?' (Nam)':p.gioi_tinh===1?' (Nữ)':'';
+        return `<option value="${p.ma_phong}">${p.ma_phong}${gtLabel}</option>`;
+    }).join('');
+}
+
+function fillGVOptions() {
+    const date = document.getElementById('pc-ngay').value;
+    const loai = document.getElementById('pc-loai').value;
+    const busyGvIds = new Set(MOCK_PC.filter(p => p.ngay===date && String(p.loai_truc)===loai).map(p => p.ma_gv_id));
+    const opts = MOCK_GV.filter(g => g.dang_lam !== false).map(g =>
+        `<option value="${g.id}" ${busyGvIds.has(g.id)?'disabled style="color:#bbb"':''}>${g.ho_ten}${busyGvIds.has(g.id) ? ' (đã có ca)':''}</option>`
+    ).join('');
+    document.getElementById('pc-gv').innerHTML = '<option value="">-- Chọn GV --</option>' + opts;
+    document.getElementById('pc-gv-thay').innerHTML = '<option value="">-- Không --</option>' +
+        MOCK_GV.filter(g => g.dang_lam !== false).map(g => `<option value="${g.id}">${g.ho_ten}</option>`).join('');
+}
+
+async function savePhanCong() {
+    const ngay  = document.getElementById('pc-ngay').value;
+    const loai  = document.getElementById('pc-loai').value;
+    const phong = document.getElementById('pc-phong').value;
+    const gvId  = document.getElementById('pc-gv').value;
+    const thayId= document.getElementById('pc-gv-thay').value;
+    const alertBox = document.getElementById('pc-conflict-alert');
+    const alertMsg = document.getElementById('pc-conflict-msg');
+    alertBox.style.display = 'none';
+
+    if (!ngay || loai==='' || !phong || !gvId) { Toast.warning('Vui lòng điền đầy đủ!'); return; }
+    if (thayId && thayId===gvId) {
+        alertMsg.textContent = 'GV không thể tự trực thay cho chính mình!';
+        alertBox.style.display = 'flex'; return;
+    }
+    const conflict = MOCK_PC.find(p => p.ma_gv_id===parseInt(gvId) && p.ngay===ngay && p.loai_truc===parseInt(loai));
+    if (conflict) {
+        alertMsg.textContent = `${gvById(parseInt(gvId))?.ho_ten} đã có ca ${loai==='0'?'Ăn':'Ngủ'} trong ngày (phòng ${conflict.ma_phong_id})!`;
+        alertBox.style.display = 'flex'; return;
+    }
+
+    const payload = {ma_gv_id:parseInt(gvId),ma_gv_truc_thay_id:thayId?parseInt(thayId):null,ma_phong_id:phong,ngay,loai_truc:parseInt(loai)};
+    try {
+        const res = await fetch('/api/lichtruc/save/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':_getCsrfToken()},body:JSON.stringify(payload)});
+        const result = await res.json();
+        if (res.ok && result.ok) {
+            MOCK_PC.push({...payload,id:result.id,ma_phong_id:phong});
+            pcModal.close();
+            selectedDate = ngay;
+            renderWeekGrid(); renderDayPanel();
+            Toast.success(`Đã phân công ${gvById(parseInt(gvId)).ho_ten} → Phòng ${phong}`);
+        } else { Toast.error('Lỗi: ' + (result.error||'Unknown')); }
+    } catch { Toast.error('Không kết nối được với máy chủ.'); }
+}
+
+/* =====================================================
+   APPLY KHUNG TO WEEK
+   ===================================================== */
+async function applyKhungToWeek() {
+    const tuanStr = isoDate(currentWeekMon);
+
+    // Kiểm tra xem tuần này đã có dữ liệu chưa
+    const mon = currentWeekMon;
+    const hasDays = [0,1,2,3,4].some(i => {
+        const ds = isoDate(addDays(mon, i));
+        return MOCK_PC.some(p => p.ngay === ds);
+    });
+
+    let force = false;
+    if (hasDays) {
+        const overwrite = await Confirm.ask(
+            'Tuần này đã có dữ liệu',
+            'Một số ngày trong tuần đã có phân công. Bạn muốn:\n• Bỏ qua ngày đã có (chỉ thêm ngày trống)\n• Hoặc ghi đè tất cả?\n\nNhấn OK = Ghi đè tất cả | Huỷ = Chỉ thêm ngày trống'
+        );
+        if (overwrite === null) return; // Dialog closed
+        force = !!overwrite;
+    }
+
+    try {
+        const res = await fetch('/api/lichtruc/apply-khung/', {
+            method: 'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':_getCsrfToken()},
+            body: JSON.stringify({tuan: tuanStr, force})
+        });
+        const data = await res.json();
+        if (data.ok) {
+            Toast.success(`Đã tạo ${data.created} phân công${data.skipped?`, bỏ qua ${data.skipped} (đã có)`:''}`);
+            // Reload data for this week
+            await reloadWeekData();
+        } else { Toast.error('Lỗi: ' + data.error); }
+    } catch { Toast.error('Không kết nối được.'); }
+}
+
+async function reloadWeekData() {
+    const tuanStr = isoDate(currentWeekMon);
+    try {
+        const res = await fetch(`/api/lichtruc/week/?tuan=${tuanStr}`);
+        const data = await res.json();
+        // Xóa dữ liệu tuần cũ khỏi MOCK_PC, thêm mới
+        const mon = currentWeekMon;
+        const dates = new Set([0,1,2,3,4].map(i => isoDate(addDays(mon,i))));
+        MOCK_PC = MOCK_PC.filter(p => !dates.has(p.ngay));
+        MOCK_PC.push(...data.records);
+        renderWeekGrid(); renderDayPanel();
+    } catch { Toast.error('Không tải được dữ liệu tuần.'); }
+}
+
+/* =====================================================
+   HELPERS
+   ===================================================== */
+function _getCsrfToken() {
+    const name = 'csrftoken';
+    for (let c of document.cookie.split(';')) {
+        c = c.trim();
+        if (c.startsWith(name + '=')) return decodeURIComponent(c.slice(name.length+1));
+    }
+    return '';
+}
+
+/* =====================================================
+   INIT
+   ===================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+    pcModal = new Modal('pcModal');
+
+    document.getElementById('btn-prev-week')?.addEventListener('click', async () => {
+        currentWeekMon = addDays(currentWeekMon, -7);
+        await reloadWeekData();
+    });
+    document.getElementById('btn-next-week')?.addEventListener('click', async () => {
+        currentWeekMon = addDays(currentWeekMon, 7);
+        await reloadWeekData();
+    });
+    document.getElementById('btn-this-week')?.addEventListener('click', async () => {
+        currentWeekMon = mondayOf(todayStr());
+        selectedDate   = todayStr();
+        await reloadWeekData();
+    });
+    document.getElementById('btn-apply-khung')?.addEventListener('click', applyKhungToWeek);
+    document.getElementById('btn-them-pc')?.addEventListener('click', () => openAddModal());
+    document.getElementById('btn-save-pc')?.addEventListener('click',  savePhanCong);
+    document.getElementById('btn-export-excel')?.addEventListener('click', () => {
+        const tuanStr = isoDate(currentWeekMon);
+        window.open(`/api/lichtruc/export/?tuan=${tuanStr}`, '_blank');
+    });
+
+    document.getElementById('pc-loai')?.addEventListener('change', () => {
+        const loai = document.getElementById('pc-loai').value;
+        if (loai !== '') filterPhongsByLoai(parseInt(loai));
+        else document.getElementById('pc-phong').innerHTML = '<option value="">-- Chọn ca trước --</option>';
+        fillGVOptions();
+        document.getElementById('pc-conflict-alert').style.display = 'none';
+    });
+
+    // Initial render (tuần đã được set từ server)
+    renderWeekGrid();
+    renderDayPanel();
+});
+</script>
+{% endblock %}
+

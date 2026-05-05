@@ -1,0 +1,27 @@
+.phong-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.phong-card {
+  background: #fff; border-radius: 14px; padding: 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  border: 1.5px solid var(--border);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.phong-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+.phong-card.an   { border-color: #bfdbfe; }
+.phong-card.nam  { border-color: #a5f3fc; }
+.phong-card.nu   { border-color: #fbcfe8; }
+.phong-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-weight: 700; font-size: 0.9rem; }
+.phong-card-header i { color: var(--primary); }
+.phong-card-header span:first-of-type { flex: 1; }
+.capacity-info { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
+.capacity-bar { height: 8px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
+.capacity-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+.phong-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
+
+@media (max-width: 480px) {
+  .phong-grid { grid-template-columns: 1fr 1fr; }
+}

@@ -1,0 +1,16 @@
+.ranh-mini-grid { display: flex; gap: 3px; align-items: center; }
+.ranh-mini-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ranh-mini-label { font-size: 0.58rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+.ranh-mini-dot {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 800;
+}
+.ranh-mini-dot.ranh   { background: linear-gradient(135deg,#10b981,#059669); color:#fff; box-shadow:0 2px 6px rgba(16,185,129,0.3); }
+.ranh-mini-dot.ban    { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+.ranh-mini-dot.special.ranh { background: linear-gradient(135deg,#f59e0b,#d97706); }
+.ranh-mini-dot.special.ban  { background: #fffbeb; color: #f59e0b; border: 1px dashed #fcd34d; }
+
+@media (max-width: 768px) {
+  .ranh-mini-dot { width: 18px; height: 18px; font-size: 0.55rem; }
+}

@@ -1,0 +1,179 @@
+﻿/* ============================================================
+   BAOCAO.CSS – Trang thống kê & báo cáo
+   ============================================================ */
+
+/* ===== TAB SWITCHER TIME ===== */
+.bc-time-tabs {
+    display: flex;
+    gap: 0;
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    width: fit-content;
+}
+.bc-time-tab {
+    padding: 7px 18px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+.bc-time-tab.active {
+    background: #fff;
+    color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ===== FILTER ROW ===== */
+.bc-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.bc-filter-row select, .bc-filter-row input[type="date"],
+.bc-filter-row input[type="month"] {
+    padding: 9px 14px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    color: var(--text-main);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    background: var(--gray-100);
+}
+.bc-filter-row select:focus, .bc-filter-row input:focus {
+    border-color: var(--primary-color);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(0,156,255,0.10);
+}
+.bc-filter-item { display: flex; align-items: center; gap: 7px; }
+.bc-filter-item label { font-size: 0.82rem; font-weight: 700; color: var(--gray-700); white-space: nowrap; }
+
+/* ===== CHARTS ROW ===== */
+.bc-charts-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+.bc-chart-card {
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 20px;
+}
+.bc-chart-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.bc-chart-title i { color: var(--primary-color); }
+.bc-chart-canvas { position: relative; }
+
+/* ===== METRICS GRID ===== */
+.bc-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+/* ===== KHỐI TABLE ===== */
+.bc-khoi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 18px;
+}
+.bc-khoi-card {
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+.bc-khoi-header {
+    padding: 12px 18px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #fff;
+    display: flex; align-items: center; gap: 8px;
+}
+.bc-khoi-header.k10 { background: linear-gradient(135deg, #0052D4, #4364F7); }
+.bc-khoi-header.k11 { background: linear-gradient(135deg, #00b09b, #96c93d); }
+.bc-khoi-header.k12 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+
+.bc-khoi-body { padding: 14px 18px; }
+.bc-khoi-stat { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.85rem; }
+.bc-khoi-stat:last-child { border-bottom: none; }
+.bc-khoi-stat-label { color: var(--text-muted); }
+.bc-khoi-stat-value { font-weight: 800; color: var(--text-main); }
+.bc-khoi-progress { margin-top: 10px; }
+.bc-khoi-progress-label { display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px; color: var(--text-muted); }
+
+/* ===== RANKING TABLE ===== */
+.bc-rank-table {
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 18px;
+}
+.bc-rank-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gray-100);
+}
+.bc-rank-header h3 { font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.bc-rank-header h3 i { color: var(--primary-color); }
+
+/* ===== DETAIL TABLE ===== */
+.bc-detail-section {
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 18px;
+}
+.bc-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--gray-100);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.bc-detail-header h3 { font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.bc-detail-header h3 i { color: var(--primary-color); }
+.bc-export-btns { display: flex; gap: 8px; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+    .bc-charts-row { grid-template-columns: 1fr; }
+    .bc-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .bc-khoi-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+    .bc-metrics-grid { grid-template-columns: 1fr 1fr; }
+    .bc-khoi-row { grid-template-columns: 1fr; }
+    .bc-filter-row { gap: 8px; }
+}

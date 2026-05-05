@@ -1,0 +1,72 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Quản lý Phòng – Admin | QL Bán trú{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'homepage/css/admin.css' %}">
+<style>.menu-group-label{font-size:.68rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray-500);padding:14px 18px 4px;pointer-events:none}#sidebarToggle{font-size:1.15rem;cursor:pointer;color:var(--text-muted);width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-right:10px}#sidebarToggle:hover{background:var(--bg-light);color:var(--primary-color)}.sidebar.hidden{width:68px}.sidebar.hidden .logo-text,.sidebar.hidden .menu-label,.sidebar.hidden .sidebar-user div{display:none}.sidebar.hidden .logo{padding:.6rem 0 1.2rem}.sidebar.hidden .logo img{width:34px;height:34px}.sidebar.hidden .logo-text{display:none}.sidebar.hidden .menu li a{justify-content:center;padding:14px}.sidebar.hidden .menu li a i{margin:0;width:auto;font-size:1.3rem}.sidebar.hidden~.navbar,.sidebar.hidden~.main-content{margin-left:68px}</style>
+{% endblock %}
+
+{% block main-content %}
+
+    <div>
+        <div class="page-header">
+            <div class="page-header-left">
+                <div class="breadcrumb"><a href="{% url 'index' %}">Dashboard</a><span class="breadcrumb-sep"><i class="fas fa-chevron-right"></i></span><span>Quản lý phòng</span></div>
+                <h2><i class="fas fa-door-open" style="color:var(--primary-color);margin-right:8px;"></i>Quản lý Phòng</h2>
+                <p>CRUD phòng ăn và phòng ngủ. Theo dõi sức chứa và số HS hiện tại.</p>
+            </div>
+            <div class="page-header-actions">
+                {% if request.user.is_admin %}
+                <button class="btn btn-primary" id="btn-them-phong"><i class="fas fa-plus"></i> Thêm phòng</button>
+                {% else %}
+                <span class="badge badge-warning" style="padding:8px 14px;font-size:.8rem;"><i class="fas fa-eye"></i> Chế độ xem</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="filter-bar">
+            <label><i class="fas fa-filter"></i></label>
+            <select id="f-loai-phong"><option value="">Tất cả loại</option><option value="0">Phòng ăn</option><option value="1">Phòng ngủ</option></select>
+            <select id="f-gt-phong"><option value="">Tất cả giới tính</option><option value="0">Nam</option><option value="1">Nữ</option></select>
+            <input type="text" id="f-ma-phong" placeholder="Tìm mã phòng..." style="padding:8px 12px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-family:'Be Vietnam Pro',sans-serif;outline:none;background:#fff;">
+        </div>
+        <div class="room-grid" id="room-grid"></div>
+        <div class="datatable-wrapper" style="margin-top:20px;">
+            <div class="datatable-toolbar"><div style="font-weight:700;font-size:.9rem;color:var(--text-main);display:flex;align-items:center;gap:8px;"><i class="fas fa-table" style="color:var(--primary-color);"></i> Danh sách phòng</div></div>
+            <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Mã phòng</th><th>Loại phòng</th><th>Sức chứa</th><th>Giới tính</th><th>GV Điểm danh</th><th>GV Hỗ trợ</th><th>HS hiện tại</th><th>Trống</th>{% if request.user.is_admin %}<th>Thao tác</th>{% endif %}</tr></thead><tbody id="phong-tbody"></tbody></table></div>
+        </div>
+        <div class="modal-overlay" id="phongModal">
+            <div class="modal-box">
+                <div class="modal-header"><div class="modal-title"><i class="fas fa-door-open"></i><span>Thêm phòng mới</span></div><button class="modal-close" data-modal-close><i class="fas fa-times"></i></button></div>
+                <div class="modal-body">
+                    <form id="phong-form" novalidate>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Mã phòng <span class="required">*</span></label><input type="text" class="form-control" id="f-ma" placeholder="VD: P01" maxlength="3"><span class="form-error">Mã phòng bắt buộc (tối đa 3 ký tự)</span></div>
+                            <div class="form-group"><label class="form-label">Loại phòng <span class="required">*</span></label><select class="form-control" id="f-loai"><option value="">-- Chọn loại --</option><option value="0">Phòng ăn</option><option value="1">Phòng ngủ</option></select><span class="form-error">Chọn loại phòng</span></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Sức chứa <span class="required">*</span></label><input type="number" class="form-control" id="f-suc-chua" min="1" placeholder="VD: 40"><span class="form-error">Sức chứa phải là số dương</span></div>
+                            <div class="form-group" id="gt-wrap"><label class="form-label">Giới tính <span class="required">*</span></label><select class="form-control" id="f-gt"><option value="">-- Chọn --</option><option value="0">Nam</option><option value="1">Nữ</option></select><span class="form-error">Phòng ngủ phải có giới tính</span></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Số GV Điểm danh <span class="required">*</span></label><input type="number" class="form-control" id="f-sl-diem-danh" min="1" value="1"></div>
+                            <div class="form-group"><label class="form-label">Số GV Hỗ trợ <span class="required">*</span></label><input type="number" class="form-control" id="f-sl-ho-tro" min="0" value="1"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer"><button class="btn btn-ghost" data-modal-close>Huỷ</button><button class="btn btn-primary" id="btn-save-phong"><i class="fas fa-save"></i> Lưu</button></div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.PHONG_DATA = {{ phong_json|safe }};
+    window.IS_ADMIN = {% if request.user.is_admin %}true{% else %}false{% endif %};
+</script>
+<script src="{% static 'homepage/js/phong.js' %}?v=2"></script>
+{% endblock %}
+

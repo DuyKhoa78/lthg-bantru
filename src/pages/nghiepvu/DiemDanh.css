@@ -1,0 +1,284 @@
+/* ── Điểm danh shared CSS – bám sát diemdanh.css gốc ── */
+
+/* Export dropdown */
+.dd-export-btn-group { position: relative; display: inline-block; }
+.dd-export-menu {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  min-width: 200px; z-index: 500;
+  opacity: 0; visibility: hidden;
+  transform: translateY(-8px) scale(0.97);
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+  transform-origin: top right;
+  overflow: hidden;
+}
+.dd-export-menu.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.dd-export-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 11px 16px;
+  font-size: 0.875rem; font-weight: 600;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  background: none; border: none; cursor: pointer;
+  color: #374151; transition: background 0.15s;
+  text-align: left;
+}
+.dd-export-item:hover { background: #f0f9ff; color: var(--primary); }
+.dd-export-item + .dd-export-item { border-top: 1px solid #f1f5f9; }
+
+/* Checkbox dạy bù T5 */
+.dd-t5-toggle {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; user-select: none;
+  font-size: 0.85rem; font-weight: 600;
+  color: #374151;
+  padding: 6px 10px; border-radius: 8px;
+  border: 1.5px solid #e2e8f0; background: #fff;
+  transition: all 0.2s;
+}
+.dd-t5-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.dd-t5-toggle input { width: 15px; height: 15px; cursor: pointer; }
+.dd-t5-toggle span { display: flex; align-items: center; gap: 5px; }
+
+/* ── Layout ── */
+.dd-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Room Panel */
+.dd-room-panel {
+  background: #fff; border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  overflow: hidden;
+  position: sticky; top: calc(var(--navbar-height) + 16px);
+}
+.dd-room-panel-header {
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #1e3a5f, #009CFF);
+  color: #fff; font-weight: 800;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.9rem;
+}
+.dd-date-picker {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dd-date-picker label {
+  display: block; font-size: 0.78rem; font-weight: 700;
+  color: #64748b; margin-bottom: 6px;
+}
+.dd-date-picker input[type="date"] {
+  width: 100%; height: 36px; padding: 0 10px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  font-size: 0.85rem; outline: none; cursor: pointer;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+.dd-date-picker input:focus { border-color: var(--primary); }
+
+.dd-room-stats {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  font-size: 0.8rem; font-weight: 700; color: #64748b;
+  display: flex; justify-content: space-between; background: #f8fafc;
+}
+.dd-room-stats .marked { color: #10b981; }
+.dd-room-stats .unmarked { color: #ef4444; }
+
+.dd-room-list { 
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 8px; padding: 12px; list-style: none;
+  max-height: 500px; overflow-y: auto;
+}
+.dd-room-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 10px 4px; border-radius: 8px; cursor: pointer;
+  color: #64748b; transition: all 0.2s; border: 1.5px solid #e2e8f0;
+  position: relative; background: #fff;
+}
+.dd-room-item-name { font-weight: 800; font-size: 0.95rem; color: #1e293b; }
+.dd-room-item-name i { display: none; }
+.dd-room-item:hover { border-color: var(--primary); background: #f0f9ff; }
+.dd-room-item.active {
+  background: linear-gradient(135deg, rgba(0,156,255,0.1), rgba(0,82,212,0.07));
+  border-color: var(--primary);
+}
+.dd-room-item.active .dd-room-item-name { color: var(--primary); }
+.dd-room-count {
+  font-size: 0.65rem; font-weight: 700;
+  color: #94a3b8; margin-top: 4px;
+}
+.dd-room-status-icon {
+  position: absolute; top: -6px; right: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.dd-room-status-icon.marked { background: #10b981; }
+.dd-room-status-icon.unmarked { background: #ef4444; }
+
+/* Main Panel */
+.dd-main-panel {
+  background: #fff; border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+.dd-main-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.dd-main-header h3 { font-size: 1rem; font-weight: 800; color: #1a202c; margin-bottom: 2px; }
+.dd-main-header p { font-size: 0.82rem; color: #64748b; }
+.dd-search-box { position: relative; width: 240px; }
+.dd-search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem; }
+.dd-search-box input {
+  width: 100%; height: 36px; padding: 0 12px 0 32px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  font-size: 0.85rem; font-family: 'Be Vietnam Pro', sans-serif;
+  color: #374151; outline: none; transition: 0.2s;
+}
+.dd-search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,156,255,0.1); }
+
+.dd-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 80px 20px;
+  color: #94a3b8; text-align: center;
+}
+.dd-empty i { font-size: 3rem; margin-bottom: 16px; color: #cbd5e1; }
+.dd-empty h3 { font-size: 1.05rem; font-weight: 700; color: #64748b; margin-bottom: 8px; }
+
+/* Student Grid */
+.dd-student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  padding: 14px;
+  max-height: 480px; overflow-y: auto;
+}
+.dd-student-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  transition: all 0.2s;
+}
+.dd-student-info { display: flex; flex-direction: column; gap: 2px; }
+.dd-student-name  { font-size: 0.85rem; font-weight: 700; color: #1a202c; }
+.dd-student-class { font-size: 0.72rem; color: #64748b; }
+.dd-status-btns { display: flex; gap: 5px; }
+.dd-status-btn {
+  width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid #e2e8f0;
+  cursor: pointer; font-size: 0.85rem; color: #94a3b8;
+  background: #f8fafc; transition: all 0.18s;
+  display: flex; align-items: center; justify-content: center;
+}
+.dd-status-btn:hover:not(.active) { background: #f0f9ff; color: var(--primary); border-color: var(--primary); }
+
+/* Summary bar */
+.dd-summary {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 18px; border-top: 1px solid var(--border);
+  background: #f8fafc; flex-wrap: wrap;
+}
+.dd-summary-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #64748b; }
+.dd-summary-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot-comat { background: #22c55e; }
+.dot-vang  { background: #ef4444; }
+.dot-phep  { background: #f59e0b; }
+
+/* Monthly Export Modal */
+.export-modal-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; backdrop-filter: blur(4px);
+}
+.export-modal {
+  background: #fff; width: 100%; max-width: 480px;
+  border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.export-modal-header {
+  padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid #f1f5f9; background: #fff;
+}
+.export-modal-header .icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+}
+.export-modal-header h3 { font-size: 1.1rem; font-weight: 800; color: #1e293b; margin: 0; }
+.export-modal-header p { font-size: 0.8rem; color: #94a3b8; margin: 2px 0 0 0; }
+
+.export-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; max-height: 70vh; overflow-y: auto; }
+.export-modal-section-title {
+  font-size: 0.78rem; font-weight: 800; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.export-modal-row { display: flex; gap: 16px; align-items: center; }
+.export-modal-group { flex: 1; }
+
+.export-modal-select {
+  width: 100%; height: 40px; padding: 0 12px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  font-size: 0.95rem; font-family: 'Be Vietnam Pro', sans-serif;
+  color: #1e293b; outline: none; font-weight: 600;
+  background: #fff; transition: 0.2s;
+}
+.export-modal-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,156,255,0.1); }
+
+.export-t5-box { background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 16px; }
+.export-t5-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.export-t5-label {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 0.9rem; font-weight: 600; color: #1e293b;
+}
+.export-t5-label input { width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; }
+
+.export-room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.export-room-actions { display: flex; gap: 12px; font-size: 0.8rem; font-weight: 600; }
+.export-room-actions button { background: none; border: none; cursor: pointer; color: var(--primary); font-family: inherit; font-weight: 700; padding: 0; }
+.export-room-actions button.deselect { color: #94a3b8; }
+.export-room-actions button:hover { opacity: 0.8; }
+.export-room-actions .divider { width: 1px; background: #e2e8f0; }
+
+.export-room-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.export-room-pill {
+  padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e2e8f0;
+  font-size: 0.85rem; font-weight: 600; color: #64748b;
+  cursor: pointer; transition: 0.2s; background: #fff;
+}
+.export-room-pill.selected { background: #e0e7ff; border-color: #818cf8; color: #4338ca; }
+.export-room-pill:hover:not(.selected) { background: #f8fafc; border-color: #cbd5e1; }
+
+.export-modal-footer {
+  padding: 16px 20px; border-top: 1px solid #f1f5f9; background: #f8fafc;
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+.export-modal-footer .btn { padding: 0 20px; height: 42px; font-size: 0.9rem; font-weight: 700; border-radius: 8px; }
+
+.dd-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  background: #fff; flex-wrap: wrap; gap: 10px;
+}
+.dd-footer-note { font-size: 0.82rem; color: #64748b; display: flex; align-items: center; gap: 6px; }
+.dd-footer-note i { color: var(--primary); }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .dd-layout { grid-template-columns: 1fr; }
+  .dd-room-panel { position: static; }
+  .dd-student-grid { grid-template-columns: 1fr 1fr; max-height: none; }
+}
+@media (max-width: 480px) {
+  .dd-student-grid { grid-template-columns: 1fr; }
+  .page-header-actions { gap: 6px; }
+}

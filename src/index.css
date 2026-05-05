@@ -1,0 +1,437 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+
+/* ===================================================
+   GLOBAL RESET & CSS VARIABLES
+   =================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --primary: #009CFF;
+  --primary-dark: #0052D4;
+  --primary-light: rgba(0, 156, 255, 0.1);
+  --red: #D0021B;
+  --blue: #005BAA;
+  --yellow: #F5A623;
+  --green: #27AE60;
+  --white: #ffffff;
+
+  --bg: #f0f4f9;
+  --bg-light: #f8fafc;
+  --text-main: #1a202c;
+  --text-muted: #64748b;
+  --border: #edf2f7;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.12);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --sidebar-width: 240px;
+  --navbar-height: 62px;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  background: var(--bg);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+
+/* ===================================================
+   ANIMATIONS
+   =================================================== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-150%); }
+}
+
+@keyframes onlinePulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%       { transform: scale(1.8); opacity: 0; }
+}
+
+/* ===================================================
+   LAYOUT – APP SHELL
+   =================================================== */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ===================================================
+   SIDEBAR
+   =================================================== */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: #fff;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  transition: width 0.25s;
+  overflow: hidden;
+}
+
+.sidebar.collapsed { width: 68px; }
+
+/* Logo */
+.sidebar-logo {
+  padding: 14px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--bg);
+  flex-shrink: 0;
+}
+.sidebar-logo img {
+  width: 52px; height: 52px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(0, 156, 255, 0.25));
+  transition: transform 0.3s;
+}
+.sidebar-logo:hover img { transform: scale(1.06) rotate(-3deg); }
+.sidebar-logo-text { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.sidebar-logo-title { font-size: 0.88rem; font-weight: 800; color: var(--primary); letter-spacing: 0.4px; }
+.sidebar-logo-name  { font-size: 0.65rem; font-weight: 500; color: #94a3b8; line-height: 1.3; max-width: 160px; }
+
+.sidebar.collapsed .sidebar-logo-text { display: none; }
+.sidebar.collapsed .sidebar-logo { padding: 0.6rem 0 1.2rem; }
+.sidebar.collapsed .sidebar-logo img { width: 34px; height: 34px; }
+
+/* Menu */
+.sidebar-menu {
+  list-style: none;
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 156, 255, 0.2) transparent;
+}
+.sidebar-menu::-webkit-scrollbar { width: 4px; }
+.sidebar-menu::-webkit-scrollbar-thumb { background: rgba(0, 156, 255, 0.2); border-radius: 4px; }
+
+.menu-label {
+  font-size: 0.65rem; font-weight: 800;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: #b0bec5; padding: 14px 10px 6px;
+  white-space: nowrap;
+}
+.sidebar.collapsed .menu-label { display: none; }
+
+.sidebar-menu li a,
+.sidebar-menu li button.menu-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  text-decoration: none; color: var(--text-muted);
+  font-size: 0.875rem; font-weight: 500;
+  transition: var(--transition); margin-bottom: 2px;
+  background: none; border: none; width: 100%; cursor: pointer;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+.sidebar-menu li a i,
+.sidebar-menu li button.menu-link i { width: 20px; text-align: center; font-size: 0.95rem; }
+.sidebar-menu li a:hover,
+.sidebar-menu li button.menu-link:hover {
+  background: #f0f9ff; color: var(--primary); padding-left: 16px;
+}
+.sidebar-menu li.active a,
+.sidebar-menu li.active button.menu-link {
+  background: linear-gradient(135deg, rgba(0,156,255,0.1), rgba(0,82,212,0.08));
+  color: var(--primary) !important; font-weight: 700;
+  border: 1px solid rgba(0, 156, 255, 0.18);
+}
+.sidebar-menu li.active a i,
+.sidebar-menu li.active button.menu-link i { color: var(--primary) !important; }
+
+.sidebar.collapsed .sidebar-menu li a,
+.sidebar.collapsed .sidebar-menu li button.menu-link {
+  justify-content: center; padding: 14px;
+}
+.sidebar.collapsed .sidebar-menu li a span,
+.sidebar.collapsed .sidebar-menu li button.menu-link span { display: none; }
+.sidebar.collapsed .sidebar-menu li a i,
+.sidebar.collapsed .sidebar-menu li button.menu-link i {
+  margin: 0; width: auto; font-size: 1.3rem;
+}
+
+/* Sidebar User */
+.sidebar-user {
+  margin: 12px; padding: 12px 14px;
+  background: #f8fbff; border-radius: var(--radius-md);
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid #e8f4ff; flex-shrink: 0;
+}
+.sidebar-user img { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; }
+.sidebar-user-name { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
+.sidebar-user-role { font-size: 0.72rem; color: #94a3b8; }
+.sidebar.collapsed .sidebar-user div:last-child { display: none; }
+
+/* ===================================================
+   AVATAR + ONLINE DOT
+   =================================================== */
+.avatar-wrap { position: relative; display: inline-block; flex-shrink: 0; }
+.online-dot {
+  position: absolute; bottom: 0; right: 0;
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2.5px solid #fff; z-index: 2;
+  transition: background 0.4s, box-shadow 0.4s;
+}
+.online-dot::after {
+  content: ''; position: absolute; inset: -3px;
+  border-radius: 50%;
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+.online-dot.status-online { background: #22c55e; box-shadow: 0 0 0 1px rgba(34,197,94,0.3); }
+.online-dot.status-online::after { background: rgba(34,197,94,0.35); }
+.online-dot.status-idle { background: #f59e0b; box-shadow: 0 0 0 1px rgba(245,158,11,0.3); }
+.online-dot.status-idle::after { background: rgba(245,158,11,0.35); }
+.online-dot.status-offline { background: #ef4444; box-shadow: 0 0 0 1px rgba(239,68,68,0.3); }
+.online-dot.status-offline::after { animation: none; background: transparent; }
+.sidebar-user .online-dot { bottom: -1px; right: -1px; width: 11px; height: 11px; border-radius: 4px; border: 2px solid #fff; }
+
+/* ===================================================
+   NAVBAR
+   =================================================== */
+.navbar {
+  position: fixed; top: 0;
+  left: var(--sidebar-width); right: 0;
+  height: var(--navbar-height);
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px 0 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  z-index: 90; border-bottom: 1px solid var(--border);
+  transition: left 0.25s;
+}
+.navbar.sidebar-collapsed { left: 68px; }
+
+.nav-left { display: flex; align-items: center; gap: 12px; }
+.menu-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #94a3b8; font-size: 1.1rem;
+  background: none; border: none; transition: var(--transition);
+}
+.menu-btn:hover { background: var(--bg); color: var(--primary); }
+
+.global-search {
+  height: 36px; padding: 0 14px 0 36px;
+  border: 1.5px solid #e2e8f0; border-radius: 20px;
+  font-size: 0.875rem; outline: none;
+  background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23adb5bd' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center/16px;
+  width: 200px; transition: var(--transition); color: var(--text-main);
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+.global-search:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,156,255,0.1);
+  width: 240px; background-color: #fff;
+}
+
+.marquee-wrap { flex: 1; overflow: hidden; margin: 0 16px; }
+.marquee-text {
+  display: inline-block; font-weight: 700; font-size: 0.95rem;
+  white-space: nowrap;
+  background: linear-gradient(90deg, #0052D4, #4364F7, #6FB1FC);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  padding-left: 100%;
+  animation: marquee 22s linear infinite;
+}
+.marquee-wrap:hover .marquee-text { animation-play-state: paused; }
+
+/* Profile Dropdown */
+.profile-dropdown { position: relative; display: flex; align-items: center; }
+.dropdown-trigger {
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; padding: 5px 14px; border-radius: 50px;
+  border: 1px solid transparent; background: none;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  transition: var(--transition);
+}
+.dropdown-trigger:hover { background: #f8fafc; border-color: rgba(0,156,255,0.15); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.dropdown-trigger img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; transition: transform 0.3s; }
+.dropdown-trigger:hover img { transform: scale(1.1); }
+.dropdown-username { font-weight: 600; font-size: 0.875rem; color: var(--text-main); }
+.dropdown-arrow { font-size: 0.7rem; color: #888; transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+
+.dropdown-menu {
+  position: absolute; top: calc(100% + 12px); right: 0;
+  width: 200px; background: #fff; border-radius: var(--radius-md);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05);
+  padding: 10px 0; z-index: 1000;
+  opacity: 0; visibility: hidden;
+  transform: translateY(-16px) scale(0.96);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top right;
+}
+.profile-dropdown.open .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.profile-dropdown.open .dropdown-arrow { transform: rotate(180deg); color: var(--primary); }
+
+.dropdown-item {
+  display: flex; align-items: center;
+  padding: 11px 20px; text-decoration: none; color: #555;
+  font-size: 0.875rem; gap: 12px; transition: var(--transition);
+  background: none; border: none; width: 100%; cursor: pointer;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+.dropdown-item:hover { background: rgba(0,156,255,0.05); color: var(--primary); padding-left: 24px; }
+.dropdown-item i { font-size: 1rem; color: #adb5bd; transition: color 0.2s; }
+.dropdown-item:hover i { color: var(--primary); }
+.dropdown-divider { height: 1px; background: #f1f1f1; margin: 6px 0; }
+.dropdown-item.logout:hover { background: rgba(220,53,69,0.05) !important; color: #dc3545 !important; }
+.dropdown-item.logout:hover i { color: #dc3545 !important; }
+
+/* ===================================================
+   MAIN CONTENT
+   =================================================== */
+.main-content {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--navbar-height);
+  padding: 24px; flex: 1;
+  background: var(--bg);
+  transition: margin-left 0.25s;
+  min-height: calc(100vh - var(--navbar-height));
+}
+.main-content.sidebar-collapsed { margin-left: 68px; }
+.card-wrap { background: #fff; border-radius: var(--radius-lg); padding: 28px; box-shadow: 0 2px 16px rgba(0,0,0,0.05); }
+
+/* ===================================================
+   FOOTER
+   =================================================== */
+.main-footer {
+  margin-left: var(--sidebar-width);
+  height: 54px; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem; color: #94a3b8;
+  transition: margin-left 0.25s;
+}
+.main-footer.sidebar-collapsed { margin-left: 68px; }
+.main-footer strong { color: var(--primary); margin: 0 4px; }
+
+/* ===================================================
+   TOAST MESSAGES
+   =================================================== */
+.toast-container {
+  position: fixed; top: 72px; right: 20px;
+  z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+}
+.toast-item {
+  padding: 12px 18px; border-radius: 10px;
+  font-size: 0.875rem; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  animation: fadeUp 0.3s ease;
+  display: flex; align-items: center; gap: 10px;
+}
+.toast-item.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.toast-item.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.toast-item.warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.toast-item.info    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+/* ===================================================
+   UTILITY
+   =================================================== */
+.page-title { font-size: 1.3rem; font-weight: 800; color: var(--text-main); }
+.text-primary { color: var(--primary); }
+.text-muted { color: var(--text-muted); }
+
+/* ===================================================
+   MOBILE SIDEBAR OVERLAY
+   =================================================== */
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+.sidebar-backdrop.visible { display: block; }
+
+/* ===================================================
+   RESPONSIVE BREAKPOINTS
+   =================================================== */
+
+/* ── Tablet (≤ 1024px) ── */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 220px;
+  }
+  .main-content { padding: 16px; }
+}
+
+/* ── Mobile (≤ 768px): sidebar slides in as overlay ── */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 260px;
+  }
+
+  /* Sidebar becomes off-canvas overlay */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s, width 0.25s;
+    width: var(--sidebar-width) !important; /* always full width on mobile */
+    z-index: 200;
+    box-shadow: 8px 0 32px rgba(0,0,0,0.15);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  /* When sidebar is open on mobile, show backdrop */
+  .sidebar.mobile-open ~ .sidebar-backdrop { display: block; }
+
+  /* Navbar & content always full-width on mobile */
+  .navbar,
+  .navbar.sidebar-collapsed {
+    left: 0 !important;
+  }
+  .main-content,
+  .main-content.sidebar-collapsed {
+    margin-left: 0 !important;
+    padding: 12px;
+  }
+  .main-footer,
+  .main-footer.sidebar-collapsed {
+    margin-left: 0 !important;
+  }
+
+  /* Marquee hide on very small screens */
+  .marquee-wrap { display: none; }
+
+  /* Dropdown username hide */
+  .dropdown-username { display: none; }
+
+  /* Card wrap padding reduce */
+  .card-wrap { padding: 16px; }
+}
+
+/* ── Small mobile (≤ 480px) ── */
+@media (max-width: 480px) {
+  .global-search { width: 140px; }
+  .global-search:focus { width: 160px; }
+  .card-wrap { padding: 12px; border-radius: 12px; }
+}

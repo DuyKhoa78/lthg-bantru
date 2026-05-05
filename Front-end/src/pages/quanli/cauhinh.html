@@ -1,0 +1,457 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Cấu hình hệ thống – Admin | QL Bán trú{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'homepage/css/admin.css' %}">
+<style>
+    .menu-group-label{font-size:.68rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray-500);padding:14px 18px 4px;pointer-events:none}
+
+    /* ── Config Section Cards ── */
+    .cfg-section{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
+    .cfg-section-header{padding:16px 22px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px;}
+    .cfg-section-header h3{margin:0;font-size:1rem;font-weight:800;color:var(--text-main);}
+    .cfg-section-header i{color:var(--primary-color);font-size:1.1rem;}
+    .cfg-section-body{padding:22px;}
+
+    /* ── Giá setting ── */
+    .gia-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
+    .gia-card{border-radius:var(--radius-md);border:2px solid var(--gray-100);padding:20px;transition:border-color .2s;position:relative;overflow:hidden;}
+    .gia-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;}
+    .gia-card.an::before{background:linear-gradient(90deg,#f39c12,#fdcb6e);}
+    .gia-card.ngu::before{background:linear-gradient(90deg,#6c5ce7,#a29bfe);}
+    .gia-card:hover{border-color:var(--gray-200);}
+    .gia-card-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+    .gia-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+    .gia-icon.an{background:rgba(243,156,18,.12);color:#f39c12;}
+    .gia-icon.ngu{background:rgba(108,92,231,.12);color:#6c5ce7;}
+    .gia-card-title{font-size:1rem;font-weight:800;color:var(--text-main);}
+    .gia-card-sub{font-size:.78rem;color:var(--text-muted);}
+    .gia-input-wrap{position:relative;display:flex;align-items:center;gap:8px;}
+    .gia-input{flex:1;padding:12px 16px;border:2px solid var(--gray-200);border-radius:var(--radius-sm);font-size:1.15rem;font-weight:700;font-family:'Be Vietnam Pro',sans-serif;color:var(--text-main);outline:none;transition:border-color .2s;background:#fff;}
+    .gia-input:focus{border-color:var(--primary-color);}
+    .gia-unit{font-size:.85rem;font-weight:700;color:var(--text-muted);white-space:nowrap;}
+    .gia-preview{margin-top:10px;font-size:.82rem;color:var(--text-muted);}
+    .gia-preview b{color:var(--text-main);}
+
+    /* ── Preview tháng ── */
+    .thang-preview{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;}
+    .thang-preview-item{background:var(--bg-light);border-radius:8px;padding:12px 16px;text-align:center;}
+    .thang-preview-item .label{font-size:.75rem;color:var(--text-muted);font-weight:600;}
+    .thang-preview-item .val{font-size:1.2rem;font-weight:800;color:var(--primary-color);margin-top:2px;}
+    .thang-preview-item .val.an{color:#f39c12;}
+    .thang-preview-item .val.ngu{color:#6c5ce7;}
+    .thang-preview-item .val.total{color:#00b894;}
+
+    /* ── History log ── */
+    .cfg-log{max-height:260px;overflow-y:auto;padding:0;}
+    .cfg-log-item{padding:10px 16px;border-bottom:1px solid var(--gray-50);display:flex;align-items:center;gap:10px;font-size:.82rem;}
+    .cfg-log-item:last-child{border-bottom:none;}
+    .cfg-log-item .log-time{color:var(--text-muted);min-width:130px;flex-shrink:0;}
+    .cfg-log-item .log-msg{color:var(--text-main);}
+    .cfg-log-empty{text-align:center;padding:30px;color:var(--text-muted);font-style:italic;}
+
+    /* ── Save banner ── */
+    .save-banner{position:fixed;bottom:24px;right:28px;z-index:999;display:flex;gap:10px;align-items:center;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:12px 18px;transform:translateY(120px);transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
+    .save-banner.show{transform:translateY(0);pointer-events:auto;}
+    .save-banner .save-msg{font-size:.88rem;font-weight:700;color:var(--text-main);}
+    </style>
+{% endblock %}
+
+{% block main-content %}
+
+<div>
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="breadcrumb">
+                <a href="{% url 'index' %}">Dashboard</a>
+                <span class="breadcrumb-sep"><i class="fas fa-chevron-right"></i></span>
+                <span>Cấu hình hệ thống</span>
+            </div>
+            <h2><i class="fas fa-cog" style="color:var(--primary-color);margin-right:8px;"></i>Cấu hình hệ thống</h2>
+            <p>Thiết lập đơn giá ca trực, tham số thanh toán và các cài đặt chung của hệ thống.</p>
+        </div>
+    </div>
+
+    <!-- ===== THIẾT LẬP HỆ THỐNG ===== -->
+    <div class="cfg-section">
+        <div class="cfg-section-header">
+            <i class="fas fa-sliders-h"></i>
+            <h3>Thiết lập hệ thống</h3>
+        </div>
+        <div class="cfg-section-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;">
+                <!-- Năm học -->
+                <div>
+                    <label class="form-label" style="font-weight:700;font-size:.85rem;color:var(--text-muted);display:block;margin-bottom:6px;">
+                        <i class="fas fa-calendar-alt" style="color:var(--primary-color);"></i> Năm học
+                    </label>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="number" id="ht-nam-bd" class="form-control" style="font-weight:700;font-size:1rem;text-align:center;" min="2020" max="2050" {% if request.user.is_ke_toan %}disabled{% endif %}>
+                        <span style="font-weight:bold;color:var(--text-muted);">–</span>
+                        <input type="number" id="ht-nam-kt" class="form-control" style="font-weight:700;font-size:1rem;text-align:center;" min="2021" max="2051" {% if request.user.is_ke_toan %}disabled{% endif %}>
+                    </div>
+                    <!-- Render bằng JS -->
+                    <script>
+                    (function(){
+                        const cur = "{{ hethong.nam_hoc }}";
+                        const parts = cur.split('-');
+                        const inpBd = document.getElementById('ht-nam-bd');
+                        const inpKt = document.getElementById('ht-nam-kt');
+                        if (parts.length === 2) {
+                            inpBd.value = parts[0];
+                            inpKt.value = parts[1];
+                        } else {
+                            inpBd.value = "2025";
+                            inpKt.value = "2026";
+                        }
+                        inpBd.addEventListener('change', function() {
+                            const val = parseInt(this.value);
+                            if (!isNaN(val)) inpKt.value = val + 1;
+                        });
+                    })();
+                    </script>
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">Hiển thị trên bảng phân công in ra</div>
+                </div>
+                <!-- Người phụ trách -->
+                <div>
+                    <label class="form-label" style="font-weight:700;font-size:.85rem;color:var(--text-muted);display:block;margin-bottom:6px;">
+                        <i class="fas fa-user-tie" style="color:var(--primary-color);"></i> Người phụ trách bán trú
+                    </label>
+                    <select id="ht-phu-trach" class="form-control"
+                            {% if request.user.is_ke_toan %}disabled{% endif %}
+                            style="font-weight:700;font-size:1rem;">
+                        {% for u in quan_ly_users %}
+                        <option value="{{ u.fullname|default:u.username }}"
+                                {% if hethong.nguoi_phu_trach == u.fullname or hethong.nguoi_phu_trach == u.username %}selected{% endif %}>
+                            {{ u.fullname|default:u.username }} ({{ u.get_role_display }})
+                        </option>
+                        {% empty %}
+                        <option value="{{ hethong.nguoi_phu_trach }}">{{ hethong.nguoi_phu_trach }}</option>
+                        {% endfor %}
+                    </select>
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">Tên ký dưới bảng phân công khi in</div>
+                </div>
+            </div>
+            {% if not request.user.is_ke_toan %}
+            <div style="margin-top:18px;">
+                <button class="btn btn-primary" id="btn-save-hethong">
+                    <i class="fas fa-save"></i> Lưu thiết lập
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- ===== ĐƠN GIÁ CA TRỰC ===== -->
+
+    <div class="cfg-section">
+        <div class="cfg-section-header">
+            <i class="fas fa-money-bill-wave"></i>
+            <h3>Đơn giá ca trực Giáo viên</h3>
+        </div>
+        <div class="cfg-section-body">
+            <div class="gia-grid">
+                <!-- Ca Ăn -->
+                <div class="gia-card an">
+                    <div class="gia-card-header">
+                        <div class="gia-icon an"><i class="fas fa-utensils"></i></div>
+                        <div>
+                            <div class="gia-card-title">Ca Ăn 🍽️</div>
+                            <div class="gia-card-sub">Buổi trưa – giám sát phòng ăn</div>
+                        </div>
+                    </div>
+                    <div class="gia-input-wrap">
+                        <input type="number" class="gia-input" id="gia-an" min="0" step="10000" placeholder="100000"
+                               {% if request.user.is_ke_toan %}disabled{% endif %}>
+                        <span class="gia-unit">VNĐ / ca</span>
+                    </div>
+                    <div class="gia-preview">
+                        ≈ <b id="gia-an-fmt">100.000đ</b> / ca &nbsp;|&nbsp;
+                        ~<b id="gia-an-month">30 ca</b>: <b id="gia-an-month-total" style="color:#f39c12;">3.000.000đ</b>
+                    </div>
+                </div>
+                <!-- Ca Ngủ -->
+                <div class="gia-card ngu">
+                    <div class="gia-card-header">
+                        <div class="gia-icon ngu"><i class="fas fa-bed"></i></div>
+                        <div>
+                            <div class="gia-card-title">Ca Ngủ 🛏️</div>
+                            <div class="gia-card-sub">Ban đêm – giám sát phòng ngủ</div>
+                        </div>
+                    </div>
+                    <div class="gia-input-wrap">
+                        <input type="number" class="gia-input" id="gia-ngu" min="0" step="10000" placeholder="180000"
+                               {% if request.user.is_ke_toan %}disabled{% endif %}>
+                        <span class="gia-unit">VNĐ / ca</span>
+                    </div>
+                    <div class="gia-preview">
+                        ≈ <b id="gia-ngu-fmt">180.000đ</b> / ca &nbsp;|&nbsp;
+                        ~<b id="gia-ngu-month">30 ca</b>: <b id="gia-ngu-month-total" style="color:#6c5ce7;">5.400.000đ</b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview ước tính tháng -->
+            <div style="margin-top:22px;">
+                <div style="font-size:.82rem;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px;"><i class="fas fa-calculator"></i> Ước tính chi phí tháng</div>
+                <div class="thang-preview">
+                    <div class="thang-preview-item">
+                        <div class="label">Tổng ca ăn (tháng)</div>
+                        <div class="val an" id="prev-total-an">48 ca</div>
+                    </div>
+                    <div class="thang-preview-item">
+                        <div class="label">Tổng ca ngủ (tháng)</div>
+                        <div class="val ngu" id="prev-total-ngu">50 ca</div>
+                    </div>
+                    <div class="thang-preview-item">
+                        <div class="label">Tổng tiền ca ăn</div>
+                        <div class="val an" id="prev-tien-an">–</div>
+                    </div>
+                    <div class="thang-preview-item">
+                        <div class="label">Tổng tiền ca ngủ</div>
+                        <div class="val ngu" id="prev-tien-ngu">–</div>
+                    </div>
+                    <div class="thang-preview-item">
+                        <div class="label">Tổng chi phí GV trực</div>
+                        <div class="val total" id="prev-tien-total">–</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if not request.user.is_ke_toan %}
+            <div style="display:flex;gap:10px;margin-top:22px;">
+                <button class="btn btn-primary" id="btn-save-gia"><i class="fas fa-save"></i> Lưu đơn giá</button>
+                <button class="btn btn-ghost" id="btn-reset-gia"><i class="fas fa-undo"></i> Đặt về mặc định</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== TỔNG KẾT TRẠNG THÁI ===== -->
+    <div class="cfg-section">
+        <div class="cfg-section-header">
+            <i class="fas fa-info-circle"></i>
+            <h3>Trạng thái cấu hình hiện tại</h3>
+        </div>
+        <div class="cfg-section-body">
+            <div class="thang-preview" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+                <div class="thang-preview-item">
+                    <div class="label">Đơn giá Ca Ăn</div>
+                    <div class="val an" id="status-gia-an">100.000đ</div>
+                </div>
+                <div class="thang-preview-item">
+                    <div class="label">Đơn giá Ca Ngủ</div>
+                    <div class="val ngu" id="status-gia-ngu">180.000đ</div>
+                </div>
+                <div class="thang-preview-item">
+                    <div class="label">Cập nhật lần cuối</div>
+                    <div class="val" style="font-size:.95rem;" id="status-updated">–</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LỊCH SỬ THAY ĐỔI ===== -->
+    <div class="cfg-section">
+        <div class="cfg-section-header">
+            <i class="fas fa-history"></i>
+            <h3>Lịch sử thay đổi đơn giá</h3>
+        </div>
+        <div class="cfg-section-body">
+        <div class="cfg-log">
+                {% for item in ds %}
+                <div class="cfg-log-item">
+                    <span class="log-time"><i class="fas fa-clock"></i> {{ item.ngay_ap_dung|date:"d/m/Y" }}</span>
+                    <span class="log-msg">
+                        {% if item.loai_truc == 0 %}
+                            <span style="color:#f39c12;font-weight:700;">Ca Ăn</span>
+                        {% else %}
+                            <span style="color:#6c5ce7;font-weight:700;">Ca Ngủ</span>
+                        {% endif %}
+                        — {{ item.don_gia|floatformat:0 }}đ/ca
+                    </span>
+                    <span style="margin-left:auto;font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:5px;">
+                        <i class="fas fa-user-edit"></i>
+                        {% if item.nguoi_cap_nhat %}
+                            {{ item.nguoi_cap_nhat.fullname|default:item.nguoi_cap_nhat.username }}
+                        {% else %}
+                            <em>Hệ thống</em>
+                        {% endif %}
+                    </span>
+                </div>
+                {% empty %}
+                <div class="cfg-log-empty"><i class="fas fa-inbox"></i> Chưa có lịch sử thay đổi.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Save banner -->
+    <div class="save-banner" id="save-banner">
+        <i class="fas fa-check-circle" style="color:#00b894;font-size:1.2rem;"></i>
+        <span class="save-msg">Đã lưu cấu hình thành công!</span>
+        <button class="btn btn-success btn-sm" onclick="document.getElementById('save-banner').classList.remove('show')">OK</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+'use strict';
+
+/* --------------- CONSTANTS --------------- */
+const DEFAULT_GIA_AN  = {{ curr_an|default:0 }};
+const DEFAULT_GIA_NGU = {{ curr_ngu|default:0 }};
+const INITIAL_UPDATED = '{{ last_updated|date:"d/m/Y"|default:"–" }}';
+
+// Mock totals từ data (có thể truyền từ backend nếu muốn chính xác hơn)
+const MOCK_TOTAL_CA_AN  = 0;
+const MOCK_TOTAL_CA_NGU = 0;
+
+/* --------------- UI UPDATE --------------- */
+const fmt = v => v.toLocaleString('vi-VN') + 'đ';
+
+function updatePreviews() {
+    const an  = parseInt(document.getElementById('gia-an').value)  || 0;
+    const ngu = parseInt(document.getElementById('gia-ngu').value) || 0;
+
+    document.getElementById('gia-an-fmt').textContent  = fmt(an);
+    document.getElementById('gia-ngu-fmt').textContent = fmt(ngu);
+
+    const tienAn  = an  * MOCK_TOTAL_CA_AN;
+    const tienNgu = ngu * MOCK_TOTAL_CA_NGU;
+    const prevTienAn = document.getElementById('prev-tien-an');
+    const prevTienNgu = document.getElementById('prev-tien-ngu');
+    const prevTienTotal = document.getElementById('prev-tien-total');
+
+    if(prevTienAn) prevTienAn.textContent = fmt(tienAn);
+    if(prevTienNgu) prevTienNgu.textContent = fmt(tienNgu);
+    if(prevTienTotal) prevTienTotal.textContent = fmt(tienAn + tienNgu);
+
+    const prevTotAn = document.getElementById('prev-total-an');
+    const prevTotNgu = document.getElementById('prev-total-ngu');
+    if(prevTotAn) prevTotAn.textContent = MOCK_TOTAL_CA_AN + ' ca';
+    if(prevTotNgu) prevTotNgu.textContent = MOCK_TOTAL_CA_NGU + ' ca';
+
+    // ước tính 30 ca
+    const giaAnMoTot = document.getElementById('gia-an-month-total');
+    const giaNguMoTot = document.getElementById('gia-ngu-month-total');
+    if(giaAnMoTot) giaAnMoTot.textContent = fmt(an * 30);
+    if(giaNguMoTot) giaNguMoTot.textContent = fmt(ngu * 30);
+}
+
+function updateStatusPanel(an, ngu, updated) {
+    const statAn = document.getElementById('status-gia-an');
+    const statNgu = document.getElementById('status-gia-ngu');
+    const statUpd = document.getElementById('status-updated');
+    if(statAn) statAn.textContent = fmt(an);
+    if(statNgu) statNgu.textContent = fmt(ngu);
+    if(statUpd) statUpd.textContent = updated || INITIAL_UPDATED;
+}
+
+function _getCsrfToken() {
+    const name = 'csrftoken';
+    const cookies = document.cookie.split(';');
+    for (let c of cookies) {
+        c = c.trim();
+        if (c.startsWith(name + '=')) return decodeURIComponent(c.slice(name.length + 1));
+    }
+    return '';
+}
+
+/* --------------- INIT --------------- */
+document.addEventListener('DOMContentLoaded', () => {
+    const inputAn = document.getElementById('gia-an');
+    const inputNgu = document.getElementById('gia-ngu');
+    if(inputAn) inputAn.value = DEFAULT_GIA_AN;
+    if(inputNgu) inputNgu.value = DEFAULT_GIA_NGU;
+
+    updatePreviews();
+    updateStatusPanel(DEFAULT_GIA_AN, DEFAULT_GIA_NGU, INITIAL_UPDATED);
+
+    // Live preview
+    if(inputAn) inputAn.addEventListener('input', updatePreviews);
+    if(inputNgu) inputNgu.addEventListener('input', updatePreviews);
+
+    // Save
+    document.getElementById('btn-save-gia')?.addEventListener('click', async () => {
+        const an  = parseInt(document.getElementById('gia-an').value);
+        const ngu = parseInt(document.getElementById('gia-ngu').value);
+        if (isNaN(an) || an < 0 || isNaN(ngu) || ngu < 0) {
+            Toast.warning('Vui lòng nhập đơn giá hợp lệ!');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/cauhinh/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': _getCsrfToken()
+                },
+                body: JSON.stringify({ an, ngu })
+            });
+            const result = await res.json();
+            if (res.ok && result.ok) {
+                updateStatusPanel(an, ngu, result.updated);
+                // Show banner
+                const banner = document.getElementById('save-banner');
+                if(banner) {
+                    banner.classList.add('show');
+                    setTimeout(() => banner.classList.remove('show'), 4000);
+                }
+                const savedBy = result.nguoi ? ` bởi ${result.nguoi}` : '';
+                Toast.success(`Đã lưu đơn giá thành công${savedBy}!`);
+
+                // Reload page after a short delay to show the new history entry in the template
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                Toast.error('Lỗi khi lưu cấu hình.');
+            }
+        } catch (e) {
+            Toast.error('Không kết nối được với máy chủ.');
+        }
+    });
+
+    // Reset
+    document.getElementById('btn-reset-gia')?.addEventListener('click', async () => {
+        const ok = await Confirm.ask('Đặt lại giá cũ?', `Các ô nhập liệu sẽ quay về giá hiện tại.`);
+        if (!ok) return;
+        if(inputAn) inputAn.value = DEFAULT_GIA_AN;
+        if(inputNgu) inputNgu.value = DEFAULT_GIA_NGU;
+        updatePreviews();
+        Toast.info('Đã hoàn tác thay đổi (chưa lưu)');
+    });
+    // ── Lưu thiết lập hệ thống ──
+    document.getElementById('btn-save-hethong')?.addEventListener('click', async () => {
+        const namBd = document.getElementById('ht-nam-bd')?.value;
+        const namKt = document.getElementById('ht-nam-kt')?.value;
+        const namHoc = (namBd && namKt) ? `${namBd}-${namKt}` : '';
+        const phuTrach = document.getElementById('ht-phu-trach')?.value;
+        if (!namBd || !namKt || !phuTrach) {
+            Toast.warning('Vui lòng điền đầy đủ Năm học và Người phụ trách.');
+            return;
+        }
+        try {
+            const res = await fetch('/api/hethong/save/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _getCsrfToken() },
+                body: JSON.stringify({ nam_hoc: namHoc, nguoi_phu_trach: phuTrach })
+            });
+            const d = await res.json();
+            if (d.ok) {
+                Toast.success(`✅ Đã lưu: NH ${d.nam_hoc} | Phụ trách: ${d.nguoi_phu_trach}`);
+            } else {
+                Toast.error('Lỗi: ' + d.error);
+            }
+        } catch(e) {
+            Toast.error('Không kết nối được máy chủ.');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,282 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Quản lý Vật dụng – Admin | QL Bán trú{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'homepage/css/admin.css' %}">
+<style>.menu-group-label{font-size:.68rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray-500);padding:14px 18px 4px;pointer-events:none}#sidebarToggle{font-size:1.15rem;cursor:pointer;color:var(--text-muted);width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-right:10px}#sidebarToggle:hover{background:var(--bg-light);color:var(--primary-color)}.sidebar.hidden{width:68px}.sidebar.hidden .logo-text,.sidebar.hidden .menu-label,.sidebar.hidden .sidebar-user div{display:none}.sidebar.hidden .logo{padding:.6rem 0 1.2rem}.sidebar.hidden .logo img{width:34px;height:34px}.sidebar.hidden .logo-text{display:none}.sidebar.hidden .menu li a{justify-content:center;padding:14px}.sidebar.hidden .menu li a i{margin:0;width:auto;font-size:1.3rem}.sidebar.hidden~.navbar,.sidebar.hidden~.main-content{margin-left:68px}</style>
+{% endblock %}
+
+{% block main-content %}
+
+    <div>
+        <div class="page-header">
+            <div class="page-header-left">
+                <div class="breadcrumb"><a href="{% url 'index' %}">Dashboard</a><span class="breadcrumb-sep"><i class="fas fa-chevron-right"></i></span><span>Quản lý vật dụng</span></div>
+                <h2><i class="fas fa-boxes" style="color:var(--primary-color);margin-right:8px;"></i>Quản lý Vật dụng</h2>
+                <p>Quản lý mua và phân bổ vật dụng (chiếu, gối, vỏ gối) theo phòng.</p>
+            </div>
+        </div>
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="tab-mua"><i class="fas fa-shopping-cart"></i> Lần mua</button>
+            <button class="tab-btn" data-tab="tab-phanbo"><i class="fas fa-th-large"></i> Phân bổ</button>
+            <button class="tab-btn" data-tab="tab-tonghop"><i class="fas fa-list"></i> Tổng hợp</button>
+        </div>
+        <!-- TAB 1: Mua -->
+        <div class="tab-panel active" id="tab-mua">
+            <div class="page-header" style="margin-bottom:14px;"><div></div>
+                {% if request.user.is_admin %}
+                <button class="btn btn-primary btn-sm" id="btn-them-mua"><i class="fas fa-plus"></i> Thêm lần mua</button>
+                {% endif %}
+            </div>
+            <div style="overflow-x:auto;"><table class="data-table" style="width:100%;"><thead><tr><th>Năm học</th><th>Lần mua</th><th>Loại vật dụng</th><th>Số lượng mua</th><th>Đã phân bổ</th><th>Còn lại</th><th>Ngày mua</th>{% if request.user.is_admin %}<th>Thao tác</th>{% endif %}</tr></thead><tbody id="mua-tbody"></tbody></table></div>
+        </div>
+        <!-- TAB 2: Phân bổ -->
+        <div class="tab-panel" id="tab-phanbo">
+            <div class="filter-bar"><label>Chọn lần mua:</label><select id="f-mua-id" style="padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-family:'Be Vietnam Pro',sans-serif;outline:none;background:#fff;min-width:260px;"><option value="">-- Chọn lần mua --</option></select></div>
+            <div id="phanbo-info" style="display:none;">
+                <div class="stat-cards-row" style="margin-bottom:16px;">
+                    <div class="stat-card blue"><div class="stat-card-icon"><i class="fas fa-box-open"></i></div><div class="stat-card-info"><p>Tổng mua</p><h3 id="pb-total">0</h3></div></div>
+                    <div class="stat-card green"><div class="stat-card-icon"><i class="fas fa-check"></i></div><div class="stat-card-info"><p>Đã phân bổ</p><h3 id="pb-da">0</h3></div></div>
+                    <div class="stat-card yellow"><div class="stat-card-icon"><i class="fas fa-warehouse"></i></div><div class="stat-card-info"><p>Còn lại</p><h3 id="pb-con">0</h3></div></div>
+                </div>
+                <div class="progress" style="height:12px;margin-bottom:20px;"><div class="progress-bar green" id="pb-progress" style="width:0%"></div></div>
+                <div id="phanbo-table-wrap"><table class="data-table" style="width:100%;"><thead><tr><th>Phòng</th><th>Loại phòng</th><th>Số lượng phân bổ</th>{% if request.user.is_admin %}<th>Thao tác</th>{% endif %}</tr></thead><tbody id="phanbo-tbody"></tbody></table></div>
+                {% if request.user.is_admin %}
+                <div style="margin-top:14px;"><button class="btn btn-primary" id="btn-them-phanbo"><i class="fas fa-plus"></i> Phân bổ thêm phòng</button></div>
+                {% endif %}
+            </div>
+            <div id="phanbo-empty" style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fas fa-hand-pointer" style="font-size:2rem;display:block;margin-bottom:10px;opacity:0.3;"></i>Chọn một lần mua để xem và thêm phân bổ</div>
+        </div>
+        <!-- TAB 3: Tổng hợp -->
+        <div class="tab-panel" id="tab-tonghop">
+            <div class="datatable-wrapper"><table class="data-table" style="width:100%;"><thead><tr><th>Phòng</th><th>Chiếu</th><th>Gối</th><th>Vỏ gối</th><th>Cập nhật lần cuối</th></tr></thead><tbody id="tonghop-tbody"></tbody></table></div>
+        </div>
+        <!-- Modal Mua -->
+        <div class="modal-overlay" id="muaModal">
+            <div class="modal-box">
+                <div class="modal-header"><div class="modal-title"><i class="fas fa-shopping-cart"></i><span>Thêm lần mua</span></div><button class="modal-close" data-modal-close><i class="fas fa-times"></i></button></div>
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Năm học <span class="required">*</span></label><input type="text" class="form-control" id="mua-namhoc" placeholder="24-25" value="24-25"></div>
+                        <div class="form-group"><label class="form-label">Lần mua <span class="required">*</span></label><input type="number" class="form-control" id="mua-lan" min="1" placeholder="1"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Loại vật dụng <span class="required">*</span></label><select class="form-control" id="mua-loai"><option value="">-- Chọn --</option><option value="CHIEU">Chiếu</option><option value="GOI">Gối</option><option value="VO_GOI">Vỏ gối</option></select></div>
+                        <div class="form-group"><label class="form-label">Số lượng <span class="required">*</span></label><input type="number" class="form-control" id="mua-soluong" min="1" placeholder="100"></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-ghost" data-modal-close>Huỷ</button><button class="btn btn-primary" id="btn-save-mua"><i class="fas fa-save"></i> Lưu</button></div>
+            </div>
+        </div>
+        <!-- Modal Phân bổ -->
+        <div class="modal-overlay" id="phanboModal">
+            <div class="modal-box modal-sm">
+                <div class="modal-header"><div class="modal-title"><i class="fas fa-th-large"></i><span>Phân bổ vào phòng</span></div><button class="modal-close" data-modal-close><i class="fas fa-times"></i></button></div>
+                <div class="modal-body">
+                    <div class="form-group"><label class="form-label">Phòng <span class="required">*</span></label><select class="form-control" id="pb-phong"><option value="">-- Chọn phòng --</option>{% for p in ds_phong %}<option value="{{ p.ma_phong }}">{{ p.ma_phong }}</option>{% endfor %}</select></div>
+                    <div class="form-group"><label class="form-label">Số lượng <span class="required">*</span></label><input type="number" class="form-control" id="pb-soluong" min="1" placeholder="10"><small id="pb-conlai-hint" style="color:var(--primary-color);font-size:.78rem;margin-top:4px;display:block;"></small></div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-ghost" data-modal-close>Huỷ</button><button class="btn btn-success" id="btn-save-phanbo"><i class="fas fa-save"></i> Phân bổ</button></div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+'use strict';
+let VD_MUA = {{ mua_json|safe }};
+let VD_PHANBO = {{ phanbo_json|safe }};
+
+const LOAI_LABEL={CHIEU:'Chiếu',GOI:'Gối',VO_GOI:'Vỏ gối'};
+let selectedMuaId=null,muaModal,phanboModal;
+
+function _getCsrfToken() {
+    const name = 'csrftoken';
+    const cookies = document.cookie.split(';');
+    for (let c of cookies) {
+        c = c.trim();
+        if (c.startsWith(name + '=')) return decodeURIComponent(c.slice(name.length + 1));
+    }
+    return '';
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+    muaModal=new Modal('muaModal');phanboModal=new Modal('phanboModal');
+    initTabs('.tab-nav');_renderMua();_buildMuaFilter();_renderTonghop();
+    document.getElementById('btn-them-mua')?.addEventListener('click',()=>muaModal.open());
+    document.getElementById('btn-save-mua')?.addEventListener('click',_saveMua);
+    document.getElementById('f-mua-id')?.addEventListener('change',e=>{selectedMuaId=parseInt(e.target.value)||null;_renderPhanbo();});
+    document.getElementById('btn-them-phanbo')?.addEventListener('click',()=>{document.getElementById('pb-conlai-hint').textContent=`Còn lại: ${_conLai(selectedMuaId)}`;phanboModal.open();});
+    document.getElementById('btn-save-phanbo')?.addEventListener('click',_savePhanbo);
+});
+
+function _da(muaId){return VD_PHANBO.filter(p=>p.mua_id===muaId).reduce((a,p)=>a+p.so_luong,0);}
+function _conLai(muaId){const m=VD_MUA.find(x=>x.id===muaId);return m?m.so_luong-_da(muaId):0;}
+
+function _renderMua(){
+    const tbody=document.getElementById('mua-tbody');
+    if(!tbody)return;
+    tbody.innerHTML=VD_MUA.map(m=>{
+        const da=_da(m.id);
+        const con=m.so_luong-da;
+        return `<tr>
+            <td>${m.nam_hoc}</td>
+            <td>${m.lan_mua}</td>
+            <td><span class="badge badge-primary">${LOAI_LABEL[m.loai]||m.loai}</span></td>
+            <td>${m.so_luong}</td>
+            <td>
+                <div class="vd-progress-row">
+                    <div class="progress">
+                        <div class="progress-bar green" style="width:${Math.round(da/m.so_luong*100)}%"></div>
+                    </div>
+                    <span class="vd-nums">${da}/${m.so_luong}</span>
+                </div>
+            </td>
+            <td><span class="badge ${con>0?'badge-warning':'badge-success'}">${con}</span></td>
+            <td style="font-size:.82rem;color:var(--text-muted);">${Utils.formatDate(m.ngay_mua)}</td>
+            {% if request.user.is_admin %}
+            <td>
+                <div class="table-actions">
+                    <button class="btn btn-del" data-del="${m.id}"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+            {% endif %}
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('[data-del]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const ok=await Confirm.ask('Xóa lần mua?','Xóa lần mua này và tất cả phân bổ liên quan?');
+        if(!ok)return;
+        const id = parseInt(btn.dataset.del);
+        try {
+            const res = await fetch('/api/vatdung/mua/delete/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _getCsrfToken() },
+                body: JSON.stringify({ id })
+            });
+            if (res.ok) {
+                VD_MUA=VD_MUA.filter(x=>x.id!==id);
+                VD_PHANBO=VD_PHANBO.filter(p=>p.mua_id!==id);
+                _renderMua();_buildMuaFilter();_renderTonghop();
+                Toast.success('Đã xóa lần mua');
+            }
+        } catch(e) { Toast.error('Lỗi khi xóa'); }
+    }));
+}
+
+function _buildMuaFilter(){
+    const sel=document.getElementById('f-mua-id');
+    if(!sel)return;
+    sel.innerHTML='<option value="">-- Chọn lần mua --</option>';
+    VD_MUA.forEach(m=>{
+        const o=document.createElement('option');
+        o.value=m.id;
+        o.textContent=`${LOAI_LABEL[m.loai]} – ${m.nam_hoc} (lần ${m.lan_mua}) – còn ${_conLai(m.id)}`;
+        sel.appendChild(o);
+    });
+}
+
+function _renderPhanbo(){
+    const info=document.getElementById('phanbo-info');
+    const empty=document.getElementById('phanbo-empty');
+    if(!selectedMuaId){info.style.display='none';empty.style.display='block';return;}
+    info.style.display='block';empty.style.display='none';
+    const m=VD_MUA.find(x=>x.id===selectedMuaId);
+    if (!m) return;
+    const da=_da(selectedMuaId);
+    const con=m.so_luong-da;
+    document.getElementById('pb-total').textContent=m.so_luong;
+    document.getElementById('pb-da').textContent=da;
+    document.getElementById('pb-con').textContent=con;
+    document.getElementById('pb-progress').style.width=`${Math.round(da/m.so_luong*100)}%`;
+    const tbody=document.getElementById('phanbo-tbody');
+    const rows=VD_PHANBO.filter(p=>p.mua_id===selectedMuaId);
+    tbody.innerHTML=rows.map(p=>`<tr><td><strong>${p.phong}</strong></td><td>${Utils.loaiPhongLabel(p.phong.startsWith('N')?1:0)}</td><td>${p.so_luong}</td>{% if request.user.is_admin %}<td><button class="btn btn-del" data-pbdel="${p.id}"><i class="fas fa-trash"></i></button></td>{% endif %}</tr>`).join('');
+    
+    tbody.querySelectorAll('[data-pbdel]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const ok=await Confirm.ask('Xóa phân bổ?','Xóa phân bổ này?');
+        if(!ok)return;
+        const id = parseInt(btn.dataset.pbdel);
+        try {
+            const res = await fetch('/api/vatdung/phanbo/delete/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _getCsrfToken() },
+                body: JSON.stringify({ id })
+            });
+            if (res.ok) {
+                VD_PHANBO=VD_PHANBO.filter(p=>p.id!==id);
+                _renderPhanbo();_buildMuaFilter();
+                Toast.success('Đã xóa phân bổ');
+            }
+        } catch(e) { Toast.error('Lỗi khi xóa'); }
+    }));
+}
+
+function _renderTonghop(){
+    const phongs=['N01','N02','N03','N04','N05','N06','N07','N08'];
+    const tbody=document.getElementById('tonghop-tbody');
+    if(!tbody)return;
+    tbody.innerHTML=phongs.map(ph=>{
+        const sl=(loai)=>VD_PHANBO.filter(p=>p.phong===ph).filter(p=>{
+            const m=VD_MUA.find(x=>x.id===p.mua_id);
+            return m?.loai===loai;
+        }).reduce((a,p)=>a+p.so_luong,0);
+        return`<tr><td><strong>${ph}</strong></td><td>${sl('CHIEU')}</td><td>${sl('GOI')}</td><td>${sl('VO_GOI')}</td><td style="font-size:.78rem;color:var(--text-muted);">${Utils.formatDate(Utils.today())}</td></tr>`;
+    }).join('');
+}
+
+async function _saveMua(){
+    const nh=document.getElementById('mua-namhoc')?.value.trim();
+    const lan=parseInt(document.getElementById('mua-lan')?.value);
+    const loai=document.getElementById('mua-loai')?.value;
+    const sl=parseInt(document.getElementById('mua-soluong')?.value);
+    if(!nh||isNaN(lan)||!loai||isNaN(sl)||sl<1){Toast.warning('Vui lòng điền đầy đủ thông tin!');return;}
+    
+    try {
+        const res = await fetch('/api/vatdung/mua/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _getCsrfToken() },
+            body: JSON.stringify({ nam_hoc: nh, lan_mua: lan, loai, so_luong: sl })
+        });
+        const result = await res.json();
+        if (res.ok && result.ok) {
+            VD_MUA.push({id: result.id, nam_hoc: nh, lan_mua: lan, loai, so_luong: sl, ngay_mua: result.ngay_mua });
+            muaModal.close();
+            _renderMua();_buildMuaFilter();_renderTonghop();
+            Toast.success('Đã thêm lần mua');
+        } else {
+            Toast.error(result.error || 'Lỗi khi lưu');
+        }
+    } catch(e) { Toast.error('Lỗi kết nối'); }
+}
+
+async function _savePhanbo(){
+    const ph=document.getElementById('pb-phong')?.value;
+    const sl=parseInt(document.getElementById('pb-soluong')?.value);
+    if(!ph||isNaN(sl)||sl<1){Toast.warning('Chọn phòng và nhập số lượng!');return;}
+    if(sl>_conLai(selectedMuaId)){Toast.error(`Số lượng vượt quá còn lại (${_conLai(selectedMuaId)})!`);return;}
+    
+    try {
+        const res = await fetch('/api/vatdung/phanbo/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _getCsrfToken() },
+            body: JSON.stringify({ mua_id: selectedMuaId, phong: ph, so_luong: sl })
+        });
+        const result = await res.json();
+        if (res.ok && result.ok) {
+            VD_PHANBO.push({id: result.id, mua_id:selectedMuaId,phong:ph,so_luong:sl});
+            phanboModal.close();
+            _renderPhanbo();_buildMuaFilter();_renderTonghop();
+            Toast.success(`Đã phân bổ ${sl} vào phòng ${ph}`);
+        } else {
+            Toast.error(result.error || 'Lỗi khi phân bổ');
+        }
+    } catch(e) { Toast.error('Lỗi kết nối'); }
+}
+</script>
+{% endblock %}
+

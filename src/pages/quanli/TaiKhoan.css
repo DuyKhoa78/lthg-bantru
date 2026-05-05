@@ -1,0 +1,121 @@
+/* ── Account Management Cards ───────────────────────────────────── */
+.tk-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.tk-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s, transform 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tk-card:hover {
+  box-shadow: 0 6px 24px rgba(0,156,255,0.12);
+  transform: translateY(-2px);
+}
+.tk-card-inactive {
+  opacity: 0.65;
+  background: #f8fafc;
+}
+
+/* ── Avatar ── */
+.tk-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #6c5ce7);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 10px rgba(0,156,255,0.25);
+}
+.tk-avatar-inactive {
+  background: linear-gradient(135deg, #94a3b8, #cbd5e1);
+  box-shadow: none;
+}
+
+/* ── Card top row ── */
+.tk-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.tk-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+.tk-card-name {
+  font-weight: 800;
+  font-size: 0.97rem;
+  color: #1a202c;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tk-card-username {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+.tk-card-position {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 3px;
+}
+.tk-card-position i { margin-right: 4px; }
+.tk-card-status { flex-shrink: 0; }
+
+/* ── Role row ── */
+.tk-card-role {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid #f1f5f9;
+}
+.tk-email {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tk-email i { color: var(--primary); }
+
+/* ── Action row ── */
+.tk-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid #f1f5f9;
+}
+.tk-card-actions .btn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.tk-card-actions .btn-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .tk-cards-grid { grid-template-columns: 1fr; }
+}

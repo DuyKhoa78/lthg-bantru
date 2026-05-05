@@ -1,0 +1,92 @@
+/* ── BaoCao CSS – bám sát baocao.html gốc ── */
+
+/* MAIN TABS */
+.bc-main-tabs { display:flex; gap:0; border-bottom:2.5px solid #e2e8f0; margin-bottom:20px; }
+.bc-main-tab {
+  padding:10px 28px; font-size:.95rem; font-weight:700;
+  border:none; background:transparent; cursor:pointer;
+  color:#64748b; border-bottom:3px solid transparent; margin-bottom:-2.5px;
+  font-family:'Be Vietnam Pro',sans-serif; transition:all .2s;
+  display:flex; align-items:center; gap:8px;
+}
+.bc-main-tab:hover { color:var(--primary); }
+.bc-main-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+.bc-main-panel { display:none; }
+.bc-main-panel.active { display:block; }
+
+/* TIME TABS */
+.bc-time-tabs { display:flex; gap:0; background:#f0f4f9; border-radius:8px; padding:3px; }
+.bc-time-tab { padding:5px 14px; border:none; background:transparent; border-radius:6px; font-family:'Be Vietnam Pro',sans-serif; font-size:.82rem; font-weight:700; cursor:pointer; color:#64748b; transition:all .2s; }
+.bc-time-tab.active { background:#fff; color:var(--primary); box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+
+/* FILTER ROW */
+.bc-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; background:#fff; border-radius:10px; padding:12px 16px; border:1px solid var(--border); box-shadow:0 1px 4px rgba(0,0,0,0.04); }
+.bc-filter-item { display:flex; align-items:center; gap:8px; }
+.bc-filter-item label { font-size:.82rem; font-weight:700; color:#64748b; display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.bc-filter-item select, .bc-filter-item input[type="month"] { padding:6px 10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:.85rem; outline:none; font-family:'Be Vietnam Pro',sans-serif; cursor:pointer; }
+.bc-filter-item select:focus, .bc-filter-item input:focus { border-color:var(--primary); }
+
+/* METRICS */
+.bc-metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+
+/* CHARTS */
+.bc-charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+.bc-chart-card { background:#fff; border-radius:12px; padding:18px 20px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+.bc-chart-title { font-size:.9rem; font-weight:800; color:#1a202c; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.bc-chart-title i { color:var(--primary); }
+.bc-chart-canvas { position:relative; }
+
+/* KHỐI ROW */
+.bc-khoi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
+.bc-khoi-card { background:#fff; border-radius:12px; overflow:hidden; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+.bc-khoi-header { padding:10px 16px; font-size:.85rem; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px; }
+.bc-khoi-header.k10 { background:linear-gradient(135deg,#0052D4,#4364F7); }
+.bc-khoi-header.k11 { background:linear-gradient(135deg,#00b894,#00cec9); }
+.bc-khoi-header.k12 { background:linear-gradient(135deg,#6c5ce7,#a29bfe); }
+.bc-khoi-body { padding:14px 16px; }
+.bc-khoi-stat { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f1f5f9; }
+.bc-khoi-stat:last-child { border:none; }
+.bc-khoi-stat-label { font-size:.78rem; color:#64748b; }
+.bc-khoi-stat-value { font-size:.95rem; font-weight:800; color:#1a202c; }
+.bc-khoi-progress { margin-top:10px; }
+.bc-khoi-progress-label { display:flex; justify-content:space-between; font-size:.75rem; font-weight:700; margin-bottom:5px; color:#64748b; }
+.progress { background:#f1f5f9; border-radius:50px; height:8px; overflow:hidden; }
+.progress-bar { height:100%; border-radius:50px; transition:width .5s; }
+.progress-bar.green { background:linear-gradient(90deg,#00b894,#00cec9); }
+
+/* DETAIL SECTION */
+.bc-detail-section { background:#fff; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; overflow:hidden; }
+.bc-detail-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px; }
+.bc-detail-header h3 { font-size:.95rem; font-weight:800; color:#1a202c; margin:0; display:flex; align-items:center; gap:8px; }
+.bc-export-btns { display:flex; gap:8px; }
+
+/* GV STAT GRID */
+.gv-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.gv-unit-card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); padding:14px 16px; display:flex; align-items:center; gap:12px; border:1px solid var(--border); }
+.gv-unit-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+.gv-unit-icon.purple { background:rgba(108,92,231,.12); color:#6c5ce7; }
+.gv-unit-icon.green  { background:rgba(0,184,148,.12);   color:#00b894; }
+.gv-unit-icon.orange { background:rgba(253,203,110,.18); color:#e17055; }
+.gv-unit-icon.blue   { background:rgba(0,156,255,.12);   color:var(--primary); }
+.gv-unit-info p { margin:0; font-size:.78rem; color:#64748b; }
+.gv-unit-info h3 { font-size:1.5rem; font-weight:800; color:#1a202c; margin:0; }
+
+/* Badges */
+.ca-an-badge  { background:rgba(253,203,110,.2);  color:#b7791f; padding:2px 8px; border-radius:50px; font-size:.75rem; font-weight:700; }
+.ca-ngu-badge { background:rgba(162,155,254,.2); color:#6c5ce7; padding:2px 8px; border-radius:50px; font-size:.75rem; font-weight:700; }
+
+/* Responsive */
+@media (max-width:1024px) {
+  .bc-metrics-grid { grid-template-columns:repeat(2,1fr); }
+  .gv-stat-grid    { grid-template-columns:repeat(2,1fr); }
+  .bc-khoi-row     { grid-template-columns:1fr; }
+}
+@media (max-width:768px) {
+  .bc-charts-row { grid-template-columns:1fr; }
+  .bc-main-tab   { padding:8px 14px; font-size:.82rem; }
+  .bc-filter-row { padding:10px 12px; }
+}
+@media (max-width:480px) {
+  .bc-metrics-grid { grid-template-columns:1fr 1fr; }
+  .gv-stat-grid    { grid-template-columns:1fr 1fr; }
+}

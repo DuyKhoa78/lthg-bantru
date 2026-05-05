@@ -1,0 +1,347 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Hệ thống Quản lý Bán trú THPT Lê Thị Hồng Gấm">
+<title>{% block title %}Quản lý Bán trú – THPT Lê Thị Hồng Gấm{% endblock %}</title>
+<link rel="icon" type="image/png" href="{% static 'homepage/img/logo.png' %}">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="{% static 'homepage/css/base.css' %}">
+<link rel="stylesheet" href="{% static 'homepage/css/components.css' %}">
+<style>
+/* ======= RESET ======= */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Be Vietnam Pro',sans-serif;background:#f0f4f9;color:#1a202c;display:flex;flex-direction:column;min-height:100vh;}
+
+/* ======= SIDEBAR ======= */
+.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:#fff;box-shadow:4px 0 24px rgba(0,0,0,0.06);z-index:100;padding:0;display:flex;flex-direction:column;border-right:1px solid #edf2f7;transition:width .25s;}
+.logo{padding:14px 12px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;border-bottom:1px solid #f0f4f9;}
+.logo img{width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,156,255,0.25));transition:transform .3s;}
+.logo:hover img{transform:scale(1.06) rotate(-3deg);}
+.logo-text{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.logo-title{font-size:.88rem;font-weight:800;color:#009CFF;letter-spacing:.4px;}
+.logo-name{font-size:.65rem;font-weight:500;color:#94a3b8;line-height:1.3;max-width:160px;}
+.menu{list-style:none;flex:1;padding:12px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(0,156,255,.2) transparent;}
+.menu::-webkit-scrollbar{width:4px;}
+.menu::-webkit-scrollbar-thumb{background:rgba(0,156,255,.2);border-radius:4px;}
+.menu-label{font-size:.65rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#b0bec5;padding:14px 10px 6px;}
+.menu li a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;color:#64748b;font-size:.875rem;font-weight:500;transition:all .2s;margin-bottom:2px;}
+.menu li a i{width:20px;text-align:center;font-size:.95rem;}
+.menu li a:hover{background:#f0f9ff;color:#009CFF;padding-left:16px;}
+.menu li.active a{background:linear-gradient(135deg,rgba(0,156,255,.1),rgba(0,82,212,.08));color:#009CFF !important;font-weight:700;border:1px solid rgba(0,156,255,.18);}
+.menu li.active a i{color:#009CFF !important;}
+.sidebar-user{margin:12px;padding:12px 14px;background:#f8fbff;border-radius:12px;display:flex;align-items:center;gap:10px;border:1px solid #e8f4ff;}
+.sidebar-user img{width:36px;height:36px;border-radius:9px;object-fit:cover;}
+.su-name{font-size:.82rem;font-weight:700;color:#1a202c;}
+.su-role{font-size:.72rem;color:#94a3b8;}
+
+/* ======= SIDEBAR COLLAPSED ======= */
+.sidebar.collapsed{width:68px;}
+.sidebar.collapsed .logo-text,.sidebar.collapsed .menu-label,.sidebar.collapsed .sidebar-user div{display:none;}
+.sidebar.collapsed .logo{padding:.6rem 0 1.2rem;}
+.sidebar.collapsed .logo img{width:34px;height:34px;}
+.sidebar.collapsed .menu li a{justify-content:center;padding:14px;}
+.sidebar.collapsed .menu li a i{margin:0;width:auto;font-size:1.3rem;}
+.sidebar.collapsed ~ .navbar,.sidebar.collapsed ~ .main-content,.sidebar.collapsed ~ footer{margin-left:68px;}
+
+/* ======= NAVBAR ======= */
+.navbar{position:fixed;top:0;left:240px;right:0;height:62px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 20px;box-shadow:0 2px 12px rgba(0,0,0,0.05);z-index:90;border-bottom:1px solid #edf2f7;transition:margin-left .25s;}
+.nav-left{display:flex;align-items:center;gap:12px;}
+.menu-btn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;font-size:1.1rem;transition:all .2s;}
+.menu-btn:hover{background:#f0f4f9;color:#009CFF;}
+#globalSearch{height:36px;padding:0 14px 0 36px;border:1.5px solid #e2e8f0;border-radius:20px;font-size:.875rem;outline:none;background:#f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23adb5bd' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center/16px;width:200px;transition:all .25s;color:#1a202c;font-family:'Be Vietnam Pro',sans-serif;}
+#globalSearch:focus{border-color:#009CFF;box-shadow:0 0 0 3px rgba(0,156,255,.1);width:240px;background:#fff;}
+.marquee-wrap{flex:1;overflow:hidden;margin:0 16px;}
+.marquee-text{display:inline-block;font-weight:700;font-size:.95rem;white-space:nowrap;background:linear-gradient(90deg,#0052D4,#4364F7,#6FB1FC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;padding-left:100%;animation:marquee 22s linear infinite;}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-150%)}}
+.marquee-wrap:hover .marquee-text{animation-play-state:paused;}
+:root{--primary-color:#009CFF;}
+.custom-dropdown{position:relative;display:flex;align-items:center;}
+.dropdown-header{display:flex;align-items:center;gap:10px;cursor:pointer;padding:5px 14px;border-radius:50px;transition:all .2s;border:1px solid transparent;}
+.dropdown-header:hover{background:#f8fafc;border-color:rgba(0,156,255,.15);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.dropdown-header img{width:38px;height:38px;border-radius:50%;object-fit:cover;transition:transform .3s;}
+/* ── Online status dot ── */
+.avatar-wrap{position:relative;display:inline-block;flex-shrink:0;}
+.avatar-wrap .online-dot{position:absolute;bottom:0;right:0;width:12px;height:12px;border-radius:50%;border:2.5px solid #fff;z-index:2;transition:background .4s,box-shadow .4s;}
+.avatar-wrap .online-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;animation:onlinePulse 2s ease-in-out infinite;transition:background .4s;}
+@keyframes onlinePulse{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.8);opacity:0}}
+/* Xanh = Online */
+.avatar-wrap .online-dot.status-online{background:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,.3);}
+.avatar-wrap .online-dot.status-online::after{background:rgba(34,197,94,.35);}
+/* Vàng = Đang rời (Idle) */
+.avatar-wrap .online-dot.status-idle{background:#f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.3);}
+.avatar-wrap .online-dot.status-idle::after{background:rgba(245,158,11,.35);}
+/* Đỏ = Offline */
+.avatar-wrap .online-dot.status-offline{background:#ef4444;box-shadow:0 0 0 1px rgba(239,68,68,.3);}
+.avatar-wrap .online-dot.status-offline::after{animation:none;background:transparent;}
+.sidebar-user .avatar-wrap .online-dot{bottom:-1px;right:-1px;width:11px;height:11px;border-radius:4px;border:2px solid #fff;}
+.dropdown-header:hover img{transform:scale(1.1);}
+.username{font-weight:600;font-size:.875rem;color:#1a202c;}
+.arrow-icon{font-size:.7rem;color:#888;transition:transform .4s cubic-bezier(.68,-.55,.265,1.55);}
+.dropdown-body{position:absolute;top:calc(100% + 12px);right:0;width:200px;background:#fff;border-radius:12px;box-shadow:0 15px 35px rgba(0,0,0,.1),0 5px 15px rgba(0,0,0,.05);padding:10px 0;z-index:1000;opacity:0;visibility:hidden;transform:translateY(-16px) scale(.96);transition:all .25s cubic-bezier(.4,0,.2,1);transform-origin:top right;}
+.custom-dropdown.active .dropdown-body{opacity:1;visibility:visible;transform:translateY(0) scale(1);}
+.custom-dropdown.active .arrow-icon{transform:rotate(180deg);color:#009CFF;}
+.dropdown-link{display:flex;align-items:center;padding:11px 20px;text-decoration:none;color:#555;font-size:.875rem;gap:12px;transition:all .2s;position:relative;}
+.dropdown-link:hover{background:rgba(0,156,255,.05);color:#009CFF;padding-left:24px;}
+.dropdown-link i{font-size:1rem;color:#adb5bd;transition:color .2s;}
+.dropdown-link:hover i{color:#009CFF;}
+.dropdown-divider{height:1px;background:#f1f1f1;margin:6px 0;}
+.logout-btn:hover{background:rgba(220,53,69,.05)!important;color:#dc3545!important;}
+.logout-btn:hover i{color:#dc3545!important;}
+
+/* ======= MAIN ======= */
+.main-content{margin-left:240px;margin-top:62px;padding:24px;flex:1;background:#f0f4f9;transition:margin-left .25s;}
+.card-wrap{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 16px rgba(0,0,0,0.05);}
+
+/* ======= FOOTER ======= */
+footer{margin-left:240px;height:54px;background:#fff;display:flex;align-items:center;justify-content:center;border-top:1px solid #edf2f7;font-size:.875rem;color:#94a3b8;transition:margin-left .25s;}
+footer strong{color:#009CFF;margin:0 4px;}
+
+/* ======= ANIMATIONS ======= */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ======= MESSAGES ======= */
+.django-messages{position:fixed;top:72px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.django-msg{padding:12px 18px;border-radius:10px;font-size:.875rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.1);animation:fadeUp .3s ease;display:flex;align-items:center;gap:10px;}
+.django-msg.success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+.django-msg.error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;}
+.django-msg.warning{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+.django-msg.info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+</style>
+<script>
+    window.SYS_CONFIG = {
+        nam_hoc: "{{ SYS_CONFIG.nam_hoc|default:'2025-2026'|escapejs }}",
+        nguoi_phu_trach: "{{ SYS_CONFIG.nguoi_phu_trach|default:'Tạ Thị Diệu Lê'|escapejs }}",
+        ten_truong: "{{ SYS_CONFIG.ten_truong|default:'LÊ THỊ HỒNG GẤM'|escapejs }}"
+    };
+</script>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar" id="sidebar">
+    <div class="logo">
+        <img src="{% static 'homepage/img/logo.png' %}" alt="logo THPT Lê Thị Hồng Gấm">
+        <div class="logo-text">
+            <span class="logo-title">QL BÁN TRÚ</span>
+            <span class="logo-name">THPT Lê Thị Hồng Gấm</span>
+        </div>
+    </div>
+
+    <ul class="menu">
+        <!-- Dashboard – ALL roles -->
+        <li class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+            <a href="{% url 'index' %}"><i class="fas fa-th-large"></i> Dashboard</a>
+        </li>
+
+        {% if request.user.is_authenticated %}
+
+        {# ── HỌC VỤ + ADMIN ── #}
+        {% if request.user.can_diem_danh %}
+        <li class="menu-label">ĐIỂM DANH</li>
+        <li class="{% if request.resolver_match.url_name == 'diemdanh_an' %}active{% endif %}">
+            <a href="{% url 'diemdanh_an' %}"><i class="fas fa-utensils"></i> Điểm danh ăn</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'diemdanh_ngu' %}active{% endif %}">
+            <a href="{% url 'diemdanh_ngu' %}"><i class="fas fa-bed"></i> Điểm danh ngủ</a>
+        </li>
+        {% endif %}
+
+        {# ── Lịch trực + Báo cáo: TẤT CẢ role ── #}
+        <li class="menu-label">LỊCH TRỰC & BÁO CÁO</li>
+        <li class="{% if request.resolver_match.url_name == 'lichtruc' %}active{% endif %}">
+            <a href="{% url 'lichtruc' %}"><i class="fas fa-calendar-alt"></i> Lịch trực GV</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'baocao' %}active{% endif %}">
+            <a href="{% url 'baocao' %}"><i class="fas fa-chart-bar"></i> Thống kê & Báo cáo</a>
+        </li>
+
+        {# ── QUẢN LÝ (Admin + Quản lý + Kế toán xem) ── #}
+        {% if request.user.can_quan_ly_danh_muc or request.user.is_ke_toan %}
+        <li class="menu-label">QUẢN LÝ DANH MỤC</li>
+        
+        {% if request.user.can_quan_ly_danh_muc %}
+        <li class="{% if request.resolver_match.url_name == 'admin_lichtruc' %}active{% endif %}">
+            <a href="{% url 'admin_lichtruc' %}"><i class="fas fa-calendar-check"></i> Phân công theo Ngày</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_lichtruc_khung' %}active{% endif %}">
+            <a href="{% url 'admin_lichtruc_khung' %}"><i class="fas fa-th"></i> Lịch trực Cố định</a>
+        </li>
+        {% endif %}
+
+        <li class="{% if request.resolver_match.url_name == 'admin_cauhinh' %}active{% endif %}">
+            <a href="{% url 'admin_cauhinh' %}"><i class="fas fa-sliders-h"></i> Thiết lập</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_vatdung' %}active{% endif %}">
+            <a href="{% url 'admin_vatdung' %}"><i class="fas fa-boxes"></i> Vật dụng</a>
+        </li>
+        {% endif %}
+
+        {# ── ADMIN ONLY (quản trị toàn phần) ── #}
+        {% if request.user.can_quan_tri %}
+        <li class="menu-label">QUẢN TRỊ</li>
+        <li class="{% if request.resolver_match.url_name == 'admin_phong' %}active{% endif %}">
+            <a href="{% url 'admin_phong' %}"><i class="fas fa-door-open"></i> Quản lý phòng</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_hocsinh' %}active{% endif %}">
+            <a href="{% url 'admin_hocsinh' %}"><i class="fas fa-user-graduate"></i> Quản lý học sinh</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_giaovien' %}active{% endif %}">
+            <a href="{% url 'admin_giaovien' %}"><i class="fas fa-chalkboard-teacher"></i> Quản lý giáo viên</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_taikhoan' %}active{% endif %}">
+            <a href="{% url 'admin_taikhoan' %}"><i class="fas fa-users-cog"></i> Quản lý tài khoản</a>
+        </li>
+        {% elif request.user.is_quan_ly %}
+        {# ── QUẢN LÝ: xem được phòng, HS, GV (read-only) ── #}
+        <li class="menu-label">XEM DỮ LIỆU</li>
+        <li class="{% if request.resolver_match.url_name == 'admin_phong' %}active{% endif %}">
+            <a href="{% url 'admin_phong' %}"><i class="fas fa-door-open"></i> Danh sách phòng</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_hocsinh' %}active{% endif %}">
+            <a href="{% url 'admin_hocsinh' %}"><i class="fas fa-user-graduate"></i> Danh sách học sinh</a>
+        </li>
+        <li class="{% if request.resolver_match.url_name == 'admin_giaovien' %}active{% endif %}">
+            <a href="{% url 'admin_giaovien' %}"><i class="fas fa-chalkboard-teacher"></i> Danh sách giáo viên</a>
+        </li>
+        {% endif %}
+
+        {% endif %}{# end is_authenticated #}
+    </ul>
+
+    {% if request.user.is_authenticated %}
+    <div class="sidebar-user">
+        <div class="avatar-wrap">
+            <img src="{% static 'homepage/img/user.jpg' %}" alt="avatar"
+                 onerror="this.src='https://ui-avatars.com/api/?name={{ request.user.fullname|default:request.user.username|urlencode }}&background=009CFF&color=fff&rounded=true'">
+            <span class="online-dot status-online"></span>
+        </div>
+        <div>
+            <div class="su-name">{{ request.user.fullname|default:request.user.username }}</div>
+            <div class="su-role">{{ request.user.get_role_display|default:"Người dùng" }}</div>
+        </div>
+    </div>
+    {% endif %}
+</aside>
+
+<!-- ===== NAVBAR ===== -->
+<header class="navbar" id="navbar">
+    <div class="nav-left">
+        <span class="menu-btn" id="sidebarToggle" title="Toggle menu">
+            <i class="fas fa-bars"></i>
+        </span>
+        <input type="text" id="globalSearch" placeholder="Tìm kiếm..." autocomplete="off">
+    </div>
+
+    <div class="marquee-wrap">
+        <span class="marquee-text">✦ Chào mừng bạn đến với hệ thống Quản lý Bán trú của Trường THPT Lê Thị Hồng Gấm! ✦</span>
+    </div>
+
+    <div class="custom-dropdown" id="profileDropdown">
+        <div class="dropdown-header">
+            <div class="avatar-wrap">
+                <img src="{% static 'homepage/img/user.jpg' %}" alt="User"
+                     onerror="this.src='https://ui-avatars.com/api/?name={{ request.user.fullname|default:request.user.username|urlencode }}&background=009CFF&color=fff&rounded=true'">
+                <span class="online-dot status-online"></span>
+            </div>
+            <span class="username">{{ request.user.fullname|default:request.user.username|default:"Demo" }}</span>
+            <i class="fas fa-chevron-down arrow-icon"></i>
+        </div>
+        <div class="dropdown-body">
+            <a href="{% url 'profile' %}" class="dropdown-link"><i class="far fa-user-circle"></i> Hồ sơ cá nhân</a>
+            <a href="{% url 'profile' %}" class="dropdown-link"><i class="fas fa-cog"></i> Đổi mật khẩu</a>
+            <div class="dropdown-divider"></div>
+            <form id="logout-form" action="{% url 'logout' %}" method="post" style="display: none;">
+                {% csrf_token %}
+            </form>
+            <a href="javascript:void(0)" onclick="document.getElementById('logout-form').submit();" class="dropdown-link logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Đăng xuất
+            </a>
+        </div>
+    </div>
+</header>
+
+<!-- ===== DJANGO MESSAGES ===== -->
+{% if messages %}
+<div class="django-messages" id="djangoMessages">
+    {% for message in messages %}
+    <div class="django-msg {{ message.tags }}">
+        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-times-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i>
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ===== MAIN ===== -->
+<main class="main-content" id="mainContent">
+    <div class="card-wrap">
+        {% block main-content %}{% endblock %}
+    </div>
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer id="footer">
+    &copy; {% now "Y" %} – <strong>Quản lý Bán trú</strong> 🚀 Designed by Duy Khoa
+</footer>
+
+<!-- JS -->
+<script src="{% static 'homepage/js/all.min.js' %}"></script>
+<script src="{% static 'homepage/js/base.js' %}"></script>
+<script src="{% static 'homepage/js/components.js' %}?v=2"></script>
+
+<script>
+// Sidebar collapse toggle
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+});
+
+// Profile dropdown toggle
+document.getElementById('profileDropdown')?.addEventListener('click', function(e) {
+    this.classList.toggle('active');
+    e.stopPropagation();
+});
+document.addEventListener('click', () => {
+    document.getElementById('profileDropdown')?.classList.remove('active');
+});
+
+// Auto-dismiss messages after 4s
+setTimeout(() => {
+    const msgs = document.getElementById('djangoMessages');
+    if (msgs) msgs.style.opacity = '0', msgs.style.transition = 'opacity .5s', setTimeout(() => msgs.remove(), 500);
+}, 4000);
+</script>
+
+{% block extra_js %}{% endblock %}
+<!-- ===== IDLE DETECTION ===== -->
+<script>
+(function(){
+    const IDLE_MS = 5 * 60 * 1000; // 5 phút
+    let idleTimer = null;
+    const dots = document.querySelectorAll('.online-dot');
+
+    function setStatus(cls){
+        dots.forEach(d => {
+            d.classList.remove('status-online','status-idle','status-offline');
+            d.classList.add(cls);
+        });
+    }
+
+    function resetIdle(){
+        setStatus('status-online');
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => setStatus('status-idle'), IDLE_MS);
+    }
+
+    ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(ev =>
+        document.addEventListener(ev, resetIdle, {passive:true})
+    );
+    resetIdle();
+})();
+</script>
+</body>
+</html>

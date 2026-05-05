@@ -1,0 +1,629 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập – Quản lý Bán trú THPT Lê Thị Hồng Gấm</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+/* ============================================================
+   RESET & VARIABLES
+============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    /* Brand colors từ logo trường */
+    --red:    #D0021B;
+    --blue:   #005BAA;
+    --yellow: #F5A623;
+    --green:  #27AE60;
+    --white:  #ffffff;
+
+    /* UI */
+    --bg:          #F7F9FC;
+    --text-main:   #1A2233;
+    --text-muted:  #6B7A99;
+    --border:      #E4E9F2;
+    --shadow-sm:   0 2px 8px rgba(0,0,0,.06);
+    --shadow-md:   0 8px 32px rgba(0,0,0,.10);
+    --shadow-lg:   0 24px 64px rgba(0,0,0,.12);
+    --radius-lg:   20px;
+    --radius-md:   14px;
+    --radius-sm:   10px;
+    --transition:  all .25s cubic-bezier(.4,0,.2,1);
+}
+
+html, body {
+    height: 100%;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    overflow-x: hidden;
+}
+
+/* ── Subtle dot grid background ── */
+body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image: radial-gradient(circle, rgba(0,91,170,.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+}
+
+/* ============================================================
+   LAYOUT
+============================================================ */
+.login-wrapper {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    align-items: stretch;
+}
+
+/* ══════════════════════════════════════════
+   LEFT PANEL – trắng, thông tin trường
+══════════════════════════════════════════ */
+.left-panel {
+    flex: 0 0 46%;
+    background: var(--white);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 52px;
+    position: relative;
+    box-shadow: 4px 0 40px rgba(0,0,0,.05);
+    overflow: hidden;
+}
+
+/* Decorative color stripe ở trên cùng */
+.left-panel::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 5px;
+    background: linear-gradient(90deg,
+        var(--red)    0%,   var(--red)    25%,
+        var(--blue)   25%,  var(--blue)   50%,
+        var(--yellow) 50%,  var(--yellow) 75%,
+        var(--green)  75%,  var(--green)  100%
+    );
+}
+
+/* Decorative circles */
+.deco-circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: .05;
+    pointer-events: none;
+}
+.deco-1 { width: 320px; height: 320px; background: var(--blue);   right: -80px; top: -80px; }
+.deco-2 { width: 200px; height: 200px; background: var(--red);    left: -60px;  bottom: 80px; }
+.deco-3 { width: 140px; height: 140px; background: var(--yellow); right: 40px;  bottom: -40px; }
+
+/* Logo + School name */
+.school-logo-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 40px; position: relative;
+}
+.school-logo {
+    width: 110px; height: 110px;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 16px rgba(0,91,170,.2));
+    transition: transform .4s ease;
+    margin-bottom: 18px;
+}
+.school-logo:hover { transform: scale(1.06) rotate(-2deg); }
+
+.school-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--blue);
+    text-align: center;
+    letter-spacing: .3px;
+    line-height: 1.4;
+}
+.school-sub {
+    font-size: .83rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Divider */
+.panel-divider {
+    width: 60px; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--red), var(--blue), var(--green));
+    margin: 0 auto 28px;
+}
+
+/* System title */
+.sys-title {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: var(--text-main);
+    text-align: center;
+    line-height: 1.2;
+    margin-bottom: 12px;
+}
+.sys-title span { color: var(--blue); }
+
+.sys-desc {
+    font-size: .9rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.7;
+    max-width: 320px;
+    margin: 0 auto 36px;
+}
+
+/* Feature pills */
+.feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    max-width: 360px;
+}
+.feature-pill {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    border: 1.5px solid var(--border);
+    transition: var(--transition);
+}
+.feature-pill:hover {
+    border-color: var(--blue);
+    background: #EFF7FF;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+.feature-pill .pill-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: .95rem;
+}
+.pill-red    { background: #FFF0F2; color: var(--red); }
+.pill-blue   { background: #EFF7FF; color: var(--blue); }
+.pill-yellow { background: #FFFBF0; color: var(--yellow); }
+.pill-green  { background: #F0FFF7; color: var(--green); }
+.feature-pill span {
+    font-size: .8rem; font-weight: 600; color: var(--text-main);
+    line-height: 1.35;
+}
+
+/* Footer */
+.panel-footer {
+    margin-top: 40px;
+    font-size: .76rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+.panel-footer strong { color: var(--blue); }
+
+/* ══════════════════════════════════════════
+   RIGHT PANEL – form đăng nhập
+══════════════════════════════════════════ */
+.right-panel {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px 32px;
+    background: var(--bg);
+    position: relative;
+}
+
+.login-card {
+    width: 100%; max-width: 420px;
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 44px 40px 36px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(0,91,170,.08);
+    animation: cardIn .4s cubic-bezier(.22,.68,0,1.2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Top accent line on card */
+.login-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg,
+        var(--red) 0%, var(--blue) 40%, var(--yellow) 70%, var(--green) 100%);
+}
+
+@keyframes cardIn {
+    from { opacity:0; transform:translateY(28px) scale(.96); }
+    to   { opacity:1; transform:translateY(0) scale(1); }
+}
+
+/* Card header */
+.card-header { text-align: center; margin-bottom: 32px; }
+
+.logo-mini {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 68px; height: 68px;
+    background: #EFF7FF;
+    border-radius: 18px;
+    margin-bottom: 16px;
+    border: 2px solid rgba(0,91,170,.12);
+    box-shadow: 0 4px 16px rgba(0,91,170,.12);
+    transition: var(--transition);
+}
+.logo-mini:hover { transform: scale(1.07); box-shadow: 0 8px 24px rgba(0,91,170,.2); }
+.logo-mini img { width: 44px; height: 44px; object-fit: contain; }
+
+.card-title { font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin-bottom: 6px; }
+.card-subtitle { font-size: .875rem; color: var(--text-muted); }
+
+/* Alert */
+.alert-box {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-radius: var(--radius-sm);
+    font-size: .855rem; font-weight: 600; margin-bottom: 20px;
+}
+.alert-error { background: #FFF0F2; color: var(--red); border: 1.5px solid #FFCCD4; }
+
+/* Form */
+.form-group { margin-bottom: 20px; }
+
+.form-label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .78rem; font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .6px;
+    margin-bottom: 8px;
+}
+.form-label i { color: var(--blue); font-size: .85rem; }
+
+.input-wrap {
+    position: relative; border-radius: var(--radius-sm);
+    transition: box-shadow .2s;
+}
+.input-wrap.focused {
+    box-shadow: 0 0 0 3px rgba(0,91,170,.15);
+    border-radius: var(--radius-sm);
+}
+.form-input {
+    width: 100%; height: 50px;
+    padding: 0 50px 0 18px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: .95rem; font-weight: 500;
+    color: var(--text-main);
+    background: var(--white); outline: none;
+    transition: border-color .2s, background .2s;
+}
+.form-input::placeholder { color: #B8C4D4; font-weight: 400; }
+.form-input:focus { border-color: var(--blue); background: #FAFCFF; }
+.form-input.input-error { border-color: var(--red); background: #FFF9FA; }
+
+.input-icon {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    color: #C0CEDF; font-size: 1.05rem;
+    pointer-events: none; display: flex; align-items: center;
+}
+.input-btn-icon {
+    pointer-events: all; background: none; border: none;
+    cursor: pointer; padding: 6px; border-radius: 7px;
+    transition: color .2s, background .2s;
+}
+.input-btn-icon:hover { color: var(--blue); background: #EFF7FF; }
+
+.field-error { font-size: .78rem; color: var(--red); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+
+/* Options row */
+.options-row {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 24px;
+}
+.checkbox-label {
+    display: flex; align-items: center; gap: 9px;
+    cursor: pointer; font-size: .855rem; font-weight: 500;
+    color: var(--text-muted); user-select: none;
+}
+.checkbox-input { display: none; }
+.checkbox-box {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border); border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s; flex-shrink: 0;
+}
+.checkbox-input:checked + .checkbox-box {
+    background: var(--blue); border-color: var(--blue);
+}
+.checkbox-input:checked + .checkbox-box::after {
+    content: ''; display: block;
+    width: 5px; height: 9px;
+    border: 2px solid #fff; border-top: none; border-left: none;
+    transform: rotate(45deg); margin-top: -2px;
+}
+.forgot-link {
+    font-size: .855rem; color: var(--blue); font-weight: 600;
+    text-decoration: none; transition: color .15s;
+}
+.forgot-link:hover { color: var(--red); text-decoration: underline; }
+
+/* Submit button */
+.btn-login {
+    width: 100%; height: 52px; border: none;
+    border-radius: var(--radius-md);
+    background: var(--blue);
+    color: var(--white);
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 1rem; font-weight: 700;
+    cursor: pointer; letter-spacing: .3px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 6px 20px rgba(0,91,170,.30);
+    transition: var(--transition);
+    margin-bottom: 20px;
+    position: relative; overflow: hidden;
+}
+.btn-login::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, transparent 60%);
+    pointer-events: none;
+}
+.btn-login:hover:not(:disabled) {
+    background: #004A99;
+    box-shadow: 0 10px 28px rgba(0,91,170,.38);
+    transform: translateY(-2px);
+}
+.btn-login:active:not(:disabled) { transform: translateY(0); }
+.btn-login:disabled { opacity: .72; cursor: not-allowed; transform: none; }
+
+.btn-text, .btn-loading {
+    display: inline-flex; align-items: center; gap: 8px;
+    position: relative; z-index: 1;
+}
+
+/* Card footer */
+.card-footer {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    font-size: .79rem; color: #B8C4D4;
+    padding-top: 8px;
+}
+.card-footer i { color: var(--green); }
+
+/* Color dots - decoration */
+.color-dots {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; margin-top: 16px;
+}
+.dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    transition: transform .2s;
+}
+.dot:hover { transform: scale(1.4); }
+.dot-red    { background: var(--red); }
+.dot-blue   { background: var(--blue); }
+.dot-yellow { background: var(--yellow); }
+.dot-green  { background: var(--green); }
+
+/* Shake animation */
+@keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)}
+    40%{transform:translateX(7px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+}
+.shake { animation: shake .5s ease; }
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width: 860px) {
+    .left-panel { flex: 0 0 40%; padding: 40px 32px; }
+    .login-card { padding: 36px 28px 28px; }
+}
+@media (max-width: 640px) {
+    .login-wrapper { flex-direction: column; }
+    .left-panel {
+        flex: none; padding: 28px 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,.06);
+    }
+    .sys-title { font-size: 1.5rem; }
+    .sys-desc { display: none; }
+    .feature-grid { max-width: 100%; grid-template-columns: 1fr 1fr; }
+    .panel-footer { margin-top: 20px; }
+    .right-panel { padding: 28px 16px 40px; }
+    .login-card { padding: 28px 20px 24px; border-radius: 16px; max-width: 100%; }
+}
+    </style>
+</head>
+<body>
+
+<div class="login-wrapper">
+
+    <!-- ══ LEFT PANEL ══ -->
+    <div class="left-panel">
+        <div class="deco-circle deco-1"></div>
+        <div class="deco-circle deco-2"></div>
+        <div class="deco-circle deco-3"></div>
+
+        <!-- Logo trường -->
+        <div class="school-logo-wrap">
+            <img src="{% static 'homepage/img/logo.png' %}" alt="Logo THPT Lê Thị Hồng Gấm" class="school-logo">
+            <div class="school-name">THPT LÊ THỊ HỒNG GẤM</div>
+            <div class="school-sub">Phân hiệu tại TP. Hồ Chí Minh</div>
+        </div>
+
+        <div class="panel-divider"></div>
+
+        <h2 class="sys-title">Hệ thống<br><span>Quản lý Bán trú</span></h2>
+        <p class="sys-desc">
+            Quản lý điểm danh ăn &amp; ngủ, lịch trực giáo viên,
+            báo cáo thống kê — mọi thứ trong tầm tay bạn.
+        </p>
+
+        <div class="feature-grid">
+            <div class="feature-pill">
+                <div class="pill-icon pill-red"><i class="fas fa-utensils"></i></div>
+                <span>Điểm danh<br>ăn trưa</span>
+            </div>
+            <div class="feature-pill">
+                <div class="pill-icon pill-blue"><i class="fas fa-bed"></i></div>
+                <span>Điểm danh<br>ngủ trưa</span>
+            </div>
+            <div class="feature-pill">
+                <div class="pill-icon pill-yellow"><i class="fas fa-calendar-alt"></i></div>
+                <span>Lịch trực<br>giáo viên</span>
+            </div>
+            <div class="feature-pill">
+                <div class="pill-icon pill-green"><i class="fas fa-chart-bar"></i></div>
+                <span>Báo cáo &amp;<br>thống kê</span>
+            </div>
+        </div>
+
+        <div class="panel-footer">
+            &copy; 2026 &ndash; Thiết kế bởi <strong>Duy Khoa</strong>
+        </div>
+    </div>
+
+    <!-- ══ RIGHT PANEL ══ -->
+    <div class="right-panel">
+        <div class="login-card">
+
+            <div class="card-header">
+                <div class="logo-mini">
+                    <img src="{% static 'homepage/img/logo.png' %}" alt="Logo">
+                </div>
+                <h2 class="card-title">Đăng nhập</h2>
+                <p class="card-subtitle">Nhập thông tin tài khoản để tiếp tục</p>
+            </div>
+
+            <!-- Error alert (ẩn khi không có lỗi) -->
+            <!-- <div class="alert-box alert-error" id="login-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>Tên đăng nhập hoặc mật khẩu không đúng.</span>
+            </div> -->
+
+            {% if form.errors or messages %}<div class="alert-box alert-error" id="login-error"><i class="fas fa-exclamation-circle"></i><span>Tên đăng nhập hoặc mật khẩu không đúng.</span></div>{% endif %}
+<form id="login-form" method="post" action="{% url 'login' %}" novalidate>
+{% csrf_token %}
+<input type="hidden" name="next" value="{{ next }}">
+
+                <div class="form-group">
+                    <label class="form-label" for="id_username">
+                        <i class="fas fa-user"></i> Tên đăng nhập
+                    </label>
+                    <div class="input-wrap">
+                        <input type="text" id="id_username" name="username"
+                            class="form-input {% if form.username.errors %}input-error{% endif %}" placeholder="Nhập tên đăng nhập..."
+                            autocomplete="username" autofocus>
+                        <span class="input-icon"><i class="fas fa-user-circle"></i></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_password">
+                        <i class="fas fa-lock"></i> Mật khẩu
+                    </label>
+                    <div class="input-wrap">
+                        <input type="password" id="id_password" name="password"
+                            class="form-input {% if form.password.errors %}input-error{% endif %}" placeholder="Nhập mật khẩu..."
+                            autocomplete="current-password">
+                        <button type="button" class="input-icon input-btn-icon"
+                            id="togglePassword" title="Hiện/ẩn mật khẩu">
+                            <i class="fas fa-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="options-row">
+                    <label class="checkbox-label" for="id_remember">
+                        <input type="checkbox" id="id_remember" class="checkbox-input" name="remember">
+                        <span class="checkbox-box"></span>
+                        <span>Ghi nhớ đăng nhập</span>
+                    </label>
+                    <a href="#" class="forgot-link">Quên mật khẩu?</a>
+                </div>
+
+                <button type="submit" class="btn-login" id="btn-login">
+                    <span class="btn-text">
+                        <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                    </span>
+                    <span class="btn-loading" style="display:none;">
+                        <i class="fas fa-circle-notch fa-spin"></i> Đang xử lý...
+                    </span>
+                </button>
+            </form>
+
+            <div class="card-footer">
+                <i class="fas fa-shield-alt"></i>
+                Kết nối bảo mật – Dữ liệu được mã hoá
+            </div>
+
+            <div class="color-dots">
+                <div class="dot dot-red"   title="Màu đỏ"></div>
+                <div class="dot dot-blue"  title="Màu xanh"></div>
+                <div class="dot dot-yellow"title="Màu vàng"></div>
+                <div class="dot dot-green" title="Màu xanh lục"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+/* Toggle password */
+document.getElementById('togglePassword').addEventListener('click', function () {
+    const pw = document.getElementById('id_password');
+    const ic = document.getElementById('eyeIcon');
+    if (pw.type === 'password') { pw.type = 'text'; ic.classList.replace('fa-eye','fa-eye-slash'); }
+    else { pw.type = 'password'; ic.classList.replace('fa-eye-slash','fa-eye'); }
+});
+
+/* ── Ghi nhớ đăng nhập (localStorage) ── */
+const KEY_REMEMBER = 'qlbt_remember';
+const usernameEl = document.getElementById('id_username');
+const passwordEl = document.getElementById('id_password');
+const rememberEl = document.getElementById('id_remember');
+
+// Khôi phục thông tin đã lưu
+(function _restoreSaved() {
+    try {
+        const saved = localStorage.getItem(KEY_REMEMBER);
+        if (!saved) return;
+        const data = JSON.parse(atob(saved));
+        if (data.u) usernameEl.value = data.u;
+        if (data.p) passwordEl.value = data.p;
+        rememberEl.checked = true;
+    } catch(e) { localStorage.removeItem(KEY_REMEMBER); }
+})();
+
+// Lưu hoặc xóa khi submit form
+document.getElementById('login-form').addEventListener('submit', function (e) {
+    if (rememberEl.checked) {
+        const data = { u: usernameEl.value, p: passwordEl.value };
+        localStorage.setItem(KEY_REMEMBER, btoa(JSON.stringify(data)));
+    } else {
+        localStorage.removeItem(KEY_REMEMBER);
+    }
+
+    // Loading animation
+    const btn = document.getElementById('btn-login');
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+});
+
+/* Focus effects */
+document.querySelectorAll('.form-input').forEach(input => {
+    input.addEventListener('focus',  () => input.closest('.input-wrap').classList.add('focused'));
+    input.addEventListener('blur',   () => input.closest('.input-wrap').classList.remove('focused'));
+});
+
+/* Shake on error */
+const errEl = document.getElementById('login-error');
+if (errEl) {
+    document.querySelectorAll('.form-input').forEach(el => el.classList.add('shake'));
+    setTimeout(() => document.querySelectorAll('.form-input').forEach(el => el.classList.remove('shake')), 600);
+}
+</script>
+</body>
+</html>
+
