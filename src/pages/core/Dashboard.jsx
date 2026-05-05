@@ -115,50 +115,13 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* ── Hero Banner ── */}
-      <div className="dash-hero">
-        <div className="dash-hero-left">
-          <div className="dash-hero-school">
-            <i className="fas fa-school"></i>
-            <span>Trường THPT Lê Thị Hồng Gấm</span>
-            {data?.nam_hoc && <span className="dash-hero-year">NH {data.nam_hoc}</span>}
-          </div>
-          <h1>Thống kê điểm danh bán trú</h1>
-          <p>
-            {today.day.charAt(0).toUpperCase() + today.day.slice(1)}, ngày {today.date}
-          </p>
-          <div className="dash-hero-badges">
-            <span className="dash-badge">
-              <i className="fas fa-utensils"></i> Ăn trưa: <strong>{stat.eating ?? 0}</strong> HS ({eatPct}%)
-            </span>
-            <span className="dash-badge">
-              <i className="fas fa-moon"></i> Nghỉ trưa: <strong>{stat.sleeping ?? 0}</strong> HS ({sleepPct}%)
-            </span>
-            {(stat.absent ?? 0) > 0 && (
-              <span className="dash-badge dash-badge-alert">
-                <i className="fas fa-exclamation-circle"></i> Vắng: <strong>{stat.absent}</strong> HS
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="dash-hero-right">
-          <div className="dash-hero-stat">
-            <span className="dash-hero-stat-label">TỔNG HỌC SINH</span>
-            <div className="big-num">{stat.total ?? 0}</div>
-            <span className="dash-hero-stat-sub">học sinh bán trú</span>
-          </div>
-          <div className="dash-hero-mini-stats">
-            <div className="dash-mini-stat dash-mini-male">
-              <i className="fas fa-mars"></i>
-              <span>Nam</span>
-              <strong>{stat.male ?? 0}</strong>
-            </div>
-            <div className="dash-mini-stat dash-mini-female">
-              <i className="fas fa-venus"></i>
-              <span>Nữ</span>
-              <strong>{stat.female ?? 0}</strong>
-            </div>
-          </div>
+      {/* ── Header gọn ── */}
+      <div className="content-header">
+        <h2 className="page-title">Thống kê điểm danh bán trú</h2>
+        <div className="today-badge">
+          <i className="fas fa-calendar-day"></i>
+          <span>{today.day.charAt(0).toUpperCase() + today.day.slice(1)}, {today.date}</span>
+          {data?.nam_hoc && <span style={{ borderLeft:'1px solid #BAE6FD', paddingLeft:10, marginLeft:4 }}>NH {data.nam_hoc}</span>}
         </div>
       </div>
 
