@@ -26,15 +26,6 @@ import CauHinh  from './pages/quanli/CauHinh';
 import Profile   from './pages/accounts/Profile';
 import TaiKhoan from './pages/quanli/TaiKhoan';
 
-// ── Placeholder cho các trang chưa làm ──
-const Placeholder = ({ name }) => (
-  <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
-    <i className="fas fa-tools" style={{ fontSize: '3rem', color: '#009CFF', marginBottom: '16px', display: 'block' }}></i>
-    <h2 style={{ fontWeight: 800, color: '#1a202c', marginBottom: '8px' }}>{name}</h2>
-    <p>Trang này đang được phát triển.</p>
-  </div>
-);
-
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
