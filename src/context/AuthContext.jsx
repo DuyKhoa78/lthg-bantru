@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (username, password, remember = false) => {
-    const res = await api.post('/login/', { username, password, remember });
+    const res = await api.post('/auth-proxy/login/', { username, password, remember });
     if (res.data?.ok) {
       setUser(res.data.user);
       return res.data.user;
@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/logout/');
+      await api.post('/auth-proxy/logout/');
     } catch { /* ignore */ }
     setUser(null);
   }, []);

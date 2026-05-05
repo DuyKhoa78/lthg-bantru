@@ -3,6 +3,24 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/api/*"
+  to = "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/auth-proxy/login/"
+  to = "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/login/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/auth-proxy/logout/"
+  to = "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/logout/"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
