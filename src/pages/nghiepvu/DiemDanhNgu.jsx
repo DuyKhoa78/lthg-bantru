@@ -48,6 +48,7 @@ export default function DiemDanhNgu() {
   const [exportRooms, setExportRooms] = useState([]);
 
   const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
+  const [namHocCauHinh, setNamHocCauHinh] = useState('2025-2026');
 
 
   // Load phòng & học sinh (1 lần)
@@ -59,7 +60,10 @@ export default function DiemDanhNgu() {
     ]).then(([pRes, hRes, cRes]) => {
       if (pRes.data?.ok) setPhongList(pRes.data.phong);
       if (hRes.data?.ok) setHsList(hRes.data.hocsinh);
-      if (cRes.data?.ok && cRes.data.he_thong) setNguoiPhuTrach(cRes.data.he_thong.nguoi_phu_trach || 'Người phụ trách');
+      if (cRes.data?.ok && cRes.data.he_thong) {
+        setNguoiPhuTrach(cRes.data.he_thong.nguoi_phu_trach || 'Người phụ trách');
+        setNamHocCauHinh(cRes.data.he_thong.nam_hoc || '2025-2026');
+      }
     }).catch(console.error);
   }, []);
 
@@ -233,7 +237,7 @@ export default function DiemDanhNgu() {
       const aoa = [
         ['Phân hiệu THPT Lê Thị Hồng Gấm','','','ĐIỂM DANH NGHỈ TRƯA',...Array(NC-4).fill('')],
         ['','','','3 KHỐI',...Array(NC-4).fill('')],
-        ['','','',`NH: ${yearStart} - ${yearStart+1}`,...Array(NC-4).fill('')],
+        ['','','',`NH: ${namHocCauHinh}`,...Array(NC-4).fill('')],
         [weekLabel,'','',LUU_Y_NGU,...Array(NC-4).fill('')],
         Array(NC).fill(''), h1, h2,
       ];
@@ -292,7 +296,7 @@ export default function DiemDanhNgu() {
       <td class="hdr-school" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
       <td class="hdr-title"><h1>ĐIỂM DANH NGHỈ TRƯA</h1></td>
     </tr><tr><td class="hdr-title">
-      <h2>3 KHỐI – NH: ${yearStart}–${yearStart+1}</h2>
+      <h2>3 KHỐI – NH: ${namHocCauHinh}</h2>
       <div class="nh">11g45–13g00 | ${weekLabel} | Phòng ngủ: ${ma_phong}</div>
     </td></tr></table>
   </td></tr>
@@ -416,7 +420,7 @@ ${htmlPages}
         <td class="hdr-title"><h1>ĐIỂM DANH NGHỈ TRƯA</h1></td>
       </tr><tr>
         <td class="hdr-title">
-          <h2>3 KHỐI – NH: ${yearStart}–${yearStart+1}</h2>
+          <h2>3 KHỐI – NH: ${namHocCauHinh}</h2>
           <div class="nh">Thời gian: 11g45–13g00 &nbsp;|&nbsp; Tháng ${exportMonth}/${exportYear} &nbsp;|&nbsp; Phòng ngủ: ${ma_phong}</div>
         </td>
       </tr></table>

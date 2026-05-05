@@ -49,13 +49,17 @@ export default function DiemDanhAn() {
   const [exportRooms, setExportRooms] = useState([]);
 
   const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
+  const [namHocCauHinh, setNamHocCauHinh] = useState('2025-2026');
 
   useEffect(() => {
     Promise.all([api.get('/api/phong/an'), api.get('/api/hocsinh/an'), api.get('/api/cauhinh/').catch(() => ({ data: { ok: false } }))])
       .then(([pRes, hRes, cRes]) => {
         if (pRes.data?.ok) setPhongList(pRes.data.phong);
         if (hRes.data?.ok) setHsList(hRes.data.hocsinh);
-        if (cRes.data?.ok && cRes.data.he_thong) setNguoiPhuTrach(cRes.data.he_thong.nguoi_phu_trach || 'Người phụ trách');
+        if (cRes.data?.ok && cRes.data.he_thong) {
+          setNguoiPhuTrach(cRes.data.he_thong.nguoi_phu_trach || 'Người phụ trách');
+          setNamHocCauHinh(cRes.data.he_thong.nam_hoc || '2025-2026');
+        }
       }).catch(console.error);
   }, []);
 
@@ -208,7 +212,7 @@ export default function DiemDanhAn() {
       let merges = [];
 
       aoa.push(['Phân hiệu THPT', '', 'ĐIỂM DANH ĂN TRƯA', ...Array(NC-3).fill('')]);
-      aoa.push(['Lê Thị Hồng Gấm', '', `NĂM HỌC ${exportYear}-${exportYear+1}`, ...Array(NC-3).fill('')]);
+      aoa.push(['Lê Thị Hồng Gấm', '', `NĂM HỌC ${namHocCauHinh}`, ...Array(NC-3).fill('')]);
       
       const r2 = ['Thời gian bắt đầu ăn 11g00 đến 11g35', '', 'Thời gian nghỉ trưa: 11g45 13g00', '', `THÁNG ${exportMonth}/${exportYear} (${startDateStr} - ${endDateStr})`, '', '', t5Str, '', '', `${numDays} buổi ăn`, ...Array(NC-11).fill('')];
       aoa.push(r2);
@@ -331,7 +335,7 @@ export default function DiemDanhAn() {
         <td class="hdr-title-an"><h1>ĐIỂM DANH ĂN TRƯA</h1></td>
       </tr><tr>
         <td class="hdr-title-an">
-          <h2>NĂM HỌC ${exportYear} – ${exportYear + 1}</h2>
+          <h2>NĂM HỌC ${namHocCauHinh}</h2>
           <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; Tháng ${exportMonth}/${exportYear} &nbsp;|&nbsp; Phòng ăn: ${ma_phong}</div>
         </td>
       </tr></table>
