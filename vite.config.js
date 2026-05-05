@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/lthg-bantru/',           // đổi thành thư mục github pages
+  base: '/',           // Cấu hình base thành '/' khi dùng Netlify hoặc tên miền riêng
   build: {
     outDir: 'dist',
   },
