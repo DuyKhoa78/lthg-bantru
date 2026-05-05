@@ -118,30 +118,47 @@ export default function Dashboard() {
       {/* ── Hero Banner ── */}
       <div className="dash-hero">
         <div className="dash-hero-left">
-          <h1>Xin chào! Chào mừng trở lại 👋</h1>
+          <div className="dash-hero-school">
+            <i className="fas fa-school"></i>
+            <span>Trường THPT Lê Thị Hồng Gấm</span>
+            {data?.nam_hoc && <span className="dash-hero-year">NH {data.nam_hoc}</span>}
+          </div>
+          <h1>Thống kê điểm danh bán trú</h1>
           <p>
-            Hệ thống Quản lý Bán trú · Trường THPT Lê Thị Hồng Gấm<br/>
-            {today.day.charAt(0).toUpperCase() + today.day.slice(1)}, {today.date}
-            {data?.nam_hoc && <>&nbsp;·&nbsp; Năm học <strong>{data.nam_hoc}</strong></>}
+            {today.day.charAt(0).toUpperCase() + today.day.slice(1)}, ngày {today.date}
           </p>
           <div className="dash-hero-badges">
             <span className="dash-badge">
-              <i className="fas fa-utensils"></i> Ăn: {stat.eating ?? 0} HS ({eatPct}%)
+              <i className="fas fa-utensils"></i> Ăn trưa: <strong>{stat.eating ?? 0}</strong> HS ({eatPct}%)
             </span>
             <span className="dash-badge">
-              <i className="fas fa-bed"></i> Ngủ: {stat.sleeping ?? 0} HS ({sleepPct}%)
+              <i className="fas fa-moon"></i> Nghỉ trưa: <strong>{stat.sleeping ?? 0}</strong> HS ({sleepPct}%)
             </span>
             {(stat.absent ?? 0) > 0 && (
-              <span className="dash-badge" style={{ background: 'rgba(239,68,68,0.2)', borderColor: 'rgba(252,165,165,0.4)' }}>
-                <i className="fas fa-user-minus"></i> Vắng: {stat.absent} HS
+              <span className="dash-badge dash-badge-alert">
+                <i className="fas fa-exclamation-circle"></i> Vắng: <strong>{stat.absent}</strong> HS
               </span>
             )}
           </div>
         </div>
         <div className="dash-hero-right">
-          <small>TỔNG HỌC SINH</small>
-          <div className="big-num">{stat.total ?? 0}</div>
-          <small>bán trú</small>
+          <div className="dash-hero-stat">
+            <span className="dash-hero-stat-label">TỔNG HỌC SINH</span>
+            <div className="big-num">{stat.total ?? 0}</div>
+            <span className="dash-hero-stat-sub">học sinh bán trú</span>
+          </div>
+          <div className="dash-hero-mini-stats">
+            <div className="dash-mini-stat dash-mini-male">
+              <i className="fas fa-mars"></i>
+              <span>Nam</span>
+              <strong>{stat.male ?? 0}</strong>
+            </div>
+            <div className="dash-mini-stat dash-mini-female">
+              <i className="fas fa-venus"></i>
+              <span>Nữ</span>
+              <strong>{stat.female ?? 0}</strong>
+            </div>
+          </div>
         </div>
       </div>
 

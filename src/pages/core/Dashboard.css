@@ -20,73 +20,129 @@
 
 /* ── Hero Banner ─────────────────────────────────────── */
 .dash-hero {
-  background: linear-gradient(135deg, #0f3460 0%, #006db3 55%, #009CFF 100%);
+  background: linear-gradient(135deg, #0b1e3d 0%, #0d3272 50%, #0a5abf 100%);
   border-radius: 22px;
   padding: 28px 32px;
   margin-bottom: 28px;
   color: #fff;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
   position: relative;
   overflow: hidden;
   animation: slideUp 0.4s ease both;
-  box-shadow: 0 16px 40px rgba(0, 100, 200, 0.22);
+  box-shadow: 0 20px 48px rgba(10, 35, 90, 0.28);
 }
 .dash-hero::before {
   content: '';
-  position: absolute; top: -60px; right: -60px;
-  width: 260px; height: 260px; border-radius: 50%;
-  background: rgba(255,255,255,0.06);
+  position: absolute; top: -80px; right: 180px;
+  width: 300px; height: 300px; border-radius: 50%;
+  background: rgba(255,255,255,0.04);
 }
 .dash-hero::after {
   content: '';
-  position: absolute; bottom: -40px; right: 160px;
-  width: 160px; height: 160px; border-radius: 50%;
-  background: rgba(255,255,255,0.04);
+  position: absolute; bottom: -50px; right: -50px;
+  width: 220px; height: 220px; border-radius: 50%;
+  background: rgba(0,156,255,0.10);
 }
-.dash-hero-left { position: relative; z-index: 1; }
+
+.dash-hero-left {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; gap: 10px;
+  flex: 1;
+}
+
+.dash-hero-school {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.82rem; font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.2px;
+}
+.dash-hero-school i { color: #38bdf8; font-size: 0.9rem; }
+.dash-hero-year {
+  background: rgba(56,189,248,0.2);
+  border: 1px solid rgba(56,189,248,0.35);
+  color: #7dd3fc;
+  padding: 2px 10px; border-radius: 10px;
+  font-size: 0.75rem; font-weight: 700;
+  margin-left: 4px;
+}
+
 .dash-hero-left h1 {
-  font-size: 1.65rem; font-weight: 800;
-  letter-spacing: -0.4px; margin-bottom: 6px;
+  font-size: 1.7rem; font-weight: 800;
+  letter-spacing: -0.5px; line-height: 1.2;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 .dash-hero-left p {
-  font-size: 0.9rem; opacity: 0.8;
+  font-size: 0.88rem; color: rgba(255,255,255,0.62);
   font-weight: 400; line-height: 1.5;
 }
+
 .dash-hero-badges {
   display: flex; gap: 10px; flex-wrap: wrap;
-  margin-top: 14px;
+  margin-top: 4px;
 }
 .dash-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.14);
-  border: 1px solid rgba(255,255,255,0.22);
-  padding: 6px 14px; border-radius: 20px;
-  font-size: 0.82rem; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 7px 14px; border-radius: 20px;
+  font-size: 0.82rem; font-weight: 500;
+  color: rgba(255,255,255,0.88);
   backdrop-filter: blur(4px);
+  transition: background 0.2s;
 }
-.dash-badge i { font-size: 0.85rem; }
+.dash-badge strong { font-weight: 800; color: #fff; }
+.dash-badge i { opacity: 0.8; font-size: 0.8rem; }
+.dash-badge:hover { background: rgba(255,255,255,0.16); }
+.dash-badge-alert {
+  background: rgba(239,68,68,0.18);
+  border-color: rgba(252,165,165,0.35);
+  color: #fca5a5;
+}
+.dash-badge-alert strong { color: #fca5a5; }
 
+/* Right panel */
 .dash-hero-right {
   position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  align-items: center; gap: 4px;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 18px; padding: 20px 28px;
   text-align: center; flex-shrink: 0;
-  min-width: 130px;
+  min-width: 170px;
+  backdrop-filter: blur(6px);
 }
-.dash-hero-right .big-num {
+.dash-hero-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dash-hero-stat-label {
+  font-size: 0.68rem; font-weight: 800;
+  letter-spacing: 1.5px; color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+}
+.big-num {
   font-size: 3.6rem; font-weight: 900;
-  letter-spacing: -3px; line-height: 1;
+  letter-spacing: -3px; line-height: 1; color: #fff;
   animation: numPop 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.3s both;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.2);
 }
-.dash-hero-right small {
-  font-size: 0.78rem; opacity: 0.75; font-weight: 500;
+.dash-hero-stat-sub {
+  font-size: 0.75rem; color: rgba(255,255,255,0.5); font-weight: 500;
 }
+
+.dash-hero-mini-stats { display: flex; gap: 10px; width: 100%; }
+.dash-mini-stat {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  border-radius: 12px; padding: 10px 8px;
+  font-size: 0.78rem;
+}
+.dash-mini-stat i    { font-size: 1rem; margin-bottom: 2px; }
+.dash-mini-stat span { font-size: 0.72rem; font-weight: 500; opacity: 0.75; }
+.dash-mini-stat strong { font-size: 1.15rem; font-weight: 900; }
+.dash-mini-male   { background: rgba(59,130,246,0.22); color: #93c5fd; }
+.dash-mini-female { background: rgba(244,114,182,0.22); color: #f9a8d4; }
 
 /* ── Stat Cards ─────────────────────────────────────── */
 .stats-container {
@@ -151,32 +207,34 @@
 }
 .stat-card-footer b { font-weight: 800; }
 
-/* Lam */
-.stat-card-item.blue .stat-card-icon-wrap  { background: linear-gradient(135deg, #38bdf8, #0369a1); box-shadow: 0 6px 18px rgba(0,156,255,0.28); }
-.stat-card-item.blue .stat-card-icon-wrap::after { background: radial-gradient(circle, rgba(0,156,255,0.35), transparent 70%); }
-.stat-card-item.blue .stat-card-text p     { color: #0369a1; }
+/* Lam – Tổng HS */
+.stat-card-item.blue .stat-card-icon-wrap  { background: linear-gradient(135deg, #2563eb, #1e3a8a); box-shadow: 0 6px 20px rgba(37,99,235,0.35); }
+.stat-card-item.blue .stat-card-icon-wrap::after { background: radial-gradient(circle, rgba(37,99,235,0.35), transparent 70%); }
+.stat-card-item.blue .stat-card-text p     { color: #1e3a8a; }
 .stat-card-item.blue .stat-card-text h3    { color: #1d4ed8; }
-.stat-card-item.blue .stat-card-footer     { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
+.stat-card-item.blue .stat-card-footer     { border-color: #bfdbfe; background: #eff6ff; color: #1e40af; }
 .stat-card-item.blue .stat-card-footer b   { color: #1d4ed8; }
 
-/* Lục */
-.stat-card-item.green .stat-card-icon-wrap { background: linear-gradient(135deg, #34d399, #166534); box-shadow: 0 6px 18px rgba(22,163,74,0.28); }
+/* Lục – Ăn */
+.stat-card-item.green .stat-card-icon-wrap { background: linear-gradient(135deg, #16a34a, #14532d); box-shadow: 0 6px 20px rgba(22,163,74,0.35); }
 .stat-card-item.green .stat-card-icon-wrap::after { background: radial-gradient(circle, rgba(22,163,74,0.35), transparent 70%); }
-.stat-card-item.green .stat-card-text p    { color: #166534; }
+.stat-card-item.green .stat-card-text p    { color: #14532d; }
 .stat-card-item.green .stat-card-text h3   { color: #15803d; }
-.stat-card-item.green .stat-card-footer    { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.stat-card-item.green .stat-card-footer    { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.stat-card-item.green .stat-card-footer b  { color: #15803d; }
 
-/* Vàng */
-.stat-card-item.purple .stat-card-icon-wrap { background: linear-gradient(135deg, #fbbf24, #92400e); box-shadow: 0 6px 18px rgba(217,119,6,0.28); }
+/* Vàng – Ngủ */
+.stat-card-item.purple .stat-card-icon-wrap { background: linear-gradient(135deg, #d97706, #78350f); box-shadow: 0 6px 20px rgba(217,119,6,0.35); }
 .stat-card-item.purple .stat-card-icon-wrap::after { background: radial-gradient(circle, rgba(217,119,6,0.35), transparent 70%); }
-.stat-card-item.purple .stat-card-text p    { color: #92400e; }
+.stat-card-item.purple .stat-card-text p    { color: #78350f; }
 .stat-card-item.purple .stat-card-text h3   { color: #b45309; }
-.stat-card-item.purple .stat-card-footer    { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+.stat-card-item.purple .stat-card-footer    { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+.stat-card-item.purple .stat-card-footer b  { color: #b45309; }
 
-/* Đỏ */
-.stat-card-item.orange .stat-card-icon-wrap { background: linear-gradient(135deg, #f87171, #991b1b); box-shadow: 0 6px 18px rgba(220,38,38,0.28); }
+/* Đỏ – Vắng */
+.stat-card-item.orange .stat-card-icon-wrap { background: linear-gradient(135deg, #dc2626, #7f1d1d); box-shadow: 0 6px 20px rgba(220,38,38,0.35); }
 .stat-card-item.orange .stat-card-icon-wrap::after { background: radial-gradient(circle, rgba(220,38,38,0.35), transparent 70%); }
-.stat-card-item.orange .stat-card-text p    { color: #991b1b; }
+.stat-card-item.orange .stat-card-text p    { color: #7f1d1d; }
 .stat-card-item.orange .stat-card-text h3   { color: #dc2626; }
 .stat-card-item.orange .stat-card-footer    { border-color: #fca5a5; background: #fff5f5; color: #991b1b; }
 .stat-card-item.orange .stat-card-footer b  { color: #dc2626; }
