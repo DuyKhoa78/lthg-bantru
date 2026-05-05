@@ -18,7 +18,8 @@ api.interceptors.response.use(
     const is401 = error.response?.status === 401;
     // Không redirect vòng lặp từ /api/auth/me – AuthContext tự xử lý
     if (is401 && !url.includes('/api/auth/me') && !window.location.pathname.includes('/login')) {
-      window.location.href = '/login';
+      const basePath = import.meta.env.BASE_URL || '/';
+      window.location.href = `${basePath}login`.replace('//', '/');
     }
     return Promise.reject(error);
   }
