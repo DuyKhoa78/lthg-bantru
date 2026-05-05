@@ -64,7 +64,7 @@ export default function Login() {
         <div className="deco-circle deco-3"></div>
 
         <div className="school-logo-wrap">
-          <img src="/logo.png" alt="Logo THPT Lê Thị Hồng Gấm" className="school-logo" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo THPT Lê Thị Hồng Gấm" className="school-logo" />
           <div className="school-name">THPT LÊ THỊ HỒNG GẤM</div>
           <div className="school-sub">Phân hiệu tại TP. Hồ Chí Minh</div>
         </div>
@@ -101,7 +101,7 @@ export default function Login() {
           {/* Card Header */}
           <div className="card-header">
             <div className="logo-mini">
-              <img src="/logo.png" alt="Logo" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" />
             </div>
             <h2 className="card-title">Đăng nhập</h2>
             <p className="card-subtitle">Nhập thông tin tài khoản để tiếp tục</p>

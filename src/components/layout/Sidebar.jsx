@@ -57,7 +57,7 @@ export default function Sidebar({ collapsed, mobileOpen }) {
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} id="sidebar">
       {/* Logo */}
       <div className="sidebar-logo">
-        <img src="/logo.png" alt="Logo THPT Lê Thị Hồng Gấm" />
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo THPT Lê Thị Hồng Gấm" />
         <div className="sidebar-logo-text">
           <span className="sidebar-logo-title">QL BÁN TRÚ</span>
           <span className="sidebar-logo-name">THPT Lê Thị Hồng Gấm</span>
