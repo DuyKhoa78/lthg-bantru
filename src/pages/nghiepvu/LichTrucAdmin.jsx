@@ -65,6 +65,8 @@ export default function LichTrucAdmin() {
 
   // Confirm delete
   const [confirmDelete, setConfirmDelete] = useState(null);
+  // Confirm clear day (Nghỉ)
+  const [confirmClearDay, setConfirmClearDay] = useState(null); // Date object
 
   // ─── Computed ───────────────────────────────────────────────────────
   const weekDays = useMemo(() => {
@@ -199,8 +201,14 @@ export default function LichTrucAdmin() {
     finally { setLoading(false); }
   };
 
-  const clearDay = async (d) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa TOÀN BỘ lịch phân công ngày ${toDateStr(d)} (đánh dấu là ngày nghỉ bán trú)?`)) return;
+  const clearDay = (d) => {
+    setConfirmClearDay(d);
+  };
+
+  const doClearDay = async () => {
+    const d = confirmClearDay;
+    setConfirmClearDay(null);
+    if (!d) return;
     try {
       const res = await api.post('/api/lichtruc/clear-day/', { ngay: toDateStr(d) });
       if (res.data?.ok) { showAlert(res.data.message, 'success'); await loadWeek(weekStart); }
@@ -213,8 +221,21 @@ export default function LichTrucAdmin() {
       if (d.getDay() === 0 || d.getDay() === 6) {
         showAlert('Chỉ có thể nạp tự động cho T2-T6', 'warning'); return;
       }
+      const thuNames = ['', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'];
+      const tenThu = thuNames[d.getDay()] || d.getDay();
       const res = await api.post('/api/lichtruc/apply-day-bu/', { targetDate: toDateStr(d), sourceThu, force: false });
-      if (res.data?.ok) { showAlert(res.data.message, 'success'); await loadWeek(weekStart); }
+      if (res.data?.ok) {
+        const { inserted = 0, skipped = 0 } = res.data;
+        if (inserted === 0 && skipped === 0) {
+          showAlert(
+            `Chưa có lịch khung cho Thứ ${tenThu}. Vui lòng vào "Lịch Khung Cố Định" để thiết lập trước, hoặc thêm giáo viên thủ công bằng nút [+] trong từng ô phòng.`,
+            'warning'
+          );
+        } else {
+          showAlert(res.data.message, 'success');
+        }
+        await loadWeek(weekStart);
+      }
     } catch (err) { showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger'); }
   };
 
@@ -354,7 +375,7 @@ export default function LichTrucAdmin() {
                       <div style={{ fontSize: '0.65rem', fontWeight: 'normal', display: 'flex', justifyContent: 'center' }}>
                         {dayHasSchedule ? (
                           <button 
-                            style={{ background: isToday ? 'rgba(255,255,255,0.2)' : '#fee2e2', border: 'none', borderRadius: 4, padding: '3px 8px', color: isToday ? '#fff' : '#ef4444', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 600 }}
+                            style={{ background: isToday ? '#fff' : '#dc2626', border: 'none', borderRadius: 4, padding: '3px 8px', color: isToday ? '#dc2626' : '#fff', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}
                             onClick={() => clearDay(d)}
                             title="Đánh dấu ngày này là ngày nghỉ bán trú"
                           >
@@ -362,7 +383,7 @@ export default function LichTrucAdmin() {
                           </button>
                         ) : (
                           <button 
-                            style={{ background: isToday ? 'rgba(255,255,255,0.2)' : '#dcfce7', border: 'none', borderRadius: 4, padding: '3px 8px', color: isToday ? '#fff' : '#10b981', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 600 }}
+                            style={{ background: isToday ? '#fff' : '#059669', border: 'none', borderRadius: 4, padding: '3px 8px', color: isToday ? '#059669' : '#fff', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}
                             onClick={() => applyDay(d)}
                             title="Tạo lịch phân công từ khung cố định cho ngày này"
                           >
@@ -563,7 +584,7 @@ export default function LichTrucAdmin() {
 
       {AlertUI}
 
-      {/* ─── Modal Xác nhận xóa ─── */}
+      {/* ─── Modal Xác nhận xóa phân công ─── */}
       {confirmDelete && (
         <div className="modal-overlay open">
           <div className="modal-box" style={{ maxWidth: 360, textAlign: 'center' }}>
@@ -574,6 +595,29 @@ export default function LichTrucAdmin() {
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                 <button className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>Hủy</button>
                 <button className="btn btn-danger" onClick={doDelete}><i className="fas fa-trash"></i> Xóa</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Xác nhận đánh dấu Nghỉ ─── */}
+      {confirmClearDay && (
+        <div className="modal-overlay open">
+          <div className="modal-box" style={{ maxWidth: 400, textAlign: 'center' }}>
+            <div style={{ padding: '24px 16px 16px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>🚫</div>
+              <h3 style={{ marginBottom: 6, fontSize: '1rem' }}>Đánh dấu ngày nghỉ bán trú</h3>
+              <p style={{ color: '#64748b', marginBottom: 8, fontSize: '0.85rem' }}>
+                Xóa <strong>toàn bộ</strong> lịch phân công ngày
+              </p>
+              <p style={{ color: '#ef4444', fontWeight: 700, fontSize: '1rem', marginBottom: 20 }}>
+                {toDateStr(confirmClearDay)}
+              </p>
+              <p style={{ color: '#64748b', marginBottom: 20, fontSize: '0.8rem' }}>Thao tác này không thể hoàn tác.</p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button className="btn btn-ghost" onClick={() => setConfirmClearDay(null)}>Hủy</button>
+                <button className="btn btn-danger" onClick={doClearDay}><i className="fas fa-ban"></i> Đánh dấu Nghỉ</button>
               </div>
             </div>
           </div>

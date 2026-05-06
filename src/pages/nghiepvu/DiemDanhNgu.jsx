@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
+import { cachedFetch } from '../../utils/cache';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import { removeAccents } from '../../utils/stringUtils';
 import '../../styles/admin.css';
@@ -58,18 +59,18 @@ export default function DiemDanhNgu() {
     const [namHocCauHinh, setNamHocCauHinh] = useState('2025-2026');
 
 
-    // Load phòng & học sinh (1 lần)
+    // Load phòng & học sinh (cache sessionStorage 30 phút)
     useEffect(() => {
         Promise.all([
-            api.get('/api/phong/ngu'),
-            api.get('/api/hocsinh/ngu'),
-            api.get('/api/cauhinh/').catch(() => ({ data: { ok: false } }))
-        ]).then(([pRes, hRes, cRes]) => {
-            if (pRes.data?.ok) setPhongList(pRes.data.phong);
-            if (hRes.data?.ok) setHsList(hRes.data.hocsinh);
-            if (cRes.data?.ok && cRes.data.he_thong) {
-                setNguoiPhuTrach(cRes.data.he_thong.nguoi_phu_trach || 'Người phụ trách');
-                setNamHocCauHinh(cRes.data.he_thong.nam_hoc || '2025-2026');
+            cachedFetch('cache_phong_ngu', () => api.get('/api/phong/ngu').then(r => r.data?.phong || [])),
+            cachedFetch('cache_hocsinh_ngu', () => api.get('/api/hocsinh/ngu').then(r => r.data?.hocsinh || [])),
+            cachedFetch('cache_cauhinh', () => api.get('/api/cauhinh/').then(r => r.data?.he_thong || null), 60 * 60 * 1000),
+        ]).then(([{ data: phong }, { data: hs }, { data: cauhinh }]) => {
+            if (phong) setPhongList(phong);
+            if (hs) setHsList(hs);
+            if (cauhinh) {
+                setNguoiPhuTrach(cauhinh.nguoi_phu_trach || 'Người phụ trách');
+                setNamHocCauHinh(cauhinh.nam_hoc || '2025-2026');
             }
         }).catch(console.error);
     }, []);
@@ -108,7 +109,7 @@ export default function DiemDanhNgu() {
         if (!selectedPhong) return [];
         const base = hsList.filter(hs => hs.phong_ngu === selectedPhong.ma_phong);
         return base.map(s => {
-            const dbStatusStr = diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'comat';
+            const dbStatusStr = diemDanhDb[s.id] != null ? STATUS_MAP[diemDanhDb[s.id]] : 'comat';
             return {
                 ...s,
                 trang_thai: overrides[s.id] ?? dbStatusStr
@@ -122,7 +123,7 @@ export default function DiemDanhNgu() {
         phongList.forEach(p => {
             const hsTrongPhong = hsList.filter(hs => hs.phong_ngu === p.ma_phong);
             if (hsTrongPhong.length === 0) return;
-            if (hsTrongPhong.some(hs => diemDanhDb[hs.id] !== undefined)) {
+            if (hsTrongPhong.every(hs => diemDanhDb[hs.id] != null)) {
                 markedCount++;
                 markedRooms.add(p.ma_phong);
             }
@@ -222,7 +223,7 @@ export default function DiemDanhNgu() {
     }, [showMonthExportModal, date]);
 
     // ── XUẤT EXCEL THEO TUẦN (NGỦ) ───────────────────────────────────
-    const exportWeekExcel = () => {
+    const exportWeekExcel = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng!', 'warning');
         const allWeekMons = computeWeekMondayStrs(exportMonth, exportYear);
         const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT5);
@@ -230,10 +231,26 @@ export default function DiemDanhNgu() {
         const NC = 7 + numDays + 1;
         const mon = weekDays[0], fri = weekDays[weekDays.length - 1];
         const weekLabel = `Tuần ${exportSelectedWeek + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)} – ${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}/${exportYear}`;
+        const toISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+
+        // Fetch dữ liệu điểm danh thực tế
+        let ddMap = {};
+        try {
+            const rRes = await api.get(`/api/diemdanh/range/?tu=${toISO(mon)}&den=${toISO(fri)}`);
+            if (rRes.data?.ok) ddMap = rRes.data.map;
+        } catch { /* bỏ qua */ }
+
+        const getSym = (hsId, day) => {
+            const val = ddMap[hsId]?.[toISO(day)]?.ngu;
+            if (val === 0) return '✓';
+            if (val === 1) return '✗';
+            if (val === 2) return 'P';
+            return '';
+        };
 
         const wb = XLSX.utils.book_new();
         exportRooms.forEach(ma_phong => {
-            const roomStudents = hsList.filter(s => s.phong_ngu === ma_phong);
+            const roomStudents = hsList.filter(s => s.phong_ngu === ma_phong).sort((a, b) => a.id - b.id);
             const h1 = ['STT', 'Mã\nsố BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'P.\nNGỦ', 'P.\nĂN'];
             const h2 = ['', '', '', '', '', '', ''];
             weekDays.forEach(d => { h1.push(`${d.getDate()}/${d.getMonth() + 1}`); h2.push(`T${d.getDay() === 0 ? 'CN' : d.getDay() + 1}`); });
@@ -246,7 +263,9 @@ export default function DiemDanhNgu() {
                 Array(NC).fill(''), h1, h2,
             ];
             roomStudents.forEach((s, i) => {
-                aoa.push([i + 1, s.id, s.ho_ten, s.gioi_tinh === 0 ? 'Nam' : 'Nữ', s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...Array(numDays).fill(''), '']);
+                const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                const dayCells = weekDays.map(d => getSym(s.id, d));
+                aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells, '']);
             });
             const ws = XLSX.utils.aoa_to_sheet(aoa);
             ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 }), { wch: 12 }];
@@ -261,57 +280,162 @@ export default function DiemDanhNgu() {
         setShowMonthExportModal(false);
     };
 
+
     // ── XUẤT PDF THEO TUẦN (NGỦ) ─────────────────────────────────────
-    const exportWeekPDF = () => {
+    const exportWeekPDF = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng!', 'warning');
         const allWeekMons = computeWeekMondayStrs(exportMonth, exportYear);
         const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT5);
         const numDays = weekDays.length;
         const mon = weekDays[0], fri = weekDays[weekDays.length - 1];
         const weekLabel = `Tuần ${exportSelectedWeek + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
-        const numCols = 7 + numDays + 1;
+        const toISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+
+        // Fetch dữ liệu điểm danh thực tế
+        let ddMap = {};
+        try {
+            const rRes = await api.get(`/api/diemdanh/range/?tu=${toISO(mon)}&den=${toISO(fri)}`);
+            if (rRes.data?.ok) ddMap = rRes.data.map;
+        } catch { /* bỏ qua */ }
+
+
 
         const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
         const dayTH = weekDays.map((d, di) =>
             `<th class="col-day"${di === 0 ? ' style="border-left:1.5px solid #333;"' : ''}>${d.getDate()}/${p2(d.getMonth() + 1)}<br><small>${DOWS[d.getDay()]}</small></th>`
         ).join('');
-        const htmlPages = exportRooms.map(ma_phong => {
+        // ── Hàm chia danh sách HS theo số GV điểm danh, ưu tiên theo lớp, lệch không quá 10 HS ──
+        const splitByTeachers = (students, numTeachers) => {
+            if (numTeachers <= 1) return [students];
+            // Gom theo lớp
+            const byClass = {};
+            students.forEach(s => {
+                const k = s.lop || '';
+                if (!byClass[k]) byClass[k] = [];
+                byClass[k].push(s);
+            });
+            const classes = Object.keys(byClass).sort();
+            // Phân bổ lớp vào các nhóm (bin-packing greedy)
+            const groups = Array.from({ length: numTeachers }, () => []);
+            const sizes = Array(numTeachers).fill(0);
+            classes.forEach(cls => {
+                // Cho vào nhóm ít HS nhất
+                const minIdx = sizes.indexOf(Math.min(...sizes));
+                byClass[cls].forEach(s => groups[minIdx].push(s));
+                sizes[minIdx] += byClass[cls].length;
+            });
+            // Cân bằng: nếu 2 nhóm lệch > 10 thì chuyển HS lẻ (không phá vỡ lớp nếu còn thừa)
+            const MAX_DIFF = 10;
+            let changed = true;
+            while (changed) {
+                changed = false;
+                for (let i = 0; i < groups.length; i++) {
+                    for (let j = 0; j < groups.length; j++) {
+                        if (i === j) continue;
+                        const diff = groups[i].length - groups[j].length;
+                        if (diff > MAX_DIFF) {
+                            // Tìm lớp trong nhóm i có thể di chuyển nguyên lớp sang j
+                            const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) => {
+                                const sa = groups[i].filter(s => (s.lop || '') === a).length;
+                                const sb = groups[i].filter(s => (s.lop || '') === b).length;
+                                return sa - sb; // Ưu tiên lớp nhỏ nhất
+                            });
+                            let moved = false;
+                            for (const cls of clsInI) {
+                                const clsStudents = groups[i].filter(s => (s.lop || '') === cls);
+                                const newDiff = (groups[i].length - clsStudents.length) - (groups[j].length + clsStudents.length);
+                                if (Math.abs(newDiff) < Math.abs(diff)) {
+                                    clsStudents.forEach(s => groups[j].push(s));
+                                    groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
+                                    sizes[i] -= clsStudents.length;
+                                    sizes[j] += clsStudents.length;
+                                    changed = true;
+                                    moved = true;
+                                    break;
+                                }
+                            }
+                            if (moved) break;
+                        }
+                    }
+                    if (changed) break;
+                }
+            }
+            return groups.filter(g => g.length > 0);
+        };
+
+        const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = hsList.filter(s => s.phong_ngu === ma_phong);
+            const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
+            const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
             const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
             const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
-            const dataRows = roomStudents.map((s, i) => {
-                const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                const dayCells = weekDays.map((_d, di) =>
-                    `<td class="col-day"${di === 0 ? ' style="border-left:1.5px solid #555;"' : ''}></td>`).join('');
-                return `<tr>
-          <td class="col-stt">${i + 1}</td><td class="col-msbt">${s.id}</td>
+
+            // Phòng "đã điểm danh" khi TẤT CẢ học sinh trong phòng đó có record (khớp với UI)
+            const markedDays = new Set(
+                weekDays.map(d => toISO(d)).filter(dateStr =>
+                    roomStudents.length > 0 && roomStudents.every(s => ddMap[s.id]?.[dateStr]?.ngu != null)
+                )
+            );
+
+            // Hàm lấy ký hiệu: nếu phòng chưa điểm danh ngày đó → trống toàn bộ
+            const getSymForRoom = (hsId, day) => {
+                const dateStr = toISO(day);
+                if (!markedDays.has(dateStr)) return ''; // phòng chưa điểm danh ngày này → trắng
+                const val = ddMap[hsId]?.[dateStr]?.ngu;
+                if (val === 0) return '<span class="mk-c">✓</span>';
+                if (val === 1) return '<span class="mk-v">✗</span>';
+                if (val === 2) return '<span class="mk-p">P</span>';
+                return '';
+            };
+
+            // Chia danh sách theo số GV điểm danh
+            const chunks = splitByTeachers(roomStudents, numTeachers);
+            const totalPages = chunks.length;
+
+            // Tính offset STT toàn phòng
+            const offsets = [];
+            let off = 0;
+            chunks.forEach(chunk => {
+                chunk.sort((a, b) => a.id - b.id);
+                offsets.push(off);
+                off += chunk.length;
+            });
+
+            return chunks.map((chunk, pageIdx) => {
+                const pageLabel = totalPages > 1 ? ` (Tờ ${pageIdx + 1}/${totalPages})` : '';
+                const globalOffset = offsets[pageIdx];
+
+                const dataRows = chunk.map((s, i) => {
+                    const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                    const dayCells = weekDays.map((d, di) =>
+                        `<td class="col-day"${di === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${getSymForRoom(s.id, d)}</td>`).join('');
+                    return `<tr>
+          <td class="col-stt">${globalOffset + i + 1}</td><td class="col-msbt">${s.id}</td>
           <td style="text-align:left;padding-left:6px;">${s.ho_ten}</td>
           <td class="col-gt">${gt}</td><td class="col-lop">${s.lop}</td>
           <td class="col-phong">${s.phong_ngu || ma_phong}</td>
           <td class="col-phong">${s.phong_an || ''}</td>
           ${dayCells}<td class="col-ghichu"></td>
         </tr>`;
-            }).join('');
-            return `<div class="room-block">
+                }).join('');
+                return `<div class="room-block">
+<table class="hdr-inner"><tr>
+  <td class="hdr-school" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
+  <td class="hdr-title"><h1>ĐIỂM DANH NGHỈ TRƯA</h1></td>
+</tr><tr><td class="hdr-title">
+  <h2>3 KHỐI – NH: ${namHocCauHinh}${pageLabel}</h2>
+  <div class="nh">11g45–13g00 | ${weekLabel} | Phòng ngủ: ${ma_phong}</div>
+</td></tr></table>
+<div class="ly-row-div"><span style="color:#e11d48">Mở cửa: 11g35–11g45</span>&nbsp;&nbsp;<strong style="color:#e11d48">Nghỉ trưa: 11g45–13g00</strong></div>
+<div class="ly-row-div">${LUU_Y_NGU}</div>
 <table class="dt"><thead>
-  <tr class="hdr-row"><td colspan="${numCols}">
-    <table class="hdr-inner"><tr>
-      <td class="hdr-school" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
-      <td class="hdr-title"><h1>ĐIỂM DANH NGHỈ TRƯA</h1></td>
-    </tr><tr><td class="hdr-title">
-      <h2>3 KHỐI – NH: ${namHocCauHinh}</h2>
-      <div class="nh">11g45–13g00 | ${weekLabel} | Phòng ngủ: ${ma_phong}</div>
-    </td></tr></table>
-  </td></tr>
-  <tr class="ly-row"><td colspan="${numCols}"><span style="color:#e11d48">Mở cửa: 11g35–11g45</span>&nbsp;&nbsp;<strong style="color:#e11d48">Nghỉ trưa: 11g45–13g00</strong></td></tr>
-  <tr class="ly-row"><td colspan="${numCols}">${LUU_Y_NGU}</td></tr>
   <tr>
     <th rowspan="2" class="col-stt">ST<br>T</th>
     <th rowspan="2" class="col-msbt" style="color:#c00;">Mã<br>số<br>BT</th>
     <th rowspan="2" style="width:24%;">HỌ VÀ TÊN</th>
     <th rowspan="2" class="col-gt">GT</th>
-    <th rowspan="2" class="col-lop">LỚP</th>
+    <th rowspan="2" class="col-lop">LớP</th>
     <th rowspan="2" class="col-phong">P.<br>NGỦ</th>
     <th rowspan="2" class="col-phong">P.<br>ĂN</th>
     <th colspan="${numDays}" style="white-space:nowrap;">${weekLabel}</th>
@@ -321,7 +445,7 @@ export default function DiemDanhNgu() {
 </thead><tbody>${dataRows}</tbody></table>
 <div class="ft-wrap">
   <div class="ft-left">
-    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong></div>
+    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
     <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
     <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
     <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
@@ -333,24 +457,27 @@ export default function DiemDanhNgu() {
     <div class="sig-name">${nguoiPhuTrach}</div>
   </div>
 </div></div>`;
+            });
         }).join('');
         const css = `
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Times New Roman',Times,serif; font-size:9pt; color:#000; }
+body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
+.mk-c { color:#16a34a; font-weight:bold; }
+.mk-v { color:#dc2626; font-weight:bold; }
+.mk-p { color:#d97706; font-weight:bold; }
 .room-block { page-break-before: always; }
 .room-block:first-of-type { page-break-before: auto; }
+.ly-row-div { padding:2px 4px; font-size:9pt; line-height:1.2; margin-bottom:2px; }
 .dt { width:100%; border-collapse:collapse; }
-.dt thead tr.hdr-row td,.dt thead tr.ly-row td { border:none; }
-.dt thead tr.ly-row td { padding:2px 4px; font-size:8pt; line-height:1.4; }
 .hdr-inner { width:100%; border-collapse:collapse; margin-bottom:2px; }
-.hdr-inner td { border:none; padding:3px 6px; vertical-align:middle; }
-.hdr-school { width:28%; text-align:center; font-size:9pt; line-height:1.5; }
+.hdr-inner td { border:none; padding:2px 4px; vertical-align:middle; }
+.hdr-school { width:28%; text-align:center; font-size:10pt; line-height:1.3; }
 .hdr-title { text-align:center; }
-.hdr-title h1 { font-size:12pt; font-weight:bold; text-transform:uppercase; }
-.hdr-title h2 { font-size:9pt; font-weight:bold; }
-.hdr-title .nh { font-size:8pt; }
-.dt th { border:0.8px solid #333; padding:2px; text-align:center; background:#ececec; font-weight:bold; font-size:8pt; }
-.dt td { border:0.8px solid #555; padding:2px; vertical-align:middle; font-size:9pt; }
+.hdr-title h1 { font-size:14pt; font-weight:bold; text-transform:uppercase; }
+.hdr-title h2 { font-size:11pt; font-weight:bold; }
+.hdr-title .nh { font-size:10pt; }
+.dt th { border:0.8px solid #333; padding:3px 1px; text-align:center; background:#ececec; font-weight:bold; font-size:9pt; }
+.dt td { border:0.8px solid #555; padding:4px 1px; vertical-align:middle; font-size:11pt; }
 .col-stt{width:4mm;text-align:center}.col-msbt{width:8mm;text-align:center;font-weight:bold}
 .col-gt{width:6mm;text-align:center}.col-lop{width:9mm;text-align:center}
 .col-phong{width:9mm;text-align:center}.col-day{width:9mm;text-align:center;height:22px}
@@ -442,7 +569,7 @@ ${htmlPages}
                                                 <i className={isMarked ? 'fas fa-check' : 'fas fa-exclamation'}></i>
                                             </div>
                                             <div className="dd-room-item-name">
-                                                <i className="fas fa-moon" style={{ color: '#6c5ce7' }}></i>{p.ma_phong}
+                                                <i className="fas fa-bed" style={{ color: '#6c5ce7' }}></i>{p.ma_phong}
                                             </div>
                                             <span className="dd-room-count">{count} HS</span>
                                         </li>
@@ -615,6 +742,11 @@ ${htmlPages}
                                         <i className="fas fa-calendar-plus"></i> Tuần này có dạy bù Thứ Năm (T5)
                                     </span>
                                 </label>
+                            </div>
+
+                            {/* Ghi chú chia tờ theo GV điểm danh */}
+                            <div style={{ padding: '6px 10px', borderRadius: 7, background: '#f0eeff', border: '1px solid #ddd6fe', fontSize: '0.83rem', color: '#5b21b6' }}>
+                                <i className="fas fa-info-circle"></i> PDF sẽ chia tờ theo <strong>số GV điểm danh</strong> của từng phòng, ưu tiên giữ nguyên lớp và không lệch quá 10 HS.
                             </div>
 
                             {/* CHỌN PHÒNG NGỦ */}

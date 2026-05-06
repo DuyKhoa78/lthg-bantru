@@ -14,8 +14,8 @@ function loaiLabel(p) {
   return p.gioi_tinh === 0 ? 'Phòng ngủ Nam' : 'Phòng ngủ Nữ';
 }
 function loaiBadge(p) {
-  if (p.loai_phong === 0) return 'badge-info';
-  return p.gioi_tinh === 0 ? 'badge-primary' : 'badge-warning';
+  if (p.loai_phong === 0) return 'badge-success';
+  return p.gioi_tinh === 0 ? 'badge-info' : 'badge-purple';
 }
 
 function PhongCard({ p, isAdmin, onEdit, onDelete }) {
@@ -23,7 +23,7 @@ function PhongCard({ p, isAdmin, onEdit, onDelete }) {
   return (
     <div className={`phong-card${p.loai_phong === 0 ? ' an' : p.gioi_tinh === 0 ? ' nam' : ' nu'}`}>
       <div className="phong-card-header">
-        <i className={`fas ${p.loai_phong === 0 ? 'fa-utensils' : 'fa-moon'}`}></i>
+        <i className={`fas ${p.loai_phong === 0 ? 'fa-utensils' : 'fa-bed'}`}></i>
         <span>{p.ma_phong}</span>
         <span className={`badge ${loaiBadge(p)}`}>{loaiLabel(p)}</span>
       </div>
@@ -151,7 +151,7 @@ export default function Phong() {
       <div className="stat-cards-row">
         <div className="stat-card blue"><div className="stat-card-icon"><i className="fas fa-door-open"></i></div><div className="stat-card-info"><p>Tổng phòng</p><h3>{stats.total}</h3></div></div>
         <div className="stat-card green"><div className="stat-card-icon"><i className="fas fa-utensils"></i></div><div className="stat-card-info"><p>Phòng ăn</p><h3>{stats.phongAn}</h3></div></div>
-        <div className="stat-card purple"><div className="stat-card-icon"><i className="fas fa-moon"></i></div><div className="stat-card-info"><p>Phòng ngủ</p><h3>{stats.phongNgu}</h3></div></div>
+        <div className="stat-card purple"><div className="stat-card-icon"><i className="fas fa-bed"></i></div><div className="stat-card-info"><p>Phòng ngủ</p><h3>{stats.phongNgu}</h3></div></div>
       </div>
 
       {/* Filter */}

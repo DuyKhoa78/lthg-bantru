@@ -11,11 +11,15 @@
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .phong-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
-.phong-card.an   { border-color: #bfdbfe; }
-.phong-card.nam  { border-color: #a5f3fc; }
-.phong-card.nu   { border-color: #fbcfe8; }
+.phong-card.an   { border-color: #bbf7d0; }
+.phong-card.nam  { border-color: #bae6fd; }
+.phong-card.nu   { border-color: #e9d5ff; }
+
 .phong-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-weight: 700; font-size: 0.9rem; }
-.phong-card-header i { color: var(--primary); }
+.phong-card-header i { color: var(--primary); font-size: 1.1rem; }
+.phong-card.an .phong-card-header i { color: #16a34a; }
+.phong-card.nam .phong-card-header i { color: #0284c7; }
+.phong-card.nu .phong-card-header i { color: #9333ea; }
 .phong-card-header span:first-of-type { flex: 1; }
 .capacity-info { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
 .capacity-bar { height: 8px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }

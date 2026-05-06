@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
+import { cachedFetch } from '../../utils/cache';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import { removeAccents } from '../../utils/stringUtils';
 import '../../styles/admin.css';
@@ -57,16 +58,20 @@ export default function DiemDanhAn() {
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
     const [namHocCauHinh, setNamHocCauHinh] = useState('2025-2026');
 
+    // Load phòng & học sinh (cache sessionStorage 30 phút)
     useEffect(() => {
-        Promise.all([api.get('/api/phong/an'), api.get('/api/hocsinh/an'), api.get('/api/cauhinh/').catch(() => ({ data: { ok: false } }))])
-            .then(([pRes, hRes, cRes]) => {
-                if (pRes.data?.ok) setPhongList(pRes.data.phong);
-                if (hRes.data?.ok) setHsList(hRes.data.hocsinh);
-                if (cRes.data?.ok && cRes.data.he_thong) {
-                    setNguoiPhuTrach(cRes.data.he_thong.nguoi_phu_trach || 'Người phụ trách');
-                    setNamHocCauHinh(cRes.data.he_thong.nam_hoc || '2025-2026');
-                }
-            }).catch(console.error);
+        Promise.all([
+            cachedFetch('cache_phong_an', () => api.get('/api/phong/an').then(r => r.data?.phong || [])),
+            cachedFetch('cache_hocsinh_an', () => api.get('/api/hocsinh/an').then(r => r.data?.hocsinh || [])),
+            cachedFetch('cache_cauhinh', () => api.get('/api/cauhinh/').then(r => r.data?.he_thong || null), 60 * 60 * 1000),
+        ]).then(([{ data: phong }, { data: hs }, { data: cauhinh }]) => {
+            if (phong) setPhongList(phong);
+            if (hs) setHsList(hs);
+            if (cauhinh) {
+                setNguoiPhuTrach(cauhinh.nguoi_phu_trach || 'Người phụ trách');
+                setNamHocCauHinh(cauhinh.nam_hoc || '2025-2026');
+            }
+        }).catch(console.error);
     }, []);
 
     const fetchDiemDanh = useCallback((d) => {
@@ -103,7 +108,7 @@ export default function DiemDanhAn() {
         phongList.forEach(p => {
             const hsTrongPhong = hsList.filter(hs => hs.phong_an === p.ma_phong);
             if (hsTrongPhong.length === 0) return;
-            if (hsTrongPhong.some(hs => diemDanhDb[hs.id] !== undefined)) {
+            if (hsTrongPhong.every(hs => diemDanhDb[hs.id] != null)) {
                 markedCount++;
                 markedRooms.add(p.ma_phong);
             }
@@ -184,7 +189,7 @@ export default function DiemDanhAn() {
     }, [showMonthExportModal, date]);
 
     // ── XUẤT EXCEL THEO THÁNG ──────────────────────────────────────────
-    const exportMonthlyExcel = () => {
+    const exportMonthlyExcel = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng để xuất Excel!', 'warning');
         if (exportWeeksActive.length === 0) return showAlert('Vui lòng chọn ít nhất 1 tuần để xuất!', 'warning');
 
@@ -200,19 +205,34 @@ export default function DiemDanhAn() {
 
         const numDays = allDays.length;
         const NC = 6 + numDays + 4;
+        const toISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+        const tuStr = toISO(allDays[0]);
+        const denStr = toISO(allDays[allDays.length - 1]);
+
+        // Fetch dữ liệu điểm danh thực tế
+        let ddMap = {};
+        try {
+            const rRes = await api.get(`/api/diemdanh/range/?tu=${tuStr}&den=${denStr}`);
+            if (rRes.data?.ok) ddMap = rRes.data.map;
+        } catch { /* bỏ qua lỗi */ }
+
+        const getSym = (hsId, day) => {
+            const val = ddMap[hsId]?.[toISO(day)]?.an;
+            if (val === 0) return '✓';
+            if (val === 1) return '✗';
+            if (val === 2) return 'P';
+            return '';
+        };
 
         const startDateStr = `${p2(allDays[0].getDate())}/${allDays[0].getMonth() + 1}`;
         const endDateStr = `${p2(allDays[allDays.length - 1].getDate())}/${allDays[allDays.length - 1].getMonth() + 1}/${exportYear}`;
-
-
-        // Collect the T5 dates for the string
         const t5Dates = allDays.filter(d => d.getDay() === 4).map(d => `${d.getDate()}/${d.getMonth() + 1}`);
         const t5Str = t5Dates.length > 0 ? `có học bù ${t5Dates.length} ngày thứ 5 (${t5Dates.join(' và ')})` : 'không học bù thứ 5';
 
         const wb = XLSX.utils.book_new();
 
         exportRooms.forEach(ma_phong => {
-            const roomStudents = hsList.filter(s => s.phong_an === ma_phong);
+            const roomStudents = hsList.filter(s => s.phong_an === ma_phong).sort((a, b) => a.id - b.id);
             let aoa = [];
             let merges = [];
 
@@ -223,7 +243,7 @@ export default function DiemDanhAn() {
             aoa.push(r2);
 
             aoa.push(['Lưu ý: HS di chuyển đến đúng vị trí/phòng ăn đã phân công; giữ gìn vệ sinh khu vực ăn và chấp hành điều động của thầy cô.', ...Array(NC - 1).fill('')]);
-            aoa.push(Array(NC).fill('')); // Empty note row
+            aoa.push(Array(NC).fill(''));
 
             const h1 = ['STT', 'STT\nDS BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'Phòng\nĂn'];
             const h2 = ['', '', '', '', '', ''];
@@ -233,7 +253,7 @@ export default function DiemDanhAn() {
                 h2.push(d.getDay() === 0 ? 'CN' : (d.getDay() + 1).toString());
             });
 
-            h1.push('TS\nbuổi\năn', 'SB\nVắng\năn có', 'Số buổi\năn thực\ntế', 'Ghi\nchú');
+            h1.push('TS\nBuổi ăn', 'SB\nVắng', 'Vắng\ncó P', 'Buổi ăn\nthực tế');
             h2.push('', '', '', '');
 
             aoa.push(h1);
@@ -242,14 +262,17 @@ export default function DiemDanhAn() {
             merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }, { s: { r: 0, c: 2 }, e: { r: 0, c: 5 } });
             merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 1 } }, { s: { r: 1, c: 2 }, e: { r: 1, c: 5 } });
             merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: NC - 1 } });
-
-            // Headers merges
             for (let c = 0; c < 6; c++) merges.push({ s: { r: 5, c: c }, e: { r: 6, c: c } });
             for (let c = NC - 4; c < NC; c++) merges.push({ s: { r: 5, c: c }, e: { r: 6, c: c } });
 
             roomStudents.forEach((s, i) => {
                 const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                aoa.push([i + 1, i + 1, s.ho_ten, gt, s.lop, ma_phong, ...Array(numDays).fill(''), numDays, numDays, numDays, '']);
+                const dayCells = allDays.map(d => getSym(s.id, d));
+                const sbVang = dayCells.filter(v => v === '✗').length;
+                const sbPhep = dayCells.filter(v => v === 'P').length;
+                const thucTe = dayCells.filter(v => v === '✓').length;
+                const hasAttendance = dayCells.some(v => v !== '');
+                aoa.push([i + 1, i + 1, s.ho_ten, gt, s.lop, ma_phong, ...dayCells, numDays, sbVang || '', sbPhep || '', hasAttendance ? thucTe : '']);
             });
 
             const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -268,7 +291,7 @@ export default function DiemDanhAn() {
     };
 
     // ── XUẤT PDF THEO THÁNG ──────────────────────────────────────────
-    const exportMonthlyPDF = () => {
+    const exportMonthlyPDF = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng để xuất PDF!', 'warning');
 
         if (exportWeeksActive.length === 0) return showAlert('Vui lòng chọn ít nhất 1 tuần để xuất!', 'warning');
@@ -286,7 +309,24 @@ export default function DiemDanhAn() {
         });
 
         const totalDays = weeksData.reduce((s, w) => s + w.days.length, 0);
-        const numCols = 6 + totalDays + 5;
+        const toISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+        const allDaysList = weeksData.flatMap(w => w.days);
+
+        // Fetch dữ liệu điểm danh thực tế
+        let ddMap = {};
+        try {
+            const rRes = await api.get(`/api/diemdanh/range/?tu=${toISO(allDaysList[0])}&den=${toISO(allDaysList[allDaysList.length - 1])}`);
+            if (rRes.data?.ok) ddMap = rRes.data.map;
+        } catch { /* bỏ qua lỗi */ }
+
+        const getSymHTML = (hsId, day) => {
+            const val = ddMap[hsId]?.[toISO(day)]?.an;
+            if (val === 0) return '<span class="mk-c">✓</span>';
+            if (val === 1) return '<span class="mk-v">✗</span>';
+            if (val === 2) return '<span class="mk-p">P</span>';
+            return '';
+        };
+        const getSymVal = (hsId, day) => ddMap[hsId]?.[toISO(day)]?.an;
 
         const today = new Date();
         const todayStr = `TP Hồ Chí Minh, ngày ${today.getDate()} tháng ${today.getMonth() + 1} năm ${today.getFullYear()}`;
@@ -302,21 +342,92 @@ export default function DiemDanhAn() {
             ).join('')
         ).join('');
 
-        const htmlPages = exportRooms.map(ma_phong => {
+        // ── Hàm chia danh sách HS theo số GV điểm danh, ưu tiên theo lớp, lệch không quá 10 HS ──
+        const splitByTeachers = (students, numTeachers) => {
+            if (numTeachers <= 1) return [students];
+            const byClass = {};
+            students.forEach(s => {
+                const k = s.lop || '';
+                if (!byClass[k]) byClass[k] = [];
+                byClass[k].push(s);
+            });
+            const classes = Object.keys(byClass).sort();
+            const groups = Array.from({ length: numTeachers }, () => []);
+            const sizes = Array(numTeachers).fill(0);
+            classes.forEach(cls => {
+                const minIdx = sizes.indexOf(Math.min(...sizes));
+                byClass[cls].forEach(s => groups[minIdx].push(s));
+                sizes[minIdx] += byClass[cls].length;
+            });
+            const MAX_DIFF = 10;
+            let changed = true;
+            while (changed) {
+                changed = false;
+                for (let i = 0; i < groups.length; i++) {
+                    for (let j = 0; j < groups.length; j++) {
+                        if (i === j) continue;
+                        const diff = groups[i].length - groups[j].length;
+                        if (diff > MAX_DIFF) {
+                            const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) => {
+                                return groups[i].filter(s => (s.lop||'')===a).length - groups[i].filter(s => (s.lop||'')===b).length;
+                            });
+                            let moved = false;
+                            for (const cls of clsInI) {
+                                const clsStu = groups[i].filter(s => (s.lop || '') === cls);
+                                const newDiff = (groups[i].length - clsStu.length) - (groups[j].length + clsStu.length);
+                                if (Math.abs(newDiff) < Math.abs(diff)) {
+                                    clsStu.forEach(s => groups[j].push(s));
+                                    groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
+                                    sizes[i] -= clsStu.length;
+                                    sizes[j] += clsStu.length;
+                                    changed = true; moved = true; break;
+                                }
+                            }
+                            if (moved) break;
+                        }
+                    }
+                    if (changed) break;
+                }
+            }
+            return groups.filter(g => g.length > 0);
+        };
+
+        const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = hsList.filter(s => s.phong_an === ma_phong);
+            const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
+            const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
             const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
             const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
 
-            const dataRows = roomStudents.map((s, i) => {
-                const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                const dayCells = weeksData.map((_w) =>
-                    _w.days.map((d, di) =>
-                        `<td class="col-day-an"${di === 0 ? ' style="border-left:1.5px solid #555;"' : ''}></td>`
-                    ).join('')
-                ).join('');
-                return `<tr>
-          <td class="col-stt-an">${i + 1}</td>
+            const chunks = splitByTeachers(roomStudents, numTeachers);
+            const totalPages = chunks.length;
+            const offsets = [];
+            let off = 0;
+            chunks.forEach(chunk => {
+                chunk.sort((a, b) => a.id - b.id);
+                offsets.push(off);
+                off += chunk.length;
+            });
+
+            return chunks.map((chunk, pageIdx) => {
+                const pageLabel = totalPages > 1 ? ` (Tờ ${pageIdx + 1}/${totalPages})` : '';
+                const globalOffset = offsets[pageIdx];
+
+                const dataRows = chunk.map((s, i) => {
+                    const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                    const dayCells = weeksData.map((_w) =>
+                        _w.days.map((d, di) =>
+                            `<td class="col-day-an"${di === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${getSymHTML(s.id, d)}</td>`
+                        ).join('')
+                    ).join('');
+                    const allVals = weeksData.flatMap(w => w.days.map(d => getSymVal(s.id, d)));
+                    const sbVang = allVals.filter(v => v === 1).length;
+                    const sbPhep = allVals.filter(v => v === 2).length;
+                    const thucTe = allVals.filter(v => v === 0 || v === 1).length;
+                    const hasAttendance = allVals.some(v => v !== undefined && v !== null);
+                    return `<tr>
+          <td class="col-stt-an">${globalOffset + i + 1}</td>
           <td class="col-msbt-an">${s.id}</td>
           <td class="col-ten-an">${s.ho_ten}</td>
           <td class="col-gt-an">${gt}</td>
@@ -324,34 +435,32 @@ export default function DiemDanhAn() {
           <td class="col-phong-an">${s.phong_an || ma_phong}</td>
           ${dayCells}
           <td class="col-sum-an">${totalDays}</td>
-          <td class="col-sum-an"></td>
-          <td class="col-sum-an"></td>
-          <td class="col-sum-an"></td>
+          <td class="col-sum-an">${sbVang || ''}</td>
+          <td class="col-sum-an">${sbPhep || ''}</td>
+          <td class="col-sum-an">${hasAttendance ? thucTe : ''}</td>
           <td class="col-ghichu-an"></td>
         </tr>`;
-            }).join('');
+                }).join('');
 
-            return `<div class="room-block">
+                return `<div class="room-block">
+<table class="hdr-inner-an"><tr>
+  <td class="hdr-school-an" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
+  <td class="hdr-title-an"><h1>ĐIỂM DANH ĂN TRƯA</h1></td>
+</tr><tr>
+  <td class="hdr-title-an">
+    <h2>NĂM HỌC ${namHocCauHinh}${pageLabel}</h2>
+    <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; Tháng ${exportMonth}/${exportYear} &nbsp;|&nbsp; Phòng ăn: ${ma_phong}</div>
+  </td>
+</tr></table>
+<div class="ly-row-an-div">${luuY}</div>
 <table class="dt-an">
   <thead>
-    <tr class="hdr-row-an"><td colspan="${numCols}">
-      <table class="hdr-inner-an"><tr>
-        <td class="hdr-school-an" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
-        <td class="hdr-title-an"><h1>ĐIỂM DANH ĂN TRƯA</h1></td>
-      </tr><tr>
-        <td class="hdr-title-an">
-          <h2>NĂM HỌC ${namHocCauHinh}</h2>
-          <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; Tháng ${exportMonth}/${exportYear} &nbsp;|&nbsp; Phòng ăn: ${ma_phong}</div>
-        </td>
-      </tr></table>
-    </td></tr>
-    <tr class="ly-row-an"><td colspan="${numCols}">${luuY}</td></tr>
     <tr>
       <th rowspan="2" class="col-stt-an">ST<br>T</th>
       <th rowspan="2" class="col-msbt-an" style="color:#c00;">Mã<br>số<br>BT</th>
       <th rowspan="2" class="col-ten-an">HỌC SINH</th>
       <th rowspan="2" class="col-gt-an">GT</th>
-      <th rowspan="2" class="col-lop-an">LỚP</th>
+      <th rowspan="2" class="col-lop-an">LớP</th>
       <th rowspan="2" class="col-phong-an">P.<br>ĂN</th>
       ${weekTH1}
       <th rowspan="2" class="col-sum-an">TS<br>Buổi ăn</th>
@@ -366,7 +475,7 @@ export default function DiemDanhAn() {
 </table>
 <div class="ft-wrap-an">
   <div class="ft-left-an">
-    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong></div>
+    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
     <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
     <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
     <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
@@ -379,27 +488,30 @@ export default function DiemDanhAn() {
   </div>
 </div>
 </div>`;
+            });
         }).join('');
 
         const css = `
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; background:#fff; }
+body { font-family:'Times New Roman',Times,serif; font-size:10pt; color:#000; background:#fff; }
+.mk-c { color:#16a34a; font-weight:bold; }
+.mk-v { color:#dc2626; font-weight:bold; }
+.mk-p { color:#d97706; font-weight:bold; }
 .room-block { page-break-before: always; }
 .room-block:first-of-type { page-break-before: auto; }
+.ly-row-an-div { padding:2px 4px; font-size:9.5pt; line-height:1.2; margin-bottom:2px; }
 .dt-an { width:100%; border-collapse:collapse; }
-.dt-an thead tr.hdr-row-an td { border:none; padding:0; }
-.dt-an thead tr.ly-row-an td  { border:none; padding:2px 4px; font-size:8pt; line-height:1.4; }
 .hdr-inner-an { width:100%; border-collapse:collapse; margin-bottom:2px; }
-.hdr-inner-an td { border:none; padding:3px 6px; vertical-align:middle; }
-.hdr-school-an { width:20%; text-align:center; font-size:8.5pt; line-height:1.6; }
+.hdr-inner-an td { border:none; padding:2px 4px; vertical-align:middle; }
+.hdr-school-an { width:20%; text-align:center; font-size:9.5pt; line-height:1.3; }
 .hdr-title-an  { text-align:center; }
-.hdr-title-an h1 { font-size:13pt; font-weight:bold; text-transform:uppercase; }
-.hdr-title-an h2 { font-size:10pt; font-weight:bold; margin-top:1px; }
-.hdr-title-an .nh-an { font-size:9pt; margin-top:2px; }
-.dt-an th { border:0.8px solid #333; padding:2px 2px; text-align:center;
+.hdr-title-an h1 { font-size:15pt; font-weight:bold; text-transform:uppercase; }
+.hdr-title-an h2 { font-size:11pt; font-weight:bold; margin-top:1px; }
+.hdr-title-an .nh-an { font-size:10pt; margin-top:2px; }
+.dt-an th { border:0.8px solid #333; padding:2px 1px; text-align:center;
             background:#ececec; font-weight:bold; vertical-align:middle;
-            font-size:8pt; line-height:1.2; color:#000; word-break:keep-all; }
-.dt-an td { border:0.8px solid #555; padding:2px 2px; vertical-align:middle; color:#000; font-size:8pt; }
+            font-size:8.5pt; line-height:1.1; color:#000; word-break:keep-all; }
+.dt-an td { border:0.8px solid #555; padding:3px 1px; vertical-align:middle; color:#000; font-size:10pt; }
 .col-stt-an    { width:4mm;  text-align:center; }
 .col-msbt-an   { width:8mm;  text-align:center; font-weight:bold; }
 .col-ten-an    { width:40mm; }
@@ -700,6 +812,12 @@ ${htmlPages}
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Ghi chú chia tờ theo GV điểm danh */}
+                            <div style={{ padding: '6px 10px', borderRadius: 7, background: '#eef2ff', border: '1px solid #c7d2fe', fontSize: '0.83rem', color: '#4338ca' }}>
+                                <i className="fas fa-info-circle"></i> PDF sẽ chia tờ theo <strong>số GV điểm danh</strong> của từng phòng, ưu tiên giữ nguyên lớp và không lệch quá 10 HS.
+                            </div>
+
 
                             <div className="export-modal-group">
                                 <div className="export-room-header">

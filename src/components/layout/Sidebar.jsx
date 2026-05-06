@@ -56,13 +56,13 @@ export default function Sidebar({ collapsed, mobileOpen }) {
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} id="sidebar">
       {/* Logo */}
-      <div className="sidebar-logo">
+      <Link to="/" className="sidebar-logo" style={{ textDecoration: 'none' }}>
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo THPT Lê Thị Hồng Gấm" />
         <div className="sidebar-logo-text">
           <span className="sidebar-logo-title">QL BÁN TRÚ</span>
           <span className="sidebar-logo-name">THPT Lê Thị Hồng Gấm</span>
         </div>
-      </div>
+      </Link>
 
       {/* Menu */}
       <ul className="sidebar-menu">

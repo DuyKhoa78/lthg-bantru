@@ -27,7 +27,11 @@ export default function CauHinh() {
       .then(([resCauHinh, resUsers]) => {
         if (resCauHinh.data?.ok) {
           const { he_thong, gia_an, gia_ngu } = resCauHinh.data;
-          if (he_thong) setHeThong({ nam_hoc: he_thong.nam_hoc || '', nguoi_phu_trach: he_thong.nguoi_phu_trach || '', ten_truong: he_thong.ten_truong || '' });
+          if (he_thong) setHeThong({
+            nam_hoc:          he_thong.nam_hoc          || '',
+            nguoi_phu_trach:  he_thong.nguoi_phu_trach  || '',
+            ten_truong:       he_thong.ten_truong        || '',
+          });
           if (gia_an) setGiaAn(parseInt(gia_an.don_gia) || '');
           if (gia_ngu) setGiaNgu(parseInt(gia_ngu.don_gia) || '');
         }
@@ -123,6 +127,8 @@ export default function CauHinh() {
             </div>
           </div>
         </div>
+
+
 
         {/* Thông tin hệ thống */}
         <div className="cauhinh-section">

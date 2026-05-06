@@ -138,6 +138,7 @@
 .badge-danger  { background: #fee2e2; color: #991b1b; }
 .badge-warning { background: #fef3c7; color: #92400e; }
 .badge-info    { background: #dbeafe; color: #1e40af; }
+.badge-purple  { background: #f3e8ff; color: #7e22ce; }
 .badge-gray    { background: #f1f5f9; color: #64748b; }
 
 /* ── Action Buttons in Table ── */

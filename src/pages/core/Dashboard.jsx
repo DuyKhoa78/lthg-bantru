@@ -150,22 +150,22 @@ export default function Dashboard() {
             {/* ── 4 Stat Cards ── */}
             <div className="stats-container">
                 <StatCard
-                    icon="fas fa-user-graduate" label="Tổng học sinh bán trú"
+                    icon="fas fa-user-graduate" label="Tổng HS bán trú"
                     value={stat.total ?? 0} colorClass="blue"
                     footer={<><span>Nam: <b>{stat.male ?? 0}</b></span><span>Nữ: <b>{stat.female ?? 0}</b></span></>}
                 />
                 <StatCard
-                    icon="fas fa-utensils" label="Học sinh ăn trưa"
+                    icon="fas fa-utensils" label="HS ăn trưa"
                     value={stat.eating ?? 0} colorClass="green"
-                    footer={<span>{eatPct}% hiện diện hôm nay</span>}
+                    footer={<><span>{eatPct}% hiện diện</span><span style={{color: '#D97706'}}>Chưa điểm danh: <b>{stat.chua_dd_an ?? 0}</b></span></>}
                 />
                 <StatCard
-                    icon="fas fa-bed" label="Học sinh nghỉ trưa"
+                    icon="fas fa-bed" label="HS nghỉ trưa"
                     value={stat.sleeping ?? 0} colorClass="purple"
-                    footer={<span>{sleepPct}% hiện diện hôm nay</span>}
+                    footer={<><span>{sleepPct}% hiện diện</span><span style={{color: '#D97706'}}>Chưa điểm danh: <b>{stat.chua_dd_ngu ?? 0}</b></span></>}
                 />
                 <StatCard
-                    icon="fas fa-user-slash" label="Học sinh vắng"
+                    icon="fas fa-user-slash" label="HS vắng"
                     value={stat.absent ?? 0} colorClass="orange"
                     footer={<><span>Vắng ăn: <b>{stat.absent_eat ?? 0}</b></span><span>Vắng ngủ: <b>{stat.absent_sleep ?? 0}</b></span></>}
                 />
