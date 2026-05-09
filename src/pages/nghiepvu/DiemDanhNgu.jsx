@@ -648,10 +648,6 @@ ${htmlPages}
             const roomStudents = getStudentsForRoom(ma_phong);
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
-            const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
-            const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
-            const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
-
 
             // Phòng "đã điểm danh" khi TẤT CẢ học sinh trong phòng đó có record (khớp với UI)
             const markedDays = new Set(
