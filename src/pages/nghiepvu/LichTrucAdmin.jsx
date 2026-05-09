@@ -50,6 +50,7 @@ export default function LichTrucAdmin() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [loading, setLoading]     = useState(false);
   const [showT5, setShowT5]       = useState(false);
+  const [roomTab, setRoomTab]     = useState(0); // 0: Phòng ăn, 1: Phòng ngủ
 
   const [giaoVienList, setGiaoVienList] = useState([]);
   const [phongList, setPhongList]       = useState([]);
@@ -545,6 +546,33 @@ export default function LichTrucAdmin() {
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
+        <button
+          onClick={() => setRoomTab(0)}
+          style={{
+            padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0',
+            background: roomTab === 0 ? 'var(--primary)' : '#fff',
+            color: roomTab === 0 ? '#fff' : '#64748b',
+            fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+            boxShadow: roomTab === 0 ? '0 2px 8px rgba(0,156,255,0.3)' : 'none'
+          }}
+        >
+          <i className="fas fa-utensils"></i> Phòng ăn
+        </button>
+        <button
+          onClick={() => setRoomTab(1)}
+          style={{
+            padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0',
+            background: roomTab === 1 ? 'var(--primary)' : '#fff',
+            color: roomTab === 1 ? '#fff' : '#64748b',
+            fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+            boxShadow: roomTab === 1 ? '0 2px 8px rgba(0,156,255,0.3)' : 'none'
+          }}
+        >
+          <i className="fas fa-bed"></i> Phòng ngủ
+        </button>
+      </div>
+
 
       <div style={{ overflowX: 'auto' }}>
         <table className="lt-admin-table" style={{ width: '100%', minWidth: 800 }}>
@@ -610,7 +638,7 @@ export default function LichTrucAdmin() {
             </tr>
           </thead>
           <tbody>
-            {(phongList || []).map(phong => (
+            {(phongList || []).filter(p => p.loai_phong === roomTab).map(phong => (
               <tr key={phong.ma_phong}>
                 <td className="lt-admin-td-phong">
                   <div style={{ fontWeight: 600 }}>{phong.ma_phong}</div>

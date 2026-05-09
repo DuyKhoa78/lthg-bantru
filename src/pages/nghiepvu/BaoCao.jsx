@@ -106,11 +106,7 @@ export default function BaoCao() {
   const vang    = hsData.filter(h => h.so_ngay_vang_an > 0 || h.so_ngay_vang_ngu > 0).length;
   const phep    = hsData.filter(h => h.so_ngay_phep_an > 0 || h.so_ngay_phep_ngu > 0).length;
 
-  const donutData = { 
-    labels:['Có mặt (ít nhất 1)','Vắng (ít nhất 1)','Phép (ít nhất 1)'], 
-    datasets:[{ data:[comAn,vang,phep], backgroundColor:['#00b894','#e17055','#fdcb6e'], borderWidth:0 }] 
-  };
-  
+
   // Khối stats (đơn giản hóa)
   const khoiStats = useMemo(() => {
     const map = {};
@@ -972,7 +968,7 @@ ${htmlPages}
 
   const exportThLopPDF = () => {
     if (!thLopData) return;
-    const { data, so_thang, so_nam, tong_buoi_an, tong_buoi_ngu, gia_an, gia_ngu, nam_hoc, nguoi_phu_trach } = thLopData;
+    const { data, so_thang, so_nam, gia_an, gia_ngu, nam_hoc, nguoi_phu_trach } = thLopData;
     const filteredData = thLopSelected ? data.filter(h => h.lop === thLopSelected) : data;
     if (filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
     
@@ -1060,7 +1056,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.hl{background:#f0fff0!important}.total-col{background:#fffde7!important}}`;
     const w = window.open('', '_blank');
     if (!w) { alert('Trình duyệt chặn popup!'); return; }
-    w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Tổng hợp bán trú tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}<\/script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Tổng hợp bán trú tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
     w.document.close();
   };
 
@@ -1205,12 +1201,8 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
             <div className="stat-card yellow"><div className="stat-card-icon"><i className="fas fa-file-alt"></i></div><div className="stat-card-info"><p>HS có phép</p><h3>{phep}</h3></div></div>
           </div>
 
-          {/* Charts */}
-          <div className="bc-charts-row">
-            <div className="bc-chart-card"><div className="bc-chart-title"><i className="fas fa-chart-pie"></i> Tỉ lệ vắng/có mặt trong tháng</div><div className="bc-chart-canvas" style={{height:220,display:'flex',alignItems:'center',justifyContent:'center'}}>{totalHS > 0 ? <Doughnut data={donutData} options={{plugins:{legend:{position:'bottom'}},cutout:'65%'}} /> : <span style={{opacity:0.5}}>Chưa có dữ liệu</span>}</div></div>
-            
-            {/* Khối cards */}
-            <div style={{flex:1, display:'flex', flexDirection:'column', gap:12}}>
+          {/* Khối cards */}
+          <div style={{ display:'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap:16, marginBottom: 16 }}>
               {khoiStats.map(({k,t,va,vn,p})=>{
                 return (
                   <div key={k} className="bc-khoi-card" style={{margin:0}}>
@@ -1225,12 +1217,11 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
               })}
               {khoiStats.length === 0 && <div className="bc-empty"><i className="fas fa-inbox"></i> Chưa có dữ liệu điểm danh tháng này</div>}
             </div>
-          </div>
 
           {/* Bảng chi tiết HS */}
           <div className="bc-detail-section" style={{marginTop:18}}>
             <div className="bc-detail-header">
-              <h3><i className="fas fa-list-alt"></i> Tổng hợp chuyên cần từng học sinh (Tháng {monthHS})</h3>
+              <h3><i className="fas fa-list-alt"></i> Tổng hợp chuyên cần từng học sinh (Tháng {monthHS.split('-')[1]}/{monthHS.split('-')[0]})</h3>
               <div className="bc-export-btns">
                 <button className="btn btn-success btn-sm" onClick={exportHsExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
               </div>

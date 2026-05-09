@@ -229,11 +229,13 @@
   background: #fff; width: 100%; max-width: 480px;
   border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
   display: flex; flex-direction: column; overflow: hidden;
+  max-height: 90vh;
   animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .export-modal-header {
   padding: 16px 20px; display: flex; align-items: center; gap: 12px;
   border-bottom: 1px solid #f1f5f9; background: #fff;
+  flex-shrink: 0;
 }
 .export-modal-header .icon {
   width: 40px; height: 40px; border-radius: 12px;
@@ -244,7 +246,10 @@
 .export-modal-header h3 { font-size: 1.1rem; font-weight: 800; color: #1e293b; margin: 0; }
 .export-modal-header p { font-size: 0.8rem; color: #94a3b8; margin: 2px 0 0 0; }
 
-.export-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; max-height: 70vh; overflow-y: auto; }
+.export-modal-body { 
+  padding: 20px; display: flex; flex-direction: column; gap: 20px; 
+  flex: 1; min-height: 0; overflow-y: auto; 
+}
 .export-modal-section-title {
   font-size: 0.78rem; font-weight: 800; color: #64748b;
   text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
@@ -291,6 +296,7 @@
 .export-modal-footer {
   padding: 16px 20px; border-top: 1px solid #f1f5f9; background: #f8fafc;
   display: flex; justify-content: flex-end; gap: 10px;
+  flex-shrink: 0;
 }
 .export-modal-footer .btn { padding: 0 20px; height: 42px; font-size: 0.9rem; font-weight: 700; border-radius: 8px; }
 
