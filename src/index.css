@@ -190,7 +190,7 @@ body {
   display: flex; align-items: center; gap: 10px;
   border: 1px solid #e8f4ff; flex-shrink: 0;
 }
-.sidebar-user img { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; }
+.sidebar-user img { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; object-position: center top; }
 .sidebar-user-name { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
 .sidebar-user-role { font-size: 0.72rem; color: #94a3b8; }
 .sidebar.collapsed .sidebar-user div:last-child { display: none; }
@@ -280,7 +280,7 @@ body {
   transition: var(--transition);
 }
 .dropdown-trigger:hover { background: #f8fafc; border-color: rgba(0,156,255,0.15); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.dropdown-trigger img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; transition: transform 0.3s; }
+.dropdown-trigger img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; object-position: center top; transition: transform 0.3s; }
 .dropdown-trigger:hover img { transform: scale(1.1); }
 .dropdown-username { font-weight: 600; font-size: 0.875rem; color: var(--text-main); }
 .dropdown-arrow { font-size: 0.7rem; color: #888; transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }

@@ -106,6 +106,36 @@
   border-color: var(--primary);
 }
 .dd-room-item.active .dd-room-item-name { color: var(--primary); }
+
+.dd-room-item.is-special {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  border-style: dashed;
+}
+.dd-room-item.is-special::before {
+  content: '\f005';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  position: absolute;
+  top: -6px; left: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #f59e0b; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.55rem;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.4);
+  z-index: 2;
+}
+.dd-room-item.is-special:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+.dd-room-item.is-special.active {
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.08));
+  border-color: #f59e0b;
+  border-style: solid;
+}
+.dd-room-item.is-special .dd-room-item-name { color: #b45309; }
+.dd-room-item.is-special.active .dd-room-item-name { color: #b45309; }
 .dd-room-count {
   font-size: 0.65rem; font-weight: 700;
   color: #94a3b8; margin-top: 4px;

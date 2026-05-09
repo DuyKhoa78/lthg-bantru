@@ -130,23 +130,7 @@ export default function CauHinh() {
 
 
 
-        {/* Thông tin hệ thống */}
-        <div className="cauhinh-section">
-          <div className="cauhinh-section-header"><i className="fas fa-info-circle"></i> Thông tin Hệ thống</div>
-          <div className="cauhinh-section-body">
-            {[
-              { label: 'Phiên bản', value: 'v1.0.0' },
-              { label: 'Framework', value: 'React + Node.js + Supabase' },
-              { label: 'Người phát triển', value: 'Duy Khoa' },
-              { label: 'Cập nhật lần cuối', value: new Date().toLocaleDateString('vi-VN') },
-            ].map((item, i) => (
-              <div key={i} className="cauhinh-info-row">
-                <span className="cauhinh-info-label">{item.label}</span>
-                <span className="cauhinh-info-value">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+
       </div>
 
       {!canEdit && (

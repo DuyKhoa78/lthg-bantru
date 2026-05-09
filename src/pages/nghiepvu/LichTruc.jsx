@@ -66,6 +66,9 @@ export default function LichTruc() {
   const [baseDate, setBaseDate] = useState(new Date());
   const [filterGvId, setFilterGvId] = useState('');
   const [detailDate, setDetailDate] = useState(null);
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
+  const [specialDate, setSpecialDate] = useState(todayStr);
+  const [printingSpecial, setPrintingSpecial] = useState(false);
 
   const [gvList, setGvList] = useState([]);
   const [phongList, setPhongList] = useState([]);
@@ -415,6 +418,236 @@ export default function LichTruc() {
     };
   };
 
+  // ── Print Special Day PDF ──
+  const printSpecialDayPDF = async () => {
+    setPrintingSpecial(true);
+    let namHoc = '2025-2026';
+    let phuTrach = 'Người phụ trách';
+    const sDateObj = new Date(specialDate);
+    const ws = getWeekStart(sDateObj);
+    let dsAll = [];
+    let dGv = gvList;
+    let dPhong = phongList;
+
+    try {
+      const [rWeek, rConf] = await Promise.all([
+        api.get(`/api/lichtruc/week-public/?tuan=${dateStr(ws)}`),
+        api.get('/api/cauhinh/')
+      ]);
+      if (rWeek.data?.ok) {
+        dsAll = rWeek.data.records || [];
+        dGv = rWeek.data.gv_list || dGv;
+        dPhong = rWeek.data.phong_list || dPhong;
+      }
+      if (rConf.data?.he_thong) {
+        namHoc = rConf.data.he_thong.nam_hoc || namHoc;
+        phuTrach = rConf.data.he_thong.nguoi_phu_trach || phuTrach;
+      }
+    } catch (e) {
+      console.error('Lỗi tải dữ liệu in ngày đặc biệt:', e);
+      alert('Có lỗi xảy ra khi lấy dữ liệu in!');
+      setPrintingSpecial(false);
+      return;
+    }
+
+    const fd = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
+    const targetDateStr = dateStr(sDateObj);
+    const dow = sDateObj.getDay();
+    const thuStr = dow === 0 ? 'Chủ Nhật' : ['CN', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'][dow];
+
+    function buildRows(loai) {
+      const rows = [];
+      const recs = dsAll.filter(p => p.ngay === targetDateStr && p.loai_truc === loai);
+      const phongSet = [...new Set(recs.map(p => p.ma_phong_id))].sort();
+      
+      phongSet.forEach(phong => {
+        const gvSet = [...new Set(recs.filter(p => p.ma_phong_id === phong).map(p => p.ma_gv_id))];
+        gvSet.forEach(gv_id => {
+          const g = dGv.find(x => x.id === gv_id);
+          if (!g) return;
+          let ghichu = 'Điểm danh, kiểm tra, đối chiếu ds';
+          if (g.nhiem_vu === 1) ghichu = 'Hỗ trợ và giám sát';
+          else if (g.nhiem_vu === null || g.nhiem_vu === undefined) ghichu = 'Giám sát';
+          rows.push({ thu: thuStr, phong, gv_id, ho_ten: g.ho_ten, nhiem_vu: g.nhiem_vu, ghichu });
+        });
+      });
+      return rows;
+    }
+
+    function buildTableBody(rows) {
+      if (!rows.length) return `<tr><td colspan="6" style="text-align:center;color:#999;font-style:italic;padding:10px;">Chưa có phân công</td></tr>`;
+      let html = '';
+      let stt = 1;
+      let i = 0;
+      while (i < rows.length) {
+        let j = i;
+        while (j < rows.length && rows[j].thu === thuStr) j++;
+        const span = j - i;
+        for (let k = i; k < j; k++) {
+          const r = rows[k];
+          const thuCell = k === i ? `<td rowspan="${span}" class="td-thu">${r.thu}</td>` : '';
+          html += `<tr>
+            <td class="td-stt">${stt}</td>
+            ${thuCell}
+            <td class="td-phong">${r.phong}</td>
+            <td class="td-ten">${r.ho_ten}</td>
+            <td class="td-ky td-w1-empty"></td>
+            <td class="td-ghi">${r.ghichu}</td>
+          </tr>`;
+          stt++;
+        }
+        i = j;
+      }
+      return html;
+    }
+
+    const css = `
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #000; }
+      .page { padding: 10mm 12mm; page-break-after: always; }
+      .page:last-child { page-break-after: auto; }
+      
+      .hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+      .hdr-left { font-size: 9pt; line-height: 1.5; text-align: center; min-width: 180px; }
+      .hdr-left b { font-size: 9pt; font-weight: bold; letter-spacing: .3px; }
+      .underline { text-decoration: underline; font-weight: bold; }
+      .hdr-right { font-size: 9pt; text-align: center; min-width: 200px; line-height: 1.5; }
+      .hdr-right .cong-hoa { font-weight: bold; text-transform: uppercase; font-size: 9pt; letter-spacing: .3px; }
+      .hdr-right .doc-lap { font-size: 9pt; font-style: italic; text-decoration: underline; }
+      
+      .title-wrap { text-align: center; margin: 6px 0 2px; }
+      .main-title { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; }
+      .sub-title { font-size: 9.5pt; margin-top: 2px; }
+      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 1px; color: #333; }
+      .divider { border-top: 2px solid #000; margin: 5px 0; }
+      
+      table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4px; }
+      th, td { border: 1px solid #000; padding: 4px 5px; vertical-align: middle; text-align: center; }
+      .th-wrap th { background: #f0f0f0; font-weight: bold; font-size: 9pt; }
+      .th-stt  { width: 30px; }
+      .th-thu  { width: 60px; }
+      .th-phong{ min-width: 80px; }
+      .th-ten  { min-width: 140px; text-align: left; padding-left: 6px; }
+      .th-ky   { min-width: 100px; font-size: 8.5pt; }
+      .th-ghi  { min-width: 160px; text-align: left; padding-left: 5px; }
+      
+      .td-stt  { color: #444; font-size: 8.5pt; }
+      .td-thu  { font-weight: bold; font-size: 9pt; background: #f9f9f9; }
+      .td-phong{ font-weight: 600; font-size: 8.5pt; }
+      .td-ten  { text-align: left; padding-left: 6px; white-space: nowrap; }
+      .td-ky   { height: 32px; min-width: 100px; }
+      .td-w1-empty { background: #fafafa; }
+      .td-ghi  { text-align: left; padding-left: 5px; font-size: 8.5pt; }
+      
+      .sig-wrap { margin-top: 10px; display: flex; justify-content: flex-end; }
+      .sig-box { text-align: center; min-width: 200px; display: inline-block; }
+      .sig-date { font-size: 9pt; font-style: italic; margin-bottom: 3px; }
+      .sig-title { font-weight: bold; font-size: 9.5pt; text-transform: uppercase; }
+      .sig-space { height: 44px; }
+      .sig-name { font-size: 9pt; font-weight: bold; font-style: italic; }
+      
+      .notes-wrap { margin-top: 8px; font-size: 8.5pt; line-height: 1.6; }
+      .notes-wrap p { margin-bottom: 3px; }
+      .notes-wrap .luu-y { font-weight: bold; }
+      
+      @page { size: A4 portrait; margin: 8mm; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    `;
+
+    function buildPage(title, subNote, tableBody, notesHtml) {
+      return `<div class="page">
+        <div class="hdr">
+          <div class="hdr-left">
+            <b>SỞ GIÁO DỤC VÀ ĐÀO TẠO</b><br>
+            <b>TRUNG TÂM GD KT TH VÀ HN</b><br>
+            <span class="underline">LÊ THỊ HỒNG GẤM</span>
+          </div>
+          <div class="hdr-right">
+            <div class="cong-hoa">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div class="doc-lap">Độc lập – Tự do – Hạnh phúc</div>
+            <div style="font-size:8pt;margin-top:2px;">————————————————</div>
+          </div>
+        </div>
+        <div class="title-wrap">
+          <div class="main-title">${title}</div>
+          <div class="sub-title">Ngày: <b>${fd(sDateObj)}</b></div>
+          ${subNote ? `<div class="sub-note">(${subNote})</div>` : ''}
+        </div>
+        <div class="divider"></div>
+        <table>
+          <thead>
+            <tr class="th-wrap">
+              <th class="th-stt">STT</th>
+              <th class="th-thu">THỨ</th>
+              <th class="th-phong">PHÒNG</th>
+              <th class="th-ten">HỌ TÊN</th>
+              <th class="th-ky">KÝ TRỰC</th>
+              <th class="th-ghi">GHI CHÚ</th>
+            </tr>
+          </thead>
+          <tbody>${tableBody}</tbody>
+        </table>
+        <div class="notes-wrap">
+          ${notesHtml}
+        </div>
+        <div class="sig-wrap">
+          <div class="sig-box">
+            <div class="sig-date">TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}</div>
+            <div class="sig-title">Phụ trách bán trú</div>
+            <div class="sig-space"></div>
+            <div class="sig-name">${phuTrach}</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    const rowsAn = buildRows(0);
+    const rowsNgu = buildRows(1);
+
+    const notesAn = `
+      <p class="luu-y" style="font-style: italic; font-weight: bold;">Lưu ý: - Thời gian trực ăn trưa: từ 11g00-11g35</p>
+      <p>- GV-NV trực ăn bán trú kiểm điểm số lượng học sinh, phân chia khu vực ăn cho hs cố định và báo số lượng ăn mỗi ngày theo phòng cho C Thanh Hà vào cuối buổi ăn. GV-NV ký tên điểm danh trực và báo cáo số liệu chậm nhất 11g45 hàng ngày.</p>
+    `;
+
+    const notesNgu = `
+      <p>- Anh Trần Nhật Tân trực thiết bị điện hàng ngày; Cô Mai Thị Quỳnh Châu - Nhân viên y tế - trực y tế và kiểm tra thực phẩm hàng ngày.</p>
+      <p>- GV-NV trực bán trú thực hiện: nhận bảng điểm danh học sinh (c Phạm Thị Thanh Hà) và điểm danh học sinh hàng ngày, gửi lại cho C Thanh Hà chậm nhất 11g45; quản lý học sinh trong thời gian ngủ; phân phát, thu lại và cất giữ gối cho HS.</p>
+      <p>- GV-NV sẽ mở khóa tủ gối vào đầu giờ bán trú và chìa khoá các phòng (A20, A21, A22, E-E3) tại P. Bảo vệ; 12g15 cô Thanh và cô Lan sẽ xuống tầng trệt làm vệ sinh cho 2 nhà vệ sinh Nam và Nữ. Thầy cô trực cùng sẽ khóa tủ gối/khoá phòng lại lúc kết thúc bán trú.</p>
+      <p>- <strong>Học sinh sẽ mang theo vỏ gối để sử dụng hàng ngày nên thầy cô nhắc hs tháo vỏ gối mang về sau mỗi buổi bán trú. Kết thúc học kỳ thì thực hiện giặt chiếu.</strong></p>
+    `;
+
+    const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
+      <title>Bảng Phân Công Trực Bán Trú Đặc Biệt</title>
+      <style>${css}</style></head><body>
+      ${buildPage(
+          `BẢNG PHÂN CÔNG TRỰC BÁN TRÚ ĂN NH ${namHoc}`,
+          'NGÀY ĐẶC BIỆT',
+          buildTableBody(rowsAn),
+          notesAn
+      )}
+      ${buildPage(
+          `BẢNG PHÂN CÔNG TRỰC BÁN TRÚ NGỦ NH ${namHoc}`,
+          'NGÀY ĐẶC BIỆT',
+          buildTableBody(rowsNgu),
+          notesNgu
+      )}
+      </body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+        setPrintingSpecial(false);
+        setShowSpecialModal(false);
+      }, 500);
+    };
+  };
+
   // ── Month calendar data ──
   const calCells = useMemo(() => {
     const year = baseDate.getFullYear(), month = baseDate.getMonth();
@@ -448,6 +681,9 @@ export default function LichTruc() {
         <div className="page-header-actions">
           <button className="btn btn-primary btn-sm" onClick={printPDF} style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)'}}>
             <i className="fas fa-print"></i> In lịch 2 tuần (GV ký)
+          </button>
+          <button className="btn btn-sm" style={{background:'linear-gradient(135deg,#f59e0b,#fbbf24)',color:'#fff',border:'none',fontWeight:600}} onClick={() => setShowSpecialModal(true)}>
+            <i className="fas fa-star"></i> In ngày đặc biệt
           </button>
           <button className="btn btn-success btn-sm" onClick={exportExcel}>
             <i className="fas fa-file-excel"></i> Xuất Excel
@@ -648,6 +884,31 @@ export default function LichTruc() {
               </div>
             </div>
           )}
+        </div>
+      )}
+    
+      {showSpecialModal && (
+        <div className="modal-overlay open">
+          <div className="modal-box modal-sm">
+            <div className="modal-header">
+              <div className="modal-title"><i className="fas fa-print" style={{color:'#f59e0b'}}></i> In Lịch trực (Ngày Đặc biệt)</div>
+              <button className="modal-close" onClick={() => setShowSpecialModal(false)}><i className="fas fa-times"></i></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Chọn ngày in:</label>
+                <input type="date" className="form-control" value={specialDate} onChange={e => setSpecialDate(e.target.value)} />
+              </div>
+              <p style={{fontSize:'.85rem',color:'#64748b', marginTop: 10}}>Hệ thống sẽ tạo trang in bao gồm danh sách giáo viên trực của riêng ngày này.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowSpecialModal(false)}>Hủy</button>
+              <button className="btn btn-primary" onClick={printSpecialDayPDF} disabled={printingSpecial} style={{background:'#f59e0b',borderColor:'#f59e0b',color:'#fff'}}>
+                {printingSpecial ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-print"></i>}
+                {printingSpecial ? ' Đang tạo...' : ' Tạo trang in'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

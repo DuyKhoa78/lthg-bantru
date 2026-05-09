@@ -4,6 +4,7 @@ import { Chart, ArcElement, BarElement, LineElement, CategoryScale, LinearScale,
 import { Doughnut, Bar } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
+import { formatLopList } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './BaoCao.css';
 
@@ -49,6 +50,19 @@ export default function BaoCao() {
   const [exportNguPhongList, setExportNguPhongList] = useState([]);
   const [exportingNgu, setExportingNgu] = useState(false);
   const [exportNguWeeksActive, setExportNguWeeksActive] = useState([]); // chỉ số tuần được chọn
+
+  // Xuất báo cáo ngày đặc biệt
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
+  const [specialLoai, setSpecialLoai] = useState('an'); // 'an' | 'ngu'
+  const [specialDate, setSpecialDate] = useState(today);
+  const [exportingSpecial, setExportingSpecial] = useState(false);
+
+  // Báo cáo tổng hợp theo lớp
+  const [showTongHopLopModal, setShowTongHopLopModal] = useState(false);
+  const [thLopMonth, setThLopMonth] = useState(today.slice(0,7));
+  const [thLopData, setThLopData] = useState(null);
+  const [loadingThLop, setLoadingThLop] = useState(false);
+  const [thLopSelected, setThLopSelected] = useState('');
 
   // Lấy dữ liệu Báo cáo HS
   useEffect(() => {
@@ -251,13 +265,13 @@ export default function BaoCao() {
           const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
           const dayCells = weekGroups.map(wg => wg.days.map(({ngay}, di2) => {
             const val = s.diemdanh[ngay];
-            // null/undefined = chưa lưu → mặc định Có mặt (✓)
-            const sym = val===1?'<span class="mk-v">✗</span>':val===2?'<span class="mk-p">P</span>':'<span class="mk-c">✓</span>';
+            // Chỉ hiển thị ký hiệu khi có bản ghi rõ ràng; null = chưa điểm danh → bỏ trống
+            const sym = val===0?'<span class="mk-c">✓</span>':val===1?'<span class="mk-v">✗</span>':val===2?'<span class="mk-p">P</span>':'';
             return `<td class="col-day-an"${di2===0?' style="border-left:1.5px solid #555;"':''}>${sym}</td>`;
           }).join('')).join('');
           const filteredVang = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
           const filteredPhep = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-          const filteredCoMat = numDays - filteredPhep; // Thực tế = Tổng buổi - Phép (tính cả vắng)
+          const filteredCoMat = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
           return `<tr>
             <td class="col-stt-an">${i+1}</td><td class="col-msbt-an">${s.id}</td>
             <td class="col-ten-an">${s.ho_ten}</td><td class="col-gt-an">${gt}</td>
@@ -386,7 +400,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
           });
           const filteredVang2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
           const filteredPhep2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-          const filteredCoMat2 = numDays - filteredPhep2; // Thực tế = Tổng buổi - Phép (tính cả vắng)
+          const filteredCoMat2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
           aoa.push([i+1,s.id,s.ho_ten,gt,s.lop,ma_phong,...dayCells,numDays,filteredVang2,filteredPhep2,filteredCoMat2]);
         });
         const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -469,7 +483,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
           }).join('')).join('');
           const filteredVang = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
           const filteredPhep = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-          const filteredCoMat = numDays - filteredPhep; // Thực tế = Tổng buổi - Phép (tính cả vắng)
+          const filteredCoMat = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
           return `<tr>
             <td class="col-stt-an">${i+1}</td><td class="col-msbt-an">${s.id}</td>
             <td class="col-ten-an">${s.ho_ten}</td><td class="col-gt-an">${gt}</td>
@@ -599,7 +613,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
           });
           const filteredVang2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
           const filteredPhep2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-          const filteredCoMat2 = numDays - filteredPhep2; // Thực tế = Tổng buổi - Phép (tính cả vắng)
+          const filteredCoMat2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
           aoa.push([i+1,s.id,s.ho_ten,gt,s.lop,ma_phong,...dayCells,numDays,filteredVang2,filteredPhep2,filteredCoMat2]);
         });
         const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -613,6 +627,441 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
       setShowExportNguModal(false);
     } catch(err) { alert('Lỗi: '+err.message); }
     finally { setExportingNgu(false); }
+  };
+
+  // ── Hàm xuất PDF ngày đặc biệt (cho cả Ăn và Ngủ) ──
+  const exportSpecialDayPDF = async () => {
+    setExportingSpecial(true);
+    try {
+      const fmtDate = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+      
+      const [hsCfgRes, ngayCfgRes, ddRes, hsRes, phongRes] = await Promise.all([
+        api.get('/api/cauhinh/'),
+        api.get(`/api/diemdanh/?ngay=${specialDate}&loai=${specialLoai}`),
+        api.get(`/api/diemdanh/range/?tu=${specialDate}&den=${specialDate}`),
+        api.get(`/api/hocsinh/${specialLoai}`),
+        api.get(`/api/phong/${specialLoai}`)
+      ]);
+      
+      const cauHinhHT = hsCfgRes.data?.he_thong || {};
+      const nguoiPhuTrach = cauHinhHT.nguoi_phu_trach || 'Người phụ trách';
+      const namHoc = cauHinhHT.nam_hoc || '2025-2026';
+      const allHs = hsRes.data?.hocsinh || [];
+      const phongList = phongRes.data?.phong || [];
+      const cfg = ngayCfgRes.data?.cauhinh_ngay || null;
+      const ddMap = ddRes.data?.map || {};
+      
+      const phongTam = specialLoai === 'an' ? cfg?.phong_tam_an : cfg?.phong_tam_ngu;
+      const loaiLabel = specialLoai === 'an' ? 'ĂN TRƯA' : 'NGỦ TRƯA';
+      const loaiField = specialLoai === 'an' ? 'an' : 'ngu';
+      const groupPhongMap = specialLoai === 'an' ? cfg?.lop_phong_an : cfg?.lop_phong_ngu;
+      const extraHsList = cfg?.hs_them_vao || [];
+      const phongCol = specialLoai === 'an' ? 'phong_an' : 'phong_ngu';
+      
+      const isAllowed = (hs) => {
+        if (!cfg) return true;
+        const lopList = cfg.lop_ap_dung;
+        const loaiTru = cfg.hs_loai_tru;
+        if (extraHsList.some(x => x.id === hs.id)) return true;
+        if (lopList && lopList.length > 0 && !lopList.includes(hs.lop)) return false;
+        if (loaiTru && loaiTru.length > 0 && loaiTru.includes(hs.id)) return false;
+        return true;
+      };
+
+      const getStudentsForRoom = (ma_phong) => {
+        const phongObj = phongList.find(p => p.ma_phong === ma_phong);
+        const phongGt = phongObj ? phongObj.gioi_tinh : null;
+        
+        const isGenderCompatible = (hs) => {
+            if (specialLoai === 'an') return true; 
+            if (phongGt === null || phongGt === undefined) return true;
+            if (hs.gioi_tinh === null || hs.gioi_tinh === undefined) return true;
+            return hs.gioi_tinh === phongGt;
+        };
+
+        const overridedElsewhere = new Set(
+            extraHsList.filter(x => x[phongCol] && x[phongCol] !== ma_phong).map(x => x.id)
+        );
+
+        const base = allHs.filter(hs => {
+            if (!isAllowed(hs)) return false;
+            if (!isGenderCompatible(hs)) return false;
+            if (overridedElsewhere.has(hs.id)) return false;
+            const groupPhong = groupPhongMap?.[hs.lop];
+            if (groupPhong) return groupPhong === ma_phong;
+            if (phongTam) return phongTam === ma_phong;
+            return hs[phongCol] === ma_phong;
+        });
+
+        const extraFiltered = extraHsList.filter(x => {
+            const baseHs = allHs.find(h => h.id === x.id);
+            if (!baseHs) return false;
+            if (!isGenderCompatible(baseHs)) return false;
+            const effectivePhong = x[phongCol] || groupPhongMap?.[baseHs.lop] || phongTam || baseHs[phongCol];
+            return effectivePhong === ma_phong;
+        }).filter(x => !base.find(s => s.id === x.id))
+          .map(x => {
+              const baseHs = allHs.find(h => h.id === x.id);
+              return { ...(baseHs || {}), ...x, [phongCol]: ma_phong };
+          });
+
+        return [...base, ...extraFiltered];
+      };
+
+      const overrideCodes = extraHsList.filter(x => x[phongCol]).map(x => x[phongCol]);
+      const groupCodes = groupPhongMap ? Object.values(groupPhongMap) : [];
+      const allCodes = [...new Set([phongTam, ...overrideCodes, ...groupCodes])].filter(Boolean);
+      
+      let visiblePhongList = [];
+      if (cfg && allCodes.length > 0) {
+          visiblePhongList = allCodes.map(code => phongList.find(p => p.ma_phong === code)).filter(Boolean);
+      } else {
+          visiblePhongList = phongList.filter(p => getStudentsForRoom(p.ma_phong).length > 0);
+          if (visiblePhongList.length === 0) visiblePhongList = phongList;
+      }
+
+      const byPhong = {};
+      visiblePhongList.forEach(p => {
+          const stu = getStudentsForRoom(p.ma_phong);
+          if (stu && stu.length > 0) {
+              byPhong[p.ma_phong] = stu;
+          }
+      });
+
+      if (Object.keys(byPhong).length === 0) { alert('Không có học sinh nào trong ngày này!'); return; }
+
+      const splitByTeachers = (students, numTeachers) => {
+          if (numTeachers <= 1) return [students];
+          const byClass = {};
+          students.forEach(s => { const k = s.lop || ''; if (!byClass[k]) byClass[k] = []; byClass[k].push(s); });
+          const classes = Object.keys(byClass).sort();
+          const groups = Array.from({ length: numTeachers }, () => []);
+          const sizes = Array(numTeachers).fill(0);
+          classes.forEach(cls => {
+              const minIdx = sizes.indexOf(Math.min(...sizes));
+              byClass[cls].forEach(s => groups[minIdx].push(s));
+              sizes[minIdx] += byClass[cls].length;
+          });
+          const MAX_DIFF = 10;
+          let changed = true;
+          while (changed) {
+              changed = false;
+              for (let i = 0; i < groups.length; i++) {
+                  for (let j = 0; j < groups.length; j++) {
+                      if (i === j) continue;
+                      const diff = groups[i].length - groups[j].length;
+                      if (diff > MAX_DIFF) {
+                          const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) =>
+                              groups[i].filter(s => (s.lop || '') === a).length - groups[i].filter(s => (s.lop || '') === b).length
+                          );
+                          let moved = false;
+                          for (const cls of clsInI) {
+                              const clsStu = groups[i].filter(s => (s.lop || '') === cls);
+                              const newDiff = (groups[i].length - clsStu.length) - (groups[j].length + clsStu.length);
+                              if (Math.abs(newDiff) < Math.abs(diff)) {
+                                  clsStu.forEach(s => groups[j].push(s));
+                                  groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
+                                  sizes[i] -= clsStu.length; sizes[j] += clsStu.length;
+                                  changed = true; moved = true; break;
+                              }
+                          }
+                          if (moved) break;
+                      }
+                  }
+                  if (changed) break;
+              }
+          }
+          return groups.filter(g => g.length > 0);
+      };
+
+      const getSymHTML = (hsId) => {
+        const val = ddMap[hsId]?.[specialDate]?.[loaiField];
+        if (val === 0) return '<span class="mk-c">✓</span>';
+        if (val === 1) return '<span class="mk-v">✗</span>';
+        if (val === 2) return '<span class="mk-p">P</span>';
+        return '';
+      };
+      
+      const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}`;
+      
+      const phongCodes = Object.keys(byPhong).sort();
+      const htmlPages = phongCodes.flatMap(ma_phong => {
+          const roomStudents = byPhong[ma_phong].sort((a, b) => a.id - b.id);
+          const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
+          const numTeachers = phongInfo?.sl_diem_danh || 1;
+          const roomTotal = roomStudents.length;
+          const roomComat = roomStudents.filter(s => ddMap[s.id]?.[specialDate]?.[loaiField] === 0).length;
+          const roomVang  = roomStudents.filter(s => ddMap[s.id]?.[specialDate]?.[loaiField] === 1).length;
+          const roomPhep  = roomStudents.filter(s => ddMap[s.id]?.[specialDate]?.[loaiField] === 2).length;
+          const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
+          const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
+          const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
+          const roomClasses = [...new Set(roomStudents.map(s => s.lop).filter(Boolean))].sort();
+          const roomLopList = roomClasses.length > 0 ? roomClasses.join(', ') : 'Không rõ';
+
+          const chunks = splitByTeachers(roomStudents, numTeachers);
+          const totalPages = chunks.length;
+          let off = 0;
+          const offsets = chunks.map(chunk => { const o = off; off += chunk.length; return o; });
+
+          return chunks.map((chunk, pageIdx) => {
+              chunk.sort((a, b) => a.id - b.id);
+              const pageLabel = totalPages > 1 ? ` (Tờ ${pageIdx + 1}/${totalPages})` : '';
+              const globalOffset = offsets[pageIdx];
+
+              const dataRows = chunk.map((s, i) => {
+                  const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                  return `<tr>
+  <td class="col-stt">${globalOffset + i + 1}</td>
+  <td class="col-msbt">${s.id}</td>
+  <td style="text-align:left;padding-left:6px;">${s.ho_ten}</td>
+  <td class="col-gt">${gt}</td>
+  <td class="col-lop">${s.lop}</td>
+  <td class="col-phong">${ma_phong}</td>
+  <td class="col-dd">${getSymHTML(s.id)}</td>
+  <td class="col-ghichu"></td>
+</tr>`;
+              }).join('');
+
+              return `<div class="room-block">
+<table class="hdr-inner"><tr>
+  <td class="hdr-school" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
+  <td class="hdr-title"><h1>ĐIỂM DANH ${loaiLabel}</h1></td>
+</tr><tr><td class="hdr-title">
+  <h2>NĂM HỌC ${namHoc} &nbsp;|&nbsp; ĐẶC BIỆT${pageLabel}</h2>
+  <div style="font-size:10pt;margin-top:2px;">Ngày: <strong>${fmtDate(specialDate)}</strong> &nbsp;|&nbsp; Lớp: <strong>${roomLopList}</strong> &nbsp;|&nbsp; P.${specialLoai === 'an' ? 'Ăn' : 'Ngủ'}: <strong>${ma_phong}</strong></div>
+</td></tr></table>
+<div class="stat-box">Phòng ${ma_phong}: <strong>${roomTotal} HS</strong> &nbsp;|&nbsp; Có mặt: <strong style="color:#16a34a">${roomComat}</strong> &nbsp;|&nbsp; Vắng: <strong style="color:#dc2626">${roomVang}</strong> &nbsp;|&nbsp; Phép: <strong style="color:#d97706">${roomPhep}</strong></div>
+<table class="dt" style="margin-top:6px;"><thead><tr>
+  <th class="col-stt">STT</th><th class="col-msbt" style="color:#c00;">Mã<br>số BT</th>
+  <th style="width:35%;">HỌC SINH</th><th class="col-gt">GT</th><th class="col-lop">Lớp</th>
+  <th class="col-phong">P.${specialLoai === 'an' ? 'ĂN' : 'NGỦ'}</th>
+  <th class="col-dd">Đ.DANH</th><th class="col-ghichu">Ghi chú</th>
+</tr></thead><tbody>${dataRows}</tbody></table>
+<div class="ft-wrap">
+  <div class="ft-left">
+    <div>Phòng ${ma_phong}: <strong>${roomTotal} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
+    <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
+    <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
+    <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
+  </div>
+  <div class="ft-right">
+    <div><em>${todayStr}</em></div>
+    <div class="sig-title">PHỤ TRÁCH BÁN TRÚ</div>
+    <div class="sig-space"></div>
+    <div class="sig-name">${nguoiPhuTrach}</div>
+  </div>
+</div>
+</div>`;
+          });
+      }).join('');
+
+      const css = `
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
+.mk-c { color:#16a34a; font-weight:bold; } .mk-v { color:#dc2626; font-weight:bold; } .mk-p { color:#d97706; font-weight:bold; }
+.room-block { page-break-before: always; } .room-block:first-of-type { page-break-before: auto; }
+.hdr-inner { width:100%; border-collapse:collapse; margin-bottom:4px; }
+.hdr-inner td { border:none; padding:2px 4px; vertical-align:middle; }
+.hdr-school { width:28%; text-align:center; font-size:10pt; line-height:1.4; }
+.hdr-title { text-align:center; }
+.hdr-title h1 { font-size:14pt; font-weight:bold; text-transform:uppercase; }
+.hdr-title h2 { font-size:11pt; font-weight:bold; margin-top:2px; }
+.stat-box { margin-top:4px; padding:4px 10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; font-size:9.5pt; display:inline-flex; gap:16px; }
+.dt { width:100%; border-collapse:collapse; }
+.dt th { border:0.8px solid #333; padding:4px 2px; text-align:center; background:#ececec; font-weight:bold; font-size:9pt; }
+.dt td { border:0.8px solid #555; padding:4px 2px; vertical-align:middle; font-size:11pt; }
+.col-stt{width:6mm;text-align:center} .col-msbt{width:10mm;text-align:center;font-weight:bold}
+.col-gt{width:7mm;text-align:center} .col-lop{width:12mm;text-align:center}
+.col-phong{width:11mm;text-align:center} .col-dd{width:10mm;text-align:center} .col-ghichu{width:14mm}
+.ft-wrap{width:100%;margin-top:10px;font-size:9pt;display:flex;justify-content:space-between;page-break-inside:avoid;}
+.ft-left{flex:1;line-height:1.7} .ft-right{flex:1;text-align:center}
+.sig-title{font-weight:bold;margin-top:4px} .sig-space{height:44px} .sig-name{font-weight:bold;font-style:italic}
+@page{size:A4 portrait;margin:1cm 0.8cm 1.2cm 0.8cm}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}}`;
+
+      const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title></title><style>${css}</style></head><body>
+${htmlPages}
+<script>window.onload=function(){setTimeout(window.print,400);}</script>
+</body></html>`;
+      const w = window.open('', '_blank');
+      if (!w) { alert('Trình duyệt chặn popup!'); return; }
+      w.document.write(html); w.document.close();
+      setShowSpecialModal(false);
+    } catch (err) { alert('Lỗi: ' + err.message); }
+    finally { setExportingSpecial(false); }
+  };
+
+  // ── Hàm xuất Excel Tổng hợp theo Lớp ──────────────────────────────
+  const openTongHopLopModal = async () => {
+    setShowTongHopLopModal(true);
+    setThLopData(null);
+    setThLopSelected('');
+    await fetchThLop(thLopMonth);
+  };
+
+  const fetchThLop = async (monthStr) => {
+    const [y, m] = monthStr.split('-');
+    setLoadingThLop(true);
+    try {
+      const res = await api.get(`/api/baocao/tong-hop-lop/?thang=${m}&nam=${y}`);
+      if (res.data?.ok) setThLopData(res.data);
+    } catch { /* ignore */ }
+    finally { setLoadingThLop(false); }
+  };
+
+  const exportThLopExcel = () => {
+    if (!thLopData) return;
+    const { data, so_thang, so_nam, tong_buoi_an, tong_buoi_ngu, gia_an, gia_ngu } = thLopData;
+    const filteredData = thLopSelected ? data.filter(h => h.lop === thLopSelected) : data;
+    if (filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
+    
+    const lopMap = {};
+    filteredData.forEach(h => { if (!lopMap[h.lop]) lopMap[h.lop] = []; lopMap[h.lop].push(h); });
+    const wb = XLSX.utils.book_new();
+    // Sheet tổng hợp toàn trường
+    const headerAll = ['STT','Mã số BT','Họ và tên','Lớp','GT',
+      'TS Buổi ăn','Ăn thực tế','Vắng ăn','Phép ăn',
+      'TS Buổi ngủ','Ngủ thực tế','Vắng ngủ','Phép ngủ',
+      'Tiền ăn (đ)','Tiền ngủ (đ)','TỔNG TIỀN (đ)'
+    ];
+    const aoaAll = [
+      [`BẢNG TỔNG HỢP CHUYÊN CẦN VÀ THU TIỀN BÁN TRÚ – THÁNG ${so_thang}/${so_nam}`],
+      [`Tổng buổi ăn: ${tong_buoi_an} | Tổng buổi ngủ: ${tong_buoi_ngu} | Đơn giá ăn: ${gia_an.toLocaleString('vi-VN')}đ | Đơn giá ngủ: ${gia_ngu.toLocaleString('vi-VN')}đ`],
+      [],
+      headerAll,
+      ...data.map((h, i) => [
+        i+1, h.id, h.ho_ten, h.lop, h.gioi_tinh===0?'Nam':'Nữ',
+        h.tong_buoi_an, h.buoi_an_thuc_te, h.vang_an, h.phep_an,
+        h.tong_buoi_ngu, h.buoi_ngu_thuc_te, h.vang_ngu, h.phep_ngu,
+        h.tien_an, h.tien_ngu, h.tong_tien
+      ])
+    ];
+    const wsAll = XLSX.utils.aoa_to_sheet(aoaAll);
+    wsAll['!cols'] = [{wch:5},{wch:8},{wch:28},{wch:8},{wch:5},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8},{wch:10},{wch:8},{wch:8},{wch:14},{wch:14},{wch:16}];
+    if (!thLopSelected) XLSX.utils.book_append_sheet(wb, wsAll, 'Toan_truong');
+    // Sheet từng lớp
+    Object.entries(lopMap).sort(([a],[b])=>a.localeCompare(b)).forEach(([lop, hsArr]) => {
+      const maxBuoiAnLop = Math.max(...hsArr.map(h => h.tong_buoi_an));
+      const maxBuoiNguLop = Math.max(...hsArr.map(h => h.tong_buoi_ngu));
+      const aoa = [
+        [`BẢNG THU TIỀN BÁN TRÚ – LỚP ${lop} – THÁNG ${so_thang}/${so_nam}`],
+        [`Tổng buổi ăn: ${maxBuoiAnLop} | Tổng buổi ngủ: ${maxBuoiNguLop} | Đơn giá ăn: ${gia_an.toLocaleString('vi-VN')}đ | Đơn giá ngủ: ${gia_ngu.toLocaleString('vi-VN')}đ`],
+        [],
+        headerAll,
+        ...hsArr.map((h, i) => [
+          i+1, h.id, h.ho_ten, h.lop, h.gioi_tinh===0?'Nam':'Nữ',
+          h.tong_buoi_an, h.buoi_an_thuc_te, h.vang_an, h.phep_an,
+          h.tong_buoi_ngu, h.buoi_ngu_thuc_te, h.vang_ngu, h.phep_ngu,
+          h.tien_an, h.tien_ngu, h.tong_tien
+        ]),
+        ['','','','','TỔNG',
+          hsArr.reduce((a,h)=>a+h.tong_buoi_an,0),'','','',
+          hsArr.reduce((a,h)=>a+h.tong_buoi_ngu,0),'','','',
+          hsArr.reduce((a,h)=>a+h.tien_an,0),
+          hsArr.reduce((a,h)=>a+h.tien_ngu,0),
+          hsArr.reduce((a,h)=>a+h.tong_tien,0)
+        ]
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{wch:5},{wch:8},{wch:28},{wch:8},{wch:5},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8},{wch:10},{wch:8},{wch:8},{wch:14},{wch:14},{wch:16}];
+      XLSX.utils.book_append_sheet(wb, ws, `Lop_${lop}`.substring(0,31));
+    });
+    XLSX.writeFile(wb, `TongHop_BanTru_Thang${so_thang}_${so_nam}.xlsx`);
+  };
+
+  const exportThLopPDF = () => {
+    if (!thLopData) return;
+    const { data, so_thang, so_nam, tong_buoi_an, tong_buoi_ngu, gia_an, gia_ngu, nam_hoc, nguoi_phu_trach } = thLopData;
+    const filteredData = thLopSelected ? data.filter(h => h.lop === thLopSelected) : data;
+    if (filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
+    
+    const fmtM = n => n.toLocaleString('vi-VN');
+    const lopMap = {};
+    filteredData.forEach(h => { if (!lopMap[h.lop]) lopMap[h.lop] = []; lopMap[h.lop].push(h); });
+    const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}`;
+    const htmlPages = Object.entries(lopMap).sort(([a],[b])=>a.localeCompare(b)).map(([lop, hsArr]) => {
+      const tongTienLop = hsArr.reduce((a,h)=>a+h.tong_tien,0);
+      const maxBuoiAnLop = Math.max(...hsArr.map(h => h.tong_buoi_an));
+      const maxBuoiNguLop = Math.max(...hsArr.map(h => h.tong_buoi_ngu));
+      const rows = hsArr.map((h,i) => `<tr>
+        <td class="c">${i+1}</td>
+        <td class="c b">${h.id}</td>
+        <td class="l">${h.ho_ten}</td>
+        <td class="c">${h.gioi_tinh===0?'Nam':'Nữ'}</td>
+        <td class="c">${h.tong_buoi_an}</td><td class="c hl">${h.buoi_an_thuc_te}</td><td class="c r">${h.vang_an}</td><td class="c r">${h.phep_an}</td>
+        <td class="c">${h.tong_buoi_ngu}</td><td class="c hl">${h.buoi_ngu_thuc_te}</td><td class="c r">${h.vang_ngu}</td><td class="c r">${h.phep_ngu}</td>
+        <td class="r">${fmtM(h.tien_an)}</td><td class="r">${fmtM(h.tien_ngu)}</td>
+        <td class="r b total">${fmtM(h.tong_tien)}</td>
+        <td class="ghichu"></td>
+      </tr>`).join('');
+      return `<div class="page">
+<table class="hdr"><tr>
+  <td class="hdr-l" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
+  <td class="hdr-c"><h1>BẢNG THU TIỀN BÁN TRÚ</h1></td>
+</tr><tr><td class="hdr-c">
+  <h2>NĂM HỌC ${nam_hoc} | THÁNG ${so_thang}/${so_nam} | LỚP ${lop}</h2>
+  <div class="sub">Tổng: ${maxBuoiAnLop} buổi ăn | ${maxBuoiNguLop} buổi ngủ | Đơn giá ăn: ${fmtM(gia_an)}đ | Đơn giá ngủ: ${fmtM(gia_ngu)}đ</div>
+</td></tr></table>
+<table class="dt">
+<thead><tr>
+  <th rowspan="2" class="c" style="width:5mm">STT</th>
+  <th rowspan="2" class="c" style="width:9mm;color:#c00">Mã<br>số BT</th>
+  <th rowspan="2" style="width:38mm">HỌC SINH</th>
+  <th rowspan="2" class="c" style="width:7mm">GT</th>
+  <th colspan="4" class="c an-col">ĂN TRƯA</th>
+  <th colspan="4" class="c ngu-col">NGỦ TRƯA</th>
+  <th colspan="2" class="c tien-col">TIỀN (đ)</th>
+  <th rowspan="2" class="c total-col">TỔNG TIỀN (đ)</th>
+  <th rowspan="2" class="c" style="width:14mm">Ghi chú</th>
+</tr><tr>
+  <th class="c an-col" style="width:10mm">TS<br>buổi</th><th class="c hl" style="width:10mm">Thực<br>tế</th><th class="c" style="width:8mm">Vắng</th><th class="c" style="width:8mm">Phép</th>
+  <th class="c ngu-col" style="width:10mm">TS<br>buổi</th><th class="c hl" style="width:10mm">Thực<br>tế</th><th class="c" style="width:8mm">Vắng</th><th class="c" style="width:8mm">Phép</th>
+  <th class="c tien-col" style="width:16mm">Tiền ăn</th><th class="c tien-col" style="width:16mm">Tiền ngủ</th>
+</tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr>
+  <td colspan="4" class="b r">TỔNG CỘNG</td>
+  <td class="c">${hsArr.reduce((a,h)=>a+h.tong_buoi_an,0)}</td><td class="c hl b">${hsArr.reduce((a,h)=>a+h.buoi_an_thuc_te,0)}</td><td class="c">${hsArr.reduce((a,h)=>a+h.vang_an,0)}</td><td class="c">${hsArr.reduce((a,h)=>a+h.phep_an,0)}</td>
+  <td class="c">${hsArr.reduce((a,h)=>a+h.tong_buoi_ngu,0)}</td><td class="c hl b">${hsArr.reduce((a,h)=>a+h.buoi_ngu_thuc_te,0)}</td><td class="c">${hsArr.reduce((a,h)=>a+h.vang_ngu,0)}</td><td class="c">${hsArr.reduce((a,h)=>a+h.phep_ngu,0)}</td>
+  <td class="r b">${fmtM(hsArr.reduce((a,h)=>a+h.tien_an,0))}</td><td class="r b">${fmtM(hsArr.reduce((a,h)=>a+h.tien_ngu,0))}</td>
+  <td class="r b total">${fmtM(tongTienLop)}</td><td></td>
+</tr></tfoot>
+</table>
+<div class="ft">
+  <div class="ft-l"><div>Lớp ${lop}: <strong>${hsArr.length} học sinh</strong></div><div>Tổng thu: <strong>${fmtM(tongTienLop)} đồng</strong></div></div>
+  <div class="ft-r"><div>${todayStr}</div><div class="sig-t">PHỤ TRÁCH BÁN TRÚ</div><div class="sig-s"></div><div class="sig-n">${nguoi_phu_trach}</div></div>
+</div></div>`;
+    }).join('');
+    const css = `*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
+.page{page-break-before:always}.page:first-of-type{page-break-before:auto}
+.hdr{width:100%;border-collapse:collapse;margin-bottom:4px}
+.hdr td{border:none;padding:2px 6px;vertical-align:middle}
+.hdr-l{width:22%;text-align:center;font-size:9pt;line-height:1.5}
+.hdr-c{text-align:center}
+.hdr-c h1{font-size:13pt;font-weight:bold;text-transform:uppercase}
+.hdr-c h2{font-size:10pt;font-weight:bold;margin-top:2px}
+.hdr-c .sub{font-size:8.5pt;margin-top:2px}
+.dt{width:100%;border-collapse:collapse;margin-top:4px}
+.dt th{border:.8px solid #333;padding:2px;text-align:center;background:#ececec;font-size:8pt;font-weight:bold;line-height:1.2}
+.dt td{border:.8px solid #555;padding:2px;vertical-align:middle;font-size:8.5pt}
+.c{text-align:center}.l{text-align:left;padding-left:4px}.r{text-align:right;padding-right:4px}.b{font-weight:bold}
+.hl{background:#f0fff0;font-weight:bold}
+.an-col{background:#fff8f0}.ngu-col{background:#f8f0ff}.tien-col{background:#f0f8ff}
+.total-col{width:18mm;background:#fffde7;font-weight:bold}
+.ghichu{width:14mm}
+.total{color:#16a34a;font-weight:bold}
+.r.b.total{color:#dc2626}
+.ft{width:100%;margin-top:10px;display:flex;justify-content:space-between;font-size:9pt;page-break-inside:avoid}
+.ft-l{flex:1;line-height:1.8}.ft-r{flex:1;text-align:center}
+.sig-t{font-weight:bold;margin-top:4px}.sig-s{height:40px}.sig-n{font-weight:bold;font-style:italic}
+@page{size:A4 landscape;margin:.8cm .8cm 1.2cm 1cm}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.hl{background:#f0fff0!important}.total-col{background:#fffde7!important}}`;
+    const w = window.open('', '_blank');
+    if (!w) { alert('Trình duyệt chặn popup!'); return; }
+    w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Tổng hợp bán trú tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}<\/script></body></html>`);
+    w.document.close();
   };
 
   // ── EXPORT ──
@@ -679,13 +1128,28 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             <label style={{fontWeight:600}}><i className="fas fa-calendar-alt"></i> Chọn Tháng:</label>
             <input type="month" value={monthHS} onChange={e=>setMonthHS(e.target.value)} style={{padding:'6px 10px',borderRadius:8,border:'1.5px solid #e2e8f0',fontFamily:'inherit'}} />
             <button className="btn btn-outline btn-sm" onClick={()=>setMonthHS(today.slice(0,7))}>Tháng này</button>
-            <div style={{marginLeft: 'auto', display: 'flex', gap: '8px'}}>
-              <button className="btn btn-primary btn-sm" onClick={openExportAnModal}>
-                <i className="fas fa-file-pdf"></i> In DS Điểm danh Ăn
+            <div style={{marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap:'wrap'}}>
+              <button className="btn btn-primary btn-sm" style={{background:'#10b981', borderColor:'#10b981', fontWeight:600}} onClick={openTongHopLopModal}>
+                <i className="fas fa-table"></i> Tổng hợp theo Lớp
               </button>
-              <button className="btn btn-primary btn-sm" onClick={openExportNguModal} style={{background:'#6366f1', borderColor:'#6366f1'}}>
-                <i className="fas fa-bed"></i> In DS Điểm danh Ngủ
-              </button>
+              <div className="bc-dropdown">
+                <button className="btn btn-primary btn-sm" style={{background:'#0ea5e9', borderColor:'#0ea5e9', fontWeight:600}}>
+                  <i className="fas fa-utensils"></i> Báo cáo Điểm danh Ăn <i className="fas fa-chevron-down" style={{marginLeft:4}}></i>
+                </button>
+                <div className="bc-dropdown-content">
+                  <button onClick={openExportAnModal}><i className="fas fa-file-pdf" style={{color:'#0ea5e9'}}></i> In DS chính thức</button>
+                  <button onClick={() => { setSpecialLoai('an'); setSpecialDate(today); setShowSpecialModal(true); }}><i className="fas fa-print" style={{color:'#f59e0b'}}></i> In ngày đặc biệt</button>
+                </div>
+              </div>
+              <div className="bc-dropdown">
+                <button className="btn btn-primary btn-sm" style={{background:'#6366f1', borderColor:'#6366f1', fontWeight:600}}>
+                  <i className="fas fa-bed"></i> Báo cáo Điểm danh Ngủ <i className="fas fa-chevron-down" style={{marginLeft:4}}></i>
+                </button>
+                <div className="bc-dropdown-content">
+                  <button onClick={openExportNguModal}><i className="fas fa-file-pdf" style={{color:'#6366f1'}}></i> In DS chính thức</button>
+                  <button onClick={() => { setSpecialLoai('ngu'); setSpecialDate(today); setShowSpecialModal(true); }}><i className="fas fa-print" style={{color:'#6c5ce7'}}></i> In ngày đặc biệt</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -697,6 +1161,39 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 {lopList.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
+            {lopList.length > 0 && !lopFilter && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'flex-start', gap: 6,
+                background: '#f0f9ff', border: '1.5px solid #7dd3fc', borderRadius: 8,
+                padding: '5px 12px', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600,
+                flexWrap: 'wrap', maxWidth: '100%'
+              }}>
+                <i className="fas fa-school" style={{ marginTop: 2, color: '#0284c7' }}></i>
+                <span>
+                  <span style={{ opacity: 0.75, fontWeight: 500 }}>Đang hiện </span>
+                  <strong>{lopList.length} lớp</strong>
+                  <span style={{ marginLeft: 6, fontWeight: 400, fontSize: '0.78rem', color: '#0369a1' }}>
+                    ({formatLopList(lopList)})
+                  </span>
+                </span>
+              </div>
+            )}
+            {lopFilter && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#fef3c7', border: '1.5px solid #fbbf24', borderRadius: 8,
+                padding: '5px 12px', fontSize: '0.82rem', color: '#92400e', fontWeight: 600
+              }}>
+                <i className="fas fa-filter"></i>
+                Đang lọc lớp: <strong style={{ marginLeft: 4 }}>{lopFilter}</strong>
+                <button onClick={() => setLopFilter('')} style={{
+                  marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#b45309', fontSize: '0.75rem', padding: '0 2px', lineHeight: 1
+                }} title="Bỏ lọc">
+                  <i className="fas fa-times-circle"></i>
+                </button>
+              </div>
+            )}
             {loadingHS && <span style={{color:'var(--primary)'}}><i className="fas fa-spinner fa-spin"></i> Đang tải...</span>}
           </div>
 
@@ -1076,6 +1573,115 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
               </button>
               <button className="btn btn-primary" onClick={exportBaoCaoNguPDF} disabled={exportingNgu} style={{background:'#ef4444',borderColor:'#ef4444'}}>
                 {exportingNgu ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Xuất PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL TỔNG HỢP THEO LỚP ── */}
+      {showTongHopLopModal && (
+        <div className="export-modal-overlay">
+          <div className="export-modal" style={{maxWidth:560}}>
+            <div className="export-modal-header" style={{background:'linear-gradient(90deg,#10b981,#059669)'}}>
+              <div className="icon"><i className="fas fa-table"></i></div>
+              <div>
+                <h3>Tổng hợp chuyên cần &amp; thu tiền theo Lớp</h3>
+                <p>Xuất bảng tổng hợp ăn/ngủ thực tế, vắng, phép từng HS theo lớp</p>
+              </div>
+            </div>
+            <div className="export-modal-body">
+              <div className="export-modal-group" style={{display:'flex',gap:16}}>
+                <div style={{flex:1}}>
+                  <div className="export-modal-section-title"><i className="fas fa-calendar-alt" style={{color:'#10b981'}}></i> CHỌN THÁNG</div>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <input type="month" value={thLopMonth}
+                      onChange={e => { setThLopMonth(e.target.value); fetchThLop(e.target.value); }}
+                      style={{width:'100%',padding:'7px 12px',borderRadius:8,border:'1.5px solid #e2e8f0',fontFamily:'inherit',fontSize:'1rem'}} />
+                    {loadingThLop && <span style={{color:'#10b981'}}><i className="fas fa-spinner fa-spin"></i> Đang tải...</span>}
+                  </div>
+                </div>
+                <div style={{flex:1}}>
+                  <div className="export-modal-section-title"><i className="fas fa-chalkboard" style={{color:'#10b981'}}></i> CHỌN LỚP</div>
+                  <select value={thLopSelected} onChange={e => setThLopSelected(e.target.value)} disabled={!thLopData || loadingThLop}
+                    style={{width:'100%',padding:'7px 12px',borderRadius:8,border:'1.5px solid #e2e8f0',fontFamily:'inherit',fontSize:'1rem',background:!thLopData?'#f8fafc':'#fff'}}>
+                    <option value="">-- Tất cả các lớp --</option>
+                    {thLopData && [...new Set(thLopData.data.map(h=>h.lop))].sort().map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+              {thLopData && (
+                <div className="export-modal-group" style={{background:'#f0fdf4',borderRadius:10,padding:'10px 14px'}}>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:16}}>
+                    <div><span style={{color:'#64748b',fontSize:'.8rem'}}>Buổi ăn:</span> <strong style={{color:'#0ea5e9'}}>{thLopData.tong_buoi_an}</strong></div>
+                    <div><span style={{color:'#64748b',fontSize:'.8rem'}}>Buổi ngủ:</span> <strong style={{color:'#6366f1'}}>{thLopData.tong_buoi_ngu}</strong></div>
+                    <div><span style={{color:'#64748b',fontSize:'.8rem'}}>Đơn giá ăn:</span> <strong style={{color:'#f59e0b'}}>{(thLopData.gia_an||0).toLocaleString('vi-VN')}đ</strong></div>
+                    <div><span style={{color:'#64748b',fontSize:'.8rem'}}>Đơn giá ngủ:</span> <strong style={{color:'#8b5cf6'}}>{(thLopData.gia_ngu||0).toLocaleString('vi-VN')}đ</strong></div>
+                    <div><span style={{color:'#64748b',fontSize:'.8rem'}}>Tổng HS:</span> <strong>{thLopData.data?.length || 0}</strong></div>
+                  </div>
+                  <div style={{marginTop:8,fontSize:'.8rem',color:'#059669'}}>
+                    <i className="fas fa-check-circle"></i> Dữ liệu sẵn sàng — xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data||[]).map(h=>h.lop))].length} lớp`}
+                  </div>
+                </div>
+              )}
+              <div style={{fontSize:'0.78rem',color:'#64748b',marginTop:4}}>
+                <i className="fas fa-info-circle" style={{color:'#10b981'}}></i> Mỗi lớp sẽ xuất ra 1 sheet Excel / 1 trang PDF riêng. Đơn giá lấy từ cấu hình hệ thống.
+              </div>
+            </div>
+            <div className="export-modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowTongHopLopModal(false)}>Hủy</button>
+              <button className="btn btn-success" onClick={exportThLopExcel} disabled={!thLopData || loadingThLop} style={{background:'#10b981',borderColor:'#10b981'}}>
+                <i className="fas fa-file-excel"></i> Xuất Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => { exportThLopPDF(); }} disabled={!thLopData || loadingThLop} style={{background:'#ef4444',borderColor:'#ef4444'}}>
+                <i className="fas fa-file-pdf"></i> Xuất PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CHỌN NGÀY ĐẶC BIỆT */}
+      {showSpecialModal && (
+        <div className="export-modal-overlay">
+          <div className="export-modal" style={{maxWidth: 420}}>
+            <div className="export-modal-header">
+              <div className="icon" style={{background: specialLoai === 'an'
+                ? 'linear-gradient(135deg,#f59e0b,#fbbf24)'
+                : 'linear-gradient(135deg,#6c5ce7,#a29bfe)'}}>
+                <i className={specialLoai === 'an' ? 'fas fa-utensils' : 'fas fa-bed'}></i>
+              </div>
+              <div>
+                <h3>In ngày đặc biệt – Điểm danh {specialLoai === 'an' ? 'Ăn' : 'Ngủ'}</h3>
+                <p>Chọn ngày để xuất danh sách học sinh ngày đặc biệt</p>
+              </div>
+            </div>
+            <div className="export-modal-body">
+              <div className="export-modal-group">
+                <div className="export-modal-section-title">
+                  <i className="fas fa-calendar-day" style={{color: specialLoai === 'an' ? '#f59e0b' : '#6c5ce7'}}></i> CHỌN NGÀY
+                </div>
+                <input
+                  type="date"
+                  value={specialDate}
+                  onChange={e => setSpecialDate(e.target.value)}
+                  style={{width:'100%', padding:'8px 12px', borderRadius:8, border:'1.5px solid #e2e8f0', fontFamily:'inherit', fontSize:'1rem'}}
+                />
+                <div style={{marginTop:8, fontSize:'0.82rem', color:'#64748b'}}>
+                  <i className="fas fa-info-circle"></i> Hệ thống sẽ tự động lấy cấu hình ngày đặc biệt (lớp áp dụng, phòng tạm) và điểm danh thực tế của ngày này.
+                </div>
+              </div>
+            </div>
+            <div className="export-modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowSpecialModal(false)}>Hủy</button>
+              <button
+                className="btn btn-primary"
+                onClick={exportSpecialDayPDF}
+                disabled={exportingSpecial || !specialDate}
+                style={{background: specialLoai === 'an' ? '#f59e0b' : '#6c5ce7', borderColor: specialLoai === 'an' ? '#f59e0b' : '#6c5ce7'}}
+              >
+                {exportingSpecial ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-print"></i>}
+                {exportingSpecial ? ' Đang xuất...' : ' Xuất PDF'}
               </button>
             </div>
           </div>

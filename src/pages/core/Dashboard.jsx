@@ -147,8 +147,16 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* ── 4 Stat Cards ── */}
-            <div className="stats-container">
+            {data && !data.has_schedule ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginTop: 24, marginBottom: 24 }}>
+                    <div style={{ fontSize: '4rem', color: '#cbd5e1', marginBottom: 16 }}><i className="fas fa-calendar-times"></i></div>
+                    <h3 style={{ color: '#64748b', fontSize: '1.4rem' }}>Hôm nay không có lịch bán trú</h3>
+                    <p style={{ color: '#94a3b8', marginTop: 8 }}>Hệ thống không ghi nhận lịch trực của giáo viên hoặc toàn trường được nghỉ bán trú trong ngày hôm nay.</p>
+                </div>
+            ) : (
+                <>
+                {/* ── 4 Stat Cards ── */}
+                <div className="stats-container">
                 <StatCard
                     icon="fas fa-user-graduate" label="Tổng HS bán trú"
                     value={stat.total ?? 0} colorClass="blue"
@@ -233,6 +241,8 @@ export default function Dashboard() {
                     }
                 </div>
             </div>
+            </>
+            )}
 
             {/* ── Sĩ số theo khối ── */}
             <div className="section-header" style={{ marginTop: '24px' }}>

@@ -90,3 +90,44 @@
   .bc-metrics-grid { grid-template-columns:1fr 1fr; }
   .gv-stat-grid    { grid-template-columns:1fr 1fr; }
 }
+
+
+.bc-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.bc-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: #f9f9f9;
+    min-width: 180px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 100;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.bc-dropdown:hover .bc-dropdown-content {
+    display: block;
+}
+.bc-dropdown-content button {
+    color: black;
+    padding: 10px 16px;
+    text-decoration: none;
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+.bc-dropdown-content button:hover {
+    background-color: #f1f1f1;
+}
+.bc-dropdown-content button i {
+    width: 20px;
+    text-align: center;
+    margin-right: 6px;
+}

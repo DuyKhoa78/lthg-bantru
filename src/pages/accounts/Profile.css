@@ -14,7 +14,7 @@
 .profile-avatar-wrap { position: relative; margin-bottom: 16px; }
 .profile-avatar {
   width: 100px; height: 100px; border-radius: 50%;
-  object-fit: cover; border: 3px solid #bfdbfe;
+  object-fit: cover; object-position: center top; border: 3px solid #bfdbfe;
   box-shadow: 0 4px 16px rgba(0,156,255,0.2);
 }
 .profile-avatar-edit {
