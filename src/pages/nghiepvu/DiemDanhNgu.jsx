@@ -651,8 +651,7 @@ ${htmlPages}
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
             const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
             const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
-            const roomClasses = [...new Set(roomStudents.map(s => s.lop).filter(Boolean))].sort();
-            const roomLopList = roomClasses.length > 0 ? roomClasses.join(', ') : 'Không rõ';
+
 
             // Phòng "đã điểm danh" khi TẤT CẢ học sinh trong phòng đó có record (khớp với UI)
             const markedDays = new Set(

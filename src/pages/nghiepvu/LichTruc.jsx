@@ -427,7 +427,7 @@ export default function LichTruc() {
     const ws = getWeekStart(sDateObj);
     let dsAll = [];
     let dGv = gvList;
-    let dPhong = phongList;
+
 
     try {
       const [rWeek, rConf] = await Promise.all([
@@ -437,7 +437,7 @@ export default function LichTruc() {
       if (rWeek.data?.ok) {
         dsAll = rWeek.data.records || [];
         dGv = rWeek.data.gv_list || dGv;
-        dPhong = rWeek.data.phong_list || dPhong;
+
       }
       if (rConf.data?.he_thong) {
         namHoc = rConf.data.he_thong.nam_hoc || namHoc;
