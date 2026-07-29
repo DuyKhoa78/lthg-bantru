@@ -33,7 +33,7 @@ export default function VatDung() {
   const [confirmDel, setConfirmDel] = useState(null); // id number
   const [history, setHistory] = useState([]);
 
-  const fetchData = useCallback(() => {
+  const fetchData = () => {
     setLoading(true);
     Promise.all([
       api.get('/api/vatdung/'),
@@ -44,11 +44,19 @@ export default function VatDung() {
       if (phRes.data?.ok) setPhongList(phRes.data.phong);
       if (hsRes.data?.ok) setHistory(hsRes.data.history || []);
     }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  };
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    Promise.all([
+      api.get('/api/vatdung/'),
+      api.get('/api/phong/'),
+      api.get('/api/vatdung/lichsu/').catch(() => ({ data: { ok: false } })),
+    ]).then(([vdRes, phRes, hsRes]) => {
+      if (vdRes.data?.ok) setData(vdRes.data.vatdung);
+      if (phRes.data?.ok) setPhongList(phRes.data.phong);
+      if (hsRes.data?.ok) setHistory(hsRes.data.history || []);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
   // Thống kê
   const stats = {
