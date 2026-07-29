@@ -3,6 +3,18 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/api/:path*"
+    },
+    {
+      "source": "/login/",
+      "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/login/"
+    },
+    {
+      "source": "/logout/",
+      "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/logout/"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
