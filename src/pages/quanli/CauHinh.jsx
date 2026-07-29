@@ -19,12 +19,21 @@ export default function CauHinh() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [history, setHistory] = useState([]);
+
+  const fetchHistory = () => {
+    api.get('/api/cauhinh/lichsu/')
+      .then(res => { if (res.data?.ok) setHistory(res.data.history || []); })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     Promise.all([
       api.get('/api/cauhinh/'),
-      api.get('/api/nguoidung/quanly/').catch(() => ({ data: { ok: false } }))
+      api.get('/api/nguoidung/quanly/').catch(() => ({ data: { ok: false } })),
+      api.get('/api/cauhinh/lichsu/').catch(() => ({ data: { ok: false } }))
     ])
-      .then(([resCauHinh, resUsers]) => {
+      .then(([resCauHinh, resUsers, resHistory]) => {
         if (resCauHinh.data?.ok) {
           const { he_thong, gia_an, gia_ngu } = resCauHinh.data;
           if (he_thong) setHeThong({
@@ -37,6 +46,9 @@ export default function CauHinh() {
         }
         if (resUsers.data?.ok) {
           setManagers(resUsers.data.users || []);
+        }
+        if (resHistory.data?.ok) {
+          setHistory(resHistory.data.history || []);
         }
       })
       .catch(console.error)
@@ -51,6 +63,7 @@ export default function CauHinh() {
         api.post('/api/cauhinh/save/', { an: parseFloat(giaAn) || 0, ngu: parseFloat(giaNgu) || 0 }),
       ]);
       setSaved(true);
+      fetchHistory();
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       showAlert(err.response?.data?.error || 'Lưu thất bại');
@@ -107,7 +120,6 @@ export default function CauHinh() {
                 {managers.map(m => (
                   <option key={m.id} value={m.fullname}>{m.fullname}</option>
                 ))}
-
               </select>
             </div>
           </div>
@@ -127,10 +139,45 @@ export default function CauHinh() {
             </div>
           </div>
         </div>
+      </div>
 
-
-
-
+      {/* Lịch sử chỉnh sửa */}
+      <div className="cauhinh-section" style={{ marginTop: 24 }}>
+        <div className="cauhinh-section-header">
+          <i className="fas fa-history" style={{ color: 'var(--primary)' }}></i> Lịch sử Chỉnh sửa &amp; Người Thao tác
+        </div>
+        <div className="cauhinh-section-body" style={{ padding: 0 }}>
+          <table className="data-table" style={{ width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ width: 60 }}>#</th>
+                <th style={{ width: 170 }}>Thời gian</th>
+                <th style={{ width: 180 }}>Người thực hiện</th>
+                <th style={{ width: 130 }}>Chức vụ</th>
+                <th>Nội dung chỉnh sửa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                    Chưa có lịch sử chỉnh sửa thiết lập.
+                  </td>
+                </tr>
+              ) : (
+                history.map((item, idx) => (
+                  <tr key={item.id || idx}>
+                    <td>{idx + 1}</td>
+                    <td>{new Date(item.created_at).toLocaleString('vi-VN')}</td>
+                    <td><b>{item.nguoi_thao_tac_ten}</b></td>
+                    <td><span className="badge badge-info">{item.chuc_vu}</span></td>
+                    <td>{item.noidung}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {!canEdit && (

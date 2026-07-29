@@ -11,7 +11,7 @@ export default function Profile() {
   const { showAlert, AlertUI } = useAlert();
   const [tab, setTab] = useState('info');
   const [form, setForm] = useState({ fullname: '', position: '', email: '' });
-  const [pwForm, setPwForm] = useState({ old: '', new1: '', new2: '', otp: '', stage: 'input', showOld: false, showNew: false });
+  const [pwForm, setPwForm] = useState({ old: '', new1: '', new2: '', otp: '', stage: 'input', showOld: false, showNew: false, showConfirm: false });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pwMsg, setPwMsg] = useState('');
@@ -40,14 +40,31 @@ export default function Profile() {
     }
   };
 
+  const handleChangePasswordDirect = async () => {
+    if (!pwForm.old || !pwForm.new1) return showAlert('Vui lòng nhập mật khẩu hiện tại và mật khẩu mới!', 'warning');
+    if (pwForm.new1 !== pwForm.new2) return showAlert('Mật khẩu xác nhận không khớp!', 'warning');
+    if (pwForm.new1.length < 6) return showAlert('Mật khẩu mới ít nhất 6 ký tự!', 'warning');
+    setSaving(true);
+    try {
+      const res = await api.post('/api/profile/change-password/', { current_password: pwForm.old, new_password: pwForm.new1 });
+      setPwMsg(res.data?.message || '✅ Đổi mật khẩu thành công!');
+      showAlert('✅ Đổi mật khẩu thành công!', 'success');
+      setPwForm({ old: '', new1: '', new2: '', otp: '', stage: 'input', showOld: false, showNew: false, showConfirm: false });
+    } catch (err) {
+      showAlert(err.response?.data?.error || 'Đổi mật khẩu thất bại');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSendOtp = async () => {
-    if (!pwForm.old || !pwForm.new1) return showAlert('Vui lòng điền đầy đủ!', 'warning');
+    if (!pwForm.old || !pwForm.new1) return showAlert('Vui lòng điền đầy đủ thông tin!', 'warning');
     if (pwForm.new1 !== pwForm.new2) return showAlert('Mật khẩu xác nhận không khớp!', 'warning');
     if (pwForm.new1.length < 6) return showAlert('Mật khẩu mới ít nhất 6 ký tự!', 'warning');
     setSaving(true);
     try {
       const res = await api.post('/api/profile/send-otp/', { current_password: pwForm.old, new_password: pwForm.new1 });
-      setPwMsg(res.data.message || 'OTP đã được gửi vào email của bạn');
+      setPwMsg(res.data.message || 'Mã OTP đã được gửi đến email của bạn');
       setPwForm(p => ({ ...p, stage: 'otp' }));
     } catch (err) {
       showAlert(err.response?.data?.error || 'Gửi OTP thất bại');
@@ -62,7 +79,8 @@ export default function Profile() {
     try {
       await api.post('/api/profile/verify-otp/', { otp: pwForm.otp });
       setPwMsg('✅ Đổi mật khẩu thành công!');
-      setPwForm({ old: '', new1: '', new2: '', otp: '', stage: 'input', showOld: false, showNew: false });
+      showAlert('✅ Đổi mật khẩu thành công!', 'success');
+      setPwForm({ old: '', new1: '', new2: '', otp: '', stage: 'input', showOld: false, showNew: false, showConfirm: false });
     } catch (err) {
       showAlert(err.response?.data?.error || 'OTP không đúng hoặc đã hết hạn');
     } finally {
@@ -146,7 +164,7 @@ export default function Profile() {
                     <label className="form-label">Mật khẩu hiện tại <span className="required">*</span></label>
                     <div style={{ position: 'relative' }}>
                       <input type={pwForm.showOld ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.old} onChange={(e) => setPwForm({ ...pwForm, old: e.target.value })} placeholder="••••••••" />
-                      <button style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showOld: !pwForm.showOld })}>
+                      <button type="button" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showOld: !pwForm.showOld })}>
                         <i className={`fas ${pwForm.showOld ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
@@ -155,19 +173,27 @@ export default function Profile() {
                     <label className="form-label">Mật khẩu mới <span className="required">*</span></label>
                     <div style={{ position: 'relative' }}>
                       <input type={pwForm.showNew ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.new1} onChange={(e) => setPwForm({ ...pwForm, new1: e.target.value })} placeholder="••••••••" />
-                      <button style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showNew: !pwForm.showNew })}>
+                      <button type="button" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showNew: !pwForm.showNew })}>
                         <i className={`fas ${pwForm.showNew ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Xác nhận mật khẩu mới <span className="required">*</span></label>
-                    <input type="password" className="form-control" value={pwForm.new2} onChange={(e) => setPwForm({ ...pwForm, new2: e.target.value })} placeholder="••••••••" />
+                    <div style={{ position: 'relative' }}>
+                      <input type={pwForm.showConfirm ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.new2} onChange={(e) => setPwForm({ ...pwForm, new2: e.target.value })} placeholder="••••••••" />
+                      <button type="button" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showConfirm: !pwForm.showConfirm })}>
+                        <i className={`fas ${pwForm.showConfirm ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                      </button>
+                    </div>
                     {pwForm.new2 && pwForm.new1 !== pwForm.new2 && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: 4 }}><i className="fas fa-exclamation-circle"></i> Mật khẩu không khớp</div>}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                    <button className="btn btn-primary" onClick={handleSendOtp} disabled={saving}>
-                      <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`}></i> Gửi mã OTP
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+                    <button className="btn btn-ghost" onClick={handleSendOtp} disabled={saving} title="Gửi mã xác thực về email của bạn">
+                      <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`}></i> Gửi mã OTP qua Email
+                    </button>
+                    <button className="btn btn-primary" onClick={handleChangePasswordDirect} disabled={saving}>
+                      <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-check-circle'}`}></i> Xác nhận &amp; Đổi mật khẩu
                     </button>
                   </div>
                 </>
@@ -180,7 +206,7 @@ export default function Profile() {
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
                     <button className="btn btn-ghost" onClick={() => setPwForm(p => ({ ...p, stage: 'input', otp: '' }))}>Quay lại</button>
                     <button className="btn btn-primary" onClick={handleVerifyOtp} disabled={saving}>
-                      <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-key'}`}></i> Xác nhận & Đổi mật khẩu
+                      <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-key'}`}></i> Xác nhận OTP &amp; Đổi mật khẩu
                     </button>
                   </div>
                 </>

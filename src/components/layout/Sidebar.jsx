@@ -6,9 +6,9 @@ const menuItems = [
   { to: '/', icon: 'fas fa-th-large', label: 'Dashboard', roles: 'all' },
 
   // ─── Điểm danh ───
-  { label: 'ĐIỂM DANH', type: 'label', permission: 'can_diem_danh' },
-  { to: '/diemdanh-an',  icon: 'fas fa-utensils', label: 'Điểm danh ăn',  permission: 'can_diem_danh' },
-  { to: '/diemdanh-ngu', icon: 'fas fa-bed',      label: 'Điểm danh ngủ', permission: 'can_diem_danh' },
+  { label: 'ĐIỂM DANH', type: 'label', roles: 'authenticated' },
+  { to: '/diemdanh-an',  icon: 'fas fa-utensils', label: 'Điểm danh ăn',  roles: 'authenticated' },
+  { to: '/diemdanh-ngu', icon: 'fas fa-bed',      label: 'Điểm danh ngủ', roles: 'authenticated' },
 
   // ─── Lịch trực & Báo cáo ───
   { label: 'LỊCH TRỰC & BÁO CÁO', type: 'label', roles: 'authenticated' },
@@ -53,6 +53,13 @@ export default function Sidebar({ collapsed, mobileOpen }) {
 
   const avatarFallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=009CFF&color=fff&rounded=true`;
 
+  const getAvatarUrl = (url) => {
+    if (!url) return `${import.meta.env.BASE_URL}user.jpg`;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const cleanPath = url.startsWith('/') ? url.slice(1) : url;
+    return `${import.meta.env.BASE_URL}${cleanPath}`;
+  };
+
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} id="sidebar">
       {/* Logo */}
@@ -89,7 +96,7 @@ export default function Sidebar({ collapsed, mobileOpen }) {
         <div className="sidebar-user">
           <div className="avatar-wrap">
             <img
-              src={user.avatar_url || '/user.jpg'}
+              src={getAvatarUrl(user.avatar_url)}
               alt="avatar"
               onError={(e) => { e.target.src = avatarFallback; }}
             />

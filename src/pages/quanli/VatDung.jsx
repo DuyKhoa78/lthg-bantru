@@ -7,19 +7,15 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import '../../styles/admin.css';
 
 const LOAI_MAP = {
-  khay_an:   'Khay ăn / Bát đĩa',
-  giuong:    'Giường / Nệm',
-  binh_nuoc: 'Bình nước',
-  dieu_hoa:  'Máy điều hoà',
-  quat:      'Quạt trần / Quạt điện',
-  tu_do:     'Tủ đồ',
-  khac:      'Khác',
+  CHIEU:  'Chiếu',
+  GOI:    'Gối',
+  VO_GOI: 'Áo gối',
 };
 
 const LOAI_OPTIONS = Object.entries(LOAI_MAP);
 
 const EMPTY_FORM = {
-  nam_hoc: '', lan_mua: 1, loai_vat_dung: 'khay_an', so_luong: '', ngay_mua: new Date().toISOString().split('T')[0],
+  nam_hoc: '', lan_mua: 1, loai_vat_dung: 'CHIEU', so_luong: '', ngay_mua: new Date().toISOString().split('T')[0],
 };
 
 export default function VatDung() {
@@ -35,28 +31,24 @@ export default function VatDung() {
   const [phanboModal, setPhanboModal] = useState(null); // { mua_id, con_lai }
   const [pbForm, setPbForm]   = useState({ phong_id: '', so_luong: '' });
   const [confirmDel, setConfirmDel] = useState(null); // id number
+  const [history, setHistory] = useState([]);
 
   const fetchData = useCallback(() => {
     setLoading(true);
     Promise.all([
       api.get('/api/vatdung/'),
       api.get('/api/phong/'),
-    ]).then(([vdRes, phRes]) => {
+      api.get('/api/vatdung/lichsu/').catch(() => ({ data: { ok: false } })),
+    ]).then(([vdRes, phRes, hsRes]) => {
       if (vdRes.data?.ok) setData(vdRes.data.vatdung);
       if (phRes.data?.ok) setPhongList(phRes.data.phong);
+      if (hsRes.data?.ok) setHistory(hsRes.data.history || []);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    // Chỉ gọi setState trong callback bất đồng bộ (.then / .finally)
-    Promise.all([
-      api.get('/api/vatdung/'),
-      api.get('/api/phong/'),
-    ]).then(([vdRes, phRes]) => {
-      if (vdRes.data?.ok) setData(vdRes.data.vatdung);
-      if (phRes.data?.ok) setPhongList(phRes.data.phong);
-    }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   // Thống kê
   const stats = {
@@ -203,6 +195,45 @@ export default function VatDung() {
                   )}
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Lịch sử chỉnh sửa & thao tác vật dụng */}
+      <div className="datatable-wrapper" style={{ marginTop: 24 }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <i className="fas fa-history" style={{ color: 'var(--primary)' }}></i> Lịch sử Mua sắm &amp; Phân bổ Vật dụng (Người thao tác)
+        </div>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: 60 }}>#</th>
+                <th style={{ width: 170 }}>Thời gian</th>
+                <th style={{ width: 180 }}>Người thực hiện</th>
+                <th style={{ width: 130 }}>Chức vụ</th>
+                <th>Nội dung thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                    Chưa có lịch sử thao tác vật dụng.
+                  </td>
+                </tr>
+              ) : (
+                history.map((item, idx) => (
+                  <tr key={item.id || idx}>
+                    <td>{idx + 1}</td>
+                    <td>{new Date(item.created_at).toLocaleString('vi-VN')}</td>
+                    <td><b>{item.nguoi_thao_tac_ten}</b></td>
+                    <td><span className="badge badge-info">{item.chuc_vu}</span></td>
+                    <td>{item.noidung}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

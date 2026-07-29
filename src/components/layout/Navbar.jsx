@@ -56,6 +56,13 @@ export default function Navbar({ collapsed, onToggle }) {
 
   const avatarFallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=009CFF&color=fff&rounded=true`;
 
+  const getAvatarUrl = (url) => {
+    if (!url) return `${import.meta.env.BASE_URL}user.jpg`;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const cleanPath = url.startsWith('/') ? url.slice(1) : url;
+    return `${import.meta.env.BASE_URL}${cleanPath}`;
+  };
+
   return (
     <header className={`navbar${collapsed ? ' sidebar-collapsed' : ''}`} id="navbar">
       <div className="nav-left">
@@ -87,7 +94,7 @@ export default function Navbar({ collapsed, onToggle }) {
         >
           <div className="avatar-wrap">
             <img
-              src={user?.avatar_url || '/user.jpg'}
+              src={getAvatarUrl(user?.avatar_url)}
               alt="Avatar"
               onError={(e) => { e.target.src = avatarFallback; }}
             />
