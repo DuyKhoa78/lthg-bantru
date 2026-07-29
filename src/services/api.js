@@ -15,9 +15,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const url = error.config?.url || '';
-    const is401 = error.response?.status === 401;
+    const status = error.response?.status;
+    const is401 = status === 401;
+
+    // DEBUG: log mọi lỗi API để tìm nguyên nhân bị out
+    console.error(`[API ERROR] ${error.config?.method?.toUpperCase()} ${url} → ${status}`, error.response?.data);
+
     // Không redirect vòng lặp từ /api/auth/me – AuthContext tự xử lý
     if (is401 && !url.includes('/api/auth/me') && !window.location.pathname.includes('/login')) {
+      console.error(`[API] 401 detected on ${url} → redirecting to /login`);
       const basePath = import.meta.env.BASE_URL || '/';
       window.location.href = `${basePath}login`.replace('//', '/');
     }
