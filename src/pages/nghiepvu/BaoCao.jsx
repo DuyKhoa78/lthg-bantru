@@ -1093,11 +1093,11 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
       <div class="hdr-inner-an">
         <table style="width:100%; border:none;">
           <tr>
-            <td style="width:40%; text-align:center; vertical-align:top; border:none; padding:0;">
-              <div style="font-size:10pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>TP. HỒ CHÍ MINH</div>
-              <div style="font-size:10pt; font-weight:bold; text-decoration:underline;">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
+            <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+              <div style="font-size:10pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>THÀNH PHỐ HỒ CHÍ MINH</div>
+              <div style="font-size:10pt; font-weight:bold;">TRUNG TÂM GIÁO DỤC KỸ THUẬT<br>TỔNG HỢP VÀ HƯỚNG NGHIỆP<br><span style="text-decoration:underline;">LÊ THỊ HỒNG GẤM</span></div>
             </td>
-            <td style="width:60%; text-align:center; vertical-align:top; border:none; padding:0;">
+            <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
               <div style="font-size:10pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
               <div style="font-size:10pt; font-weight:bold; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</div>
             </td>
@@ -1156,6 +1156,72 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
     } finally {
       setExportingGvPdf(false);
     }
+  };
+
+  // ── Hàm xuất Excel Công GV ──
+  const exportGvCongExcel = () => {
+    if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
+    const [y, m] = monthGV.split('-');
+    const year = parseInt(y, 10);
+    const month = parseInt(m, 10);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const workDays = [];
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month - 1, i);
+      const dow = d.getDay();
+      if (dow >= 1 && dow <= 5) {
+        workDays.push({
+          dateStr: `${year}-${String(month).padStart(2, '0')}-${String(i).padStart(2, '0')}`,
+          dayNum: i,
+          dowStr: (dow === 1) ? '2' : (dow === 2) ? '3' : (dow === 3) ? '4' : (dow === 4) ? '5' : '6'
+        });
+      }
+    }
+
+    const headerRowAn = ['STT', 'Tên\\\\Thứ', ...workDays.map(d => d.dowStr), 'TC'];
+    const dataRowsAn = gvData.map((g, i) => {
+      const row = [i + 1, g.ho_ten];
+      workDays.forEach(wd => {
+        row.push(g.ngay_an.includes(wd.dateStr) ? 1 : '');
+      });
+      row.push(g.so_ca_an);
+      return row;
+    });
+
+    const headerRowNgu = ['STT', 'Tên\\\\Thứ', ...workDays.map(d => d.dowStr), 'TC'];
+    const dataRowsNgu = gvData.map((g, i) => {
+      const row = [i + 1, g.ho_ten];
+      workDays.forEach(wd => {
+        row.push(g.ngay_ngu.includes(wd.dateStr) ? 1 : '');
+      });
+      row.push(g.so_ca_ngu);
+      return row;
+    });
+
+    const wb = XLSX.utils.book_new();
+    const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+    const wsAn = XLSX.utils.aoa_to_sheet([
+      [`BẢNG TÍNH CÔNG BÁN TRÚ ĂN NĂM HỌC ${namHoc}`],
+      [`(Tháng ${m}/${y})`],
+      [],
+      headerRowAn,
+      ...dataRowsAn
+    ]);
+    // Merge cell headers
+    wsAn['!merges'] = [ { s: { r: 0, c: 0 }, e: { r: 0, c: headerRowAn.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headerRowAn.length - 1 } } ];
+    XLSX.utils.book_append_sheet(wb, wsAn, 'Công Ăn');
+
+    const wsNgu = XLSX.utils.aoa_to_sheet([
+      [`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ NĂM HỌC ${namHoc}`],
+      [`(Tháng ${m}/${y})`],
+      [],
+      headerRowNgu,
+      ...dataRowsNgu
+    ]);
+    wsNgu['!merges'] = [ { s: { r: 0, c: 0 }, e: { r: 0, c: headerRowNgu.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headerRowNgu.length - 1 } } ];
+    XLSX.utils.book_append_sheet(wb, wsNgu, 'Công Ngủ');
+
+    XLSX.writeFile(wb, `bang-cong-gv-${monthGV}.xlsx`);
   };
 
   // ── EXPORT ──
@@ -1408,10 +1474,12 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
             <div className="bc-filter-item"><label><i className="fas fa-calendar-alt"></i> Tháng:</label><input type="month" value={monthGV} onChange={e=>setMonthGV(e.target.value)} /></div>
             {loadingGV && <span style={{color:'var(--primary)'}}><i className="fas fa-spinner fa-spin"></i> Đang tính lương...</span>}
             {canExport && (
-              <div style={{marginLeft:'auto',display:'flex',gap:8}}>
-                <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
+              <div style={{marginLeft:'auto',display:'flex',gap:8, flexWrap:'wrap'}}>
+                <button className="btn btn-outline btn-sm" onClick={exportGvCongExcel} style={{color:'#475569', borderColor:'#cbd5e1', backgroundColor:'#f8fafc'}}><i className="fas fa-file-excel" style={{color:'#10b981'}}></i> Bảng Công (Excel)</button>
+                <div style={{width: 1, background: '#cbd5e1', margin: '0 4px'}}></div>
+                <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Bảng Lương (Excel)</button>
                 <button className="btn btn-primary btn-sm" onClick={exportGvPDF} disabled={exportingGvPdf} style={{background:'#ef4444',borderColor:'#ef4444'}}>
-                  {exportingGvPdf ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Xuất PDF
+                  {exportingGvPdf ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Bảng Lương (PDF)
                 </button>
               </div>
             )}
