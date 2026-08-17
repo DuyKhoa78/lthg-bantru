@@ -1063,6 +1063,101 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
     w.document.close();
   };
 
+  // ── Hàm xuất PDF bảng tính tiền trực GV ──
+  const [exportingGvPdf, setExportingGvPdf] = useState(false);
+  const exportGvPDF = () => {
+    if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
+    setExportingGvPdf(true);
+    try {
+      const [y, m] = monthGV.split('-');
+      const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}`;
+      
+      let tbody = '';
+      gvData.forEach((g, i) => {
+        tbody += `<tr>
+          <td class="tc">${i+1}</td>
+          <td><b>${g.ho_ten}</b></td>
+          <td class="tc">${g.so_ca_an}</td>
+          <td class="tc">${g.so_ca_ngu}</td>
+          <td class="tr" style="font-weight:bold;">${g.tong_tien.toLocaleString('vi-VN')} đ</td>
+        </tr>`;
+      });
+      tbody += `<tr style="background:#f0fdf4; font-weight:bold;">
+        <td colspan="2" class="tc">TỔNG CỘNG</td>
+        <td class="tc">${totCaAn}</td>
+        <td class="tc">${totCaNgu}</td>
+        <td class="tr" style="font-size:11pt; color:#166534;">${totTien.toLocaleString('vi-VN')} đ</td>
+      </tr>`;
+
+      const htmlPage = `
+      <div class="hdr-inner-an">
+        <table style="width:100%; border:none;">
+          <tr>
+            <td style="width:40%; text-align:center; vertical-align:top; border:none; padding:0;">
+              <div style="font-size:10pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>TP. HỒ CHÍ MINH</div>
+              <div style="font-size:10pt; font-weight:bold; text-decoration:underline;">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
+            </td>
+            <td style="width:60%; text-align:center; vertical-align:top; border:none; padding:0;">
+              <div style="font-size:10pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div style="font-size:10pt; font-weight:bold; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div style="text-align:center; margin: 20px 0;">
+        <h1 style="font-size:16pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ</h1>
+        <div style="font-size:11pt; margin-top:5px; font-style:italic;">Tháng ${m} Năm ${y}</div>
+      </div>
+      <div style="margin-bottom: 10px; font-size:10pt; font-style:italic;">
+        Đơn giá cấu hình: Ca ăn ${giaAn.toLocaleString('vi-VN')}đ - Ca ngủ ${giaNgu.toLocaleString('vi-VN')}đ
+      </div>
+      <table class="dt-an">
+        <thead>
+          <tr>
+            <th style="width:50px;">STT</th>
+            <th>Họ và tên Giáo viên</th>
+            <th style="width:100px;">Số ca ăn</th>
+            <th style="width:100px;">Số ca ngủ</th>
+            <th style="width:150px;">Thành tiền (VNĐ)</th>
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>
+      <div class="ft-wrap-an">
+        <div class="ft-left-an" style="padding-top:30px;">
+          <div style="font-weight:bold;">NGƯỜI LẬP BẢNG</div>
+          <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
+        </div>
+        <div class="ft-right-an">
+          <div style="font-style:italic;">${todayStr}</div>
+          <div style="font-weight:bold; margin-top:2px;">HIỆU TRƯỞNG</div>
+          <div style="font-style:italic; font-size:10pt;">(Ký, đóng dấu, ghi rõ họ tên)</div>
+          <div class="sig-space-an"></div>
+        </div>
+      </div>`;
+
+      const css = `* { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; background:#fff; padding: 20px; }
+      .tc { text-align:center; } .tr { text-align:right; }
+      .dt-an { width:100%; border-collapse:collapse; margin-bottom: 20px; }
+      .dt-an th { border:1px solid #333; padding:8px; text-align:center; background:#ececec; font-weight:bold; }
+      .dt-an td { border:1px solid #555; padding:8px; vertical-align:middle; }
+      .ft-wrap-an { width:100%; margin-top:20px; font-size:11pt; display:flex; justify-content:space-between; page-break-inside:avoid; }
+      .ft-left-an { flex:1; text-align:center; } .ft-right-an { flex:1; text-align:center; } .sig-space-an { height:80px; }
+      @page { size:A4 portrait; margin:1.5cm; }
+      @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } * { color:#000!important; } .dt-an th { background:#ececec!important; } }`;
+
+      const w = window.open('', '_blank');
+      if (!w) return alert('Trình duyệt chặn popup!');
+      w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính tiền trực tháng ${m}/${y}</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+      w.document.close();
+    } catch (err) {
+      alert('Lỗi: ' + err.message);
+    } finally {
+      setExportingGvPdf(false);
+    }
+  };
+
   // ── EXPORT ──
   const exportHsExcel = () => {
     const rows = [
@@ -1315,7 +1410,9 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
             {canExport && (
               <div style={{marginLeft:'auto',display:'flex',gap:8}}>
                 <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
-                <button className="btn btn-ghost btn-sm" onClick={printPage}><i className="fas fa-print"></i> In</button>
+                <button className="btn btn-primary btn-sm" onClick={exportGvPDF} disabled={exportingGvPdf} style={{background:'#ef4444',borderColor:'#ef4444'}}>
+                  {exportingGvPdf ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Xuất PDF
+                </button>
               </div>
             )}
           </div>
