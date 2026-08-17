@@ -1116,9 +1116,11 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
         <button className={`bc-main-tab${activeTab==='panel-hs'?' active':''}`} onClick={()=>setActiveTab('panel-hs')}>
           <i className="fas fa-users"></i> Thống kê Học sinh
         </button>
-        <button className={`bc-main-tab${activeTab==='panel-gv'?' active':''}`} onClick={()=>setActiveTab('panel-gv')}>
-          <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
-        </button>
+        {user?.is_ke_toan && (
+          <button className={`bc-main-tab${activeTab==='panel-gv'?' active':''}`} onClick={()=>setActiveTab('panel-gv')}>
+            <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
+          </button>
+        )}
       </div>
 
       {/* PANEL HỌC SINH */}
@@ -1307,7 +1309,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
       )}
 
       {/* PANEL GIÁO VIÊN */}
-      {activeTab === 'panel-gv' && (
+      {(activeTab === 'panel-gv' && user?.is_ke_toan) && (
         <div className="bc-main-panel active">
           <div className="bc-filter-row" style={{marginBottom:18}}>
             <div className="bc-filter-item"><label><i className="fas fa-calendar-alt"></i> Tháng:</label><input type="month" value={monthGV} onChange={e=>setMonthGV(e.target.value)} /></div>
