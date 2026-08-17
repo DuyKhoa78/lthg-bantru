@@ -1108,9 +1108,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
         <h1 style="font-size:16pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ</h1>
         <div style="font-size:11pt; margin-top:5px; font-style:italic;">Tháng ${m} Năm ${y}</div>
       </div>
-      <div style="margin-bottom: 10px; font-size:10pt; font-style:italic;">
-        Đơn giá cấu hình: Ca ăn ${giaAn.toLocaleString('vi-VN')}đ - Ca ngủ ${giaNgu.toLocaleString('vi-VN')}đ
-      </div>
+
       <table class="dt-an">
         <thead>
           <tr>
@@ -1123,6 +1121,9 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
         </thead>
         <tbody>${tbody}</tbody>
       </table>
+      <div style="font-size:11pt; font-style:italic; margin-top:8px; text-align: left;">
+        * Ca ăn ${giaAn.toLocaleString('vi-VN')}đ - Ca ngủ ${giaNgu.toLocaleString('vi-VN')}đ
+      </div>
       <div class="ft-wrap-an">
         <div class="ft-left-an" style="padding-top:30px;">
         </div>
