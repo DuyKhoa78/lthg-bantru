@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import './Login.css';
@@ -24,6 +24,23 @@ export default function Login() {
   const [shake, setShake] = useState(false);
 
   const from = location.state?.from?.pathname || '/';
+
+  // Khôi phục thông tin đăng nhập từ localStorage khi component mount
+  useEffect(() => {
+    const saved = localStorage.getItem('qlbt_remember');
+    if (saved) {
+      try {
+        const decoded = JSON.parse(atob(saved));
+        if (decoded.u && decoded.p) {
+          setUsername(decoded.u);
+          setPassword(decoded.p);
+          setRemember(true);
+        }
+      } catch (e) {
+        localStorage.removeItem('qlbt_remember');
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
