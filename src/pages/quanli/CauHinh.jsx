@@ -19,21 +19,12 @@ export default function CauHinh() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const [history, setHistory] = useState([]);
-
-  const fetchHistory = () => {
-    api.get('/api/cauhinh/lichsu/')
-      .then(res => { if (res.data?.ok) setHistory(res.data.history || []); })
-      .catch(() => {});
-  };
-
   useEffect(() => {
     Promise.all([
       api.get('/api/cauhinh/'),
-      api.get('/api/nguoidung/quanly/').catch(() => ({ data: { ok: false } })),
-      api.get('/api/cauhinh/lichsu/').catch(() => ({ data: { ok: false } }))
+      api.get('/api/nguoidung/quanly/').catch(() => ({ data: { ok: false } }))
     ])
-      .then(([resCauHinh, resUsers, resHistory]) => {
+      .then(([resCauHinh, resUsers]) => {
         if (resCauHinh.data?.ok) {
           const { he_thong, gia_an, gia_ngu } = resCauHinh.data;
           if (he_thong) setHeThong({
@@ -46,9 +37,6 @@ export default function CauHinh() {
         }
         if (resUsers.data?.ok) {
           setManagers(resUsers.data.users || []);
-        }
-        if (resHistory.data?.ok) {
-          setHistory(resHistory.data.history || []);
         }
       })
       .catch(console.error)
@@ -63,7 +51,6 @@ export default function CauHinh() {
         api.post('/api/cauhinh/save/', { an: parseFloat(giaAn) || 0, ngu: parseFloat(giaNgu) || 0 }),
       ]);
       setSaved(true);
-      fetchHistory();
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       showAlert(err.response?.data?.error || 'Lưu thất bại');
