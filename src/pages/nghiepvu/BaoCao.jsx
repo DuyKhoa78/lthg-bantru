@@ -1227,9 +1227,11 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
           <div className="bc-detail-section" style={{marginTop:18}}>
             <div className="bc-detail-header">
               <h3><i className="fas fa-list-alt"></i> Tổng hợp chuyên cần từng học sinh (Tháng {monthHS.split('-')[1]}/{monthHS.split('-')[0]})</h3>
-              <div className="bc-export-btns">
-                <button className="btn btn-success btn-sm" onClick={exportHsExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
-              </div>
+              {canExport && (
+                <div className="bc-export-btns">
+                  <button className="btn btn-success btn-sm" onClick={exportHsExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
+                </div>
+              )}
             </div>
             <div style={{overflowX:'auto'}}>
               <table className="data-table" id="bc-detail-table">
@@ -1310,10 +1312,12 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
           <div className="bc-filter-row" style={{marginBottom:18}}>
             <div className="bc-filter-item"><label><i className="fas fa-calendar-alt"></i> Tháng:</label><input type="month" value={monthGV} onChange={e=>setMonthGV(e.target.value)} /></div>
             {loadingGV && <span style={{color:'var(--primary)'}}><i className="fas fa-spinner fa-spin"></i> Đang tính lương...</span>}
-            <div style={{marginLeft:'auto',display:'flex',gap:8}}>
-              <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
-              <button className="btn btn-ghost btn-sm" onClick={printPage}><i className="fas fa-print"></i> In</button>
-            </div>
+            {canExport && (
+              <div style={{marginLeft:'auto',display:'flex',gap:8}}>
+                <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
+                <button className="btn btn-ghost btn-sm" onClick={printPage}><i className="fas fa-print"></i> In</button>
+              </div>
+            )}
           </div>
 
           {/* Stat cards GV */}
