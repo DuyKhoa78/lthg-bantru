@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import '../../styles/admin.css';
 import './LichTruc.css';
@@ -64,7 +63,7 @@ function CaCell({ ngay, loai, pcData, gvList, phongList, filterGvId }) {
 
 export default function LichTruc() {
   const { user } = useAuth();
-  const canExport = user?.is_admin || user?.is_superuser;
+  const canExport = user?.is_admin || user?.is_superuser || user?.is_hoc_vu || user?.is_ke_toan;
   const [view, setView] = useState('week'); // 'week' | 'month'
   const [baseDate, setBaseDate] = useState(new Date());
   const [filterGvId, setFilterGvId] = useState('');
@@ -138,26 +137,6 @@ export default function LichTruc() {
   const periodLabel = view === 'week'
     ? `${p2(weekStart.getDate())}/${p2(weekStart.getMonth()+1)} – ${p2(weekEnd.getDate())}/${p2(weekEnd.getMonth()+1)}/${weekEnd.getFullYear()}`
     : `${MONTH_VI[baseDate.getMonth()]}, ${baseDate.getFullYear()}`;
-
-  // ── Excel Export ──
-  const exportExcel = () => {
-    const rows = [['Ngày','Thứ','Ca Ăn – Phòng','Ca Ăn – Giáo viên','Ca Ngủ – Phòng','Ca Ngủ – Giáo viên']];
-    weekDays.forEach(d => {
-      const ds = dateStr(d);
-      const dow = ['CN','T2','T3','T4','T5','T6','T7'][d.getDay()];
-      let pa = pcData.filter(p => p.ngay===ds && p.loai_truc===0);
-      let pn = pcData.filter(p => p.ngay===ds && p.loai_truc===1);
-      if (filterGvId) { pa=pa.filter(p=>p.ma_gv_id===parseInt(filterGvId)||p.ma_gv_truc_thay_id===parseInt(filterGvId)); pn=pn.filter(p=>p.ma_gv_id===parseInt(filterGvId)||p.ma_gv_truc_thay_id===parseInt(filterGvId)); }
-      const fmtGv = arr => arr.map(p => {
-        const g = gvList.find(x=>x.id===p.ma_gv_id) || p.giao_vien;
-        return g?.ho_ten || '';
-      }).join(', ');
-      rows.push([`${p2(d.getDate())}/${p2(d.getMonth()+1)}`, dow, pa.map(p=>p.ma_phong_id).join(', '), fmtGv(pa), pn.map(p=>p.ma_phong_id).join(', '), fmtGv(pn)]);
-    });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Lich truc');
-    XLSX.writeFile(wb, `lich-truc-gv-${dateStr(weekStart)}.xlsx`);
-  };
 
   // ── Print PDF (Lịch trực 2 tuần) ──
   const printPDF = async () => {
@@ -273,10 +252,10 @@ export default function LichTruc() {
       .hdr-right .cong-hoa { font-weight: bold; text-transform: uppercase; font-size: 9pt; letter-spacing: .3px; }
       .hdr-right .doc-lap { font-size: 9pt; font-style: italic; text-decoration: underline; }
       
-      .title-wrap { text-align: center; margin: 6px 0 2px; }
+      .title-wrap { text-align: center; margin: 12px 0 16px; }
       .main-title { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; }
-      .sub-title { font-size: 9.5pt; margin-top: 2px; }
-      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 1px; color: #333; }
+      .sub-title { font-size: 9.5pt; margin-top: 4px; }
+      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 2px; color: #333; }
       .divider { border-top: 2px solid #000; margin: 5px 0; }
       
       table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4px; }
@@ -334,7 +313,6 @@ export default function LichTruc() {
           <div class="sub-title">Tuần từ <b>${fdFull(ws1)}</b> đến <b>${fdFull(we2)}</b></div>
           ${subNote ? `<div class="sub-note">(${subNote})</div>` : ''}
         </div>
-        <div class="divider"></div>
         <table>
           <thead>
             <tr class="th-wrap">
@@ -424,10 +402,17 @@ export default function LichTruc() {
 
 
     try {
-      const [rWeek, rConf] = await Promise.all([
+      const [rWeek, rConf, rSpecial] = await Promise.all([
         api.get(`/api/lichtruc/week-public/?tuan=${dateStr(ws)}`),
-        api.get('/api/cauhinh/')
+        api.get('/api/cauhinh/'),
+        api.get(`/api/cauhinh-ngay/?ngay=${dateStr(sDateObj)}`)
       ]);
+      if (!rSpecial.data?.cauhinh_ngay) {
+        const fdErr = `${p2(sDateObj.getDate())}/${p2(sDateObj.getMonth() + 1)}/${sDateObj.getFullYear()}`;
+        alert(`Ngày ${fdErr} chưa được thiết lập Cấu hình ngày đặc biệt!\nVui lòng vào "Lịch trực Admin" > "Cấu hình ngày đặc biệt" để tạo cấu hình trước.`);
+        setPrintingSpecial(false);
+        return;
+      }
       if (rWeek.data?.ok) {
         dsAll = rWeek.data.records || [];
         dGv = rWeek.data.gv_list || dGv;
@@ -680,12 +665,6 @@ export default function LichTruc() {
             <button className="btn btn-sm" style={{background:'linear-gradient(135deg,#f59e0b,#fbbf24)',color:'#fff',border:'none',fontWeight:600}} onClick={() => setShowSpecialModal(true)}>
               <i className="fas fa-star"></i> In ngày đặc biệt
             </button>
-            <button className="btn btn-success btn-sm" onClick={exportExcel}>
-              <i className="fas fa-file-excel"></i> Xuất Excel
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={printPDF}>
-              <i className="fas fa-print"></i> In trang này
-            </button>
           </div>
         )}
       </div>
@@ -708,10 +687,6 @@ export default function LichTruc() {
           <option value="">👤 Tất cả GV</option>
           {gvList.map(g => <option key={g.id} value={g.id}>{g.ho_ten}</option>)}
         </select>
-        <div className="lt-export-btns">
-          <button className="btn btn-success btn-sm" onClick={exportExcel}><i className="fas fa-file-excel"></i> Excel</button>
-          <button className="btn btn-ghost btn-sm" onClick={printPDF}><i className="fas fa-print"></i> In</button>
-        </div>
       </div>
 
       {/* CHÚ THÍCH MÀU SẮC */}

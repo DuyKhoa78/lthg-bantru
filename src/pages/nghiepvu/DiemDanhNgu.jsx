@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import { cachedFetch } from '../../utils/cache';
+import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import { removeAccents, formatLopList } from '../../utils/stringUtils';
 import '../../styles/admin.css';
@@ -29,6 +30,7 @@ const fmtDate = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-')
 
 
 export default function DiemDanhNgu() {
+    const { user } = useAuth();
     // Lấy ngày hôm nay theo giờ máy (máy đặt đúng múi giờ Việt Nam)
     const todayVN = () => {
         const d = new Date();
@@ -36,6 +38,14 @@ export default function DiemDanhNgu() {
     };
     const { showAlert, AlertUI } = useAlert();
     const [date, setDate] = useState(todayVN);
+
+    // Kiểm tra khung giờ điểm danh: Admin bất kỳ lúc nào, Học vụ từ 11h00 đến 14h00
+    const isAllowedTime = useCallback(() => {
+        if (user?.is_admin || user?.is_superuser) return true;
+        const now = new Date();
+        const mins = now.getHours() * 60 + now.getMinutes();
+        return mins >= 660 && mins <= 840; // 11:00 (660) -> 14:00 (840)
+    }, [user]);
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
     const [diemDanhDb, setDiemDanhDb] = useState({}); // { [hsId]: 0|1|2 }
@@ -223,6 +233,9 @@ export default function DiemDanhNgu() {
 
     const handleSave = async () => {
         if (!selectedPhong || students.length === 0) return;
+        if (!isAllowedTime()) {
+            return showAlert('Học vụ chỉ có thể điểm danh từ lúc 11:00 đến 14:00. Ngoài khung giờ này, vui lòng liên hệ Admin!', 'warning');
+        }
         setSaving(true);
         try {
             const records = students.map(s => ({
@@ -848,7 +861,11 @@ ${htmlPages}
                     </div>
                     {hasSchedule && (
                         <>
-
+                            {!isAllowedTime() && (
+                                <span style={{ fontSize: '0.78rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '5px 10px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                                    <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ điểm danh của HV: <strong>11h00 – 14h00</strong>
+                                </span>
+                            )}
                             <button className="btn btn-ghost btn-sm" onClick={() => setAll('vang')}><i className="fas fa-times"></i> Tất cả Vắng</button>
                             <button className="btn btn-primary" onClick={handleSave} disabled={!selectedPhong || saving}>
                                 {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
