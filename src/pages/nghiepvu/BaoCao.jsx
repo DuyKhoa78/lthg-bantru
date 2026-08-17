@@ -1125,14 +1125,13 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
       </table>
       <div class="ft-wrap-an">
         <div class="ft-left-an" style="padding-top:30px;">
-          <div style="font-weight:bold;">NGƯỜI LẬP BẢNG</div>
-          <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
         </div>
         <div class="ft-right-an">
           <div style="font-style:italic;">${todayStr}</div>
-          <div style="font-weight:bold; margin-top:2px;">HIỆU TRƯỞNG</div>
-          <div style="font-style:italic; font-size:10pt;">(Ký, đóng dấu, ghi rõ họ tên)</div>
+          <div style="font-weight:bold; margin-top:2px;">KẾ TOÁN</div>
+          <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
           <div class="sig-space-an"></div>
+          <div style="font-weight:bold; font-style:italic;">${user?.ho_ten || ''}</div>
         </div>
       </div>`;
 
