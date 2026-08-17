@@ -190,7 +190,7 @@
   }
   
   /* Ẩn phần phân trang */
-  .bc-main-panel > div:last-child > div:last-child {
+  .bc-pagination {
       display: none !important;
   }
 }

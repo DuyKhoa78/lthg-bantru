@@ -1282,7 +1282,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
                 return result;
               };
               return (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, padding: '8px 4px', flexWrap: 'wrap', gap: 8 }}>
+                <div className="bc-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, padding: '8px 4px', flexWrap: 'wrap', gap: 8 }}>
                   <span style={{ fontSize: '0.85rem', color: '#64748b', whiteSpace: 'nowrap' }}>
                     Hiển thị <strong>{hsPage * HS_PER_PAGE + 1}</strong>–<strong>{Math.min((hsPage + 1) * HS_PER_PAGE, hsData.length)}</strong> / <strong>{hsData.length}</strong> HS
                   </span>
