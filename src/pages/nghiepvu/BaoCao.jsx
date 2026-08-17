@@ -17,7 +17,7 @@ const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 export default function BaoCao() {
   const { user } = useAuth();
-  const canExport = user?.is_admin || user?.is_superuser;
+  const canExport = user?.is_admin || user?.is_superuser || user?.is_ke_toan;
   const [activeTab, setActiveTab] = useState('panel-hs');
   const today = new Date().toISOString().slice(0,10);
   
@@ -1116,11 +1116,9 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
         <button className={`bc-main-tab${activeTab==='panel-hs'?' active':''}`} onClick={()=>setActiveTab('panel-hs')}>
           <i className="fas fa-users"></i> Thống kê Học sinh
         </button>
-        {user?.is_ke_toan && (
-          <button className={`bc-main-tab${activeTab==='panel-gv'?' active':''}`} onClick={()=>setActiveTab('panel-gv')}>
-            <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
-          </button>
-        )}
+        <button className={`bc-main-tab${activeTab==='panel-gv'?' active':''}`} onClick={()=>setActiveTab('panel-gv')}>
+          <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
+        </button>
       </div>
 
       {/* PANEL HỌC SINH */}
@@ -1309,7 +1307,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
       )}
 
       {/* PANEL GIÁO VIÊN */}
-      {(activeTab === 'panel-gv' && user?.is_ke_toan) && (
+      {activeTab === 'panel-gv' && (
         <div className="bc-main-panel active">
           <div className="bc-filter-row" style={{marginBottom:18}}>
             <div className="bc-filter-item"><label><i className="fas fa-calendar-alt"></i> Tháng:</label><input type="month" value={monthGV} onChange={e=>setMonthGV(e.target.value)} /></div>
@@ -1330,13 +1328,6 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
             <div className="gv-unit-card"><div className="gv-unit-icon orange"><i className="fas fa-money-bill-wave"></i></div><div className="gv-unit-info"><p>Tổng tiền trực</p><h3>{totTien.toLocaleString('vi-VN')} đ</h3></div></div>
           </div>
 
-          {/* Charts GV */}
-          {gvData.length > 0 && (
-            <div className="bc-charts-row" style={{marginBottom:18}}>
-              <div className="bc-chart-card"><div className="bc-chart-title"><i className="fas fa-chart-pie"></i> Tỷ trọng ca trực</div><div className="bc-chart-canvas" style={{height:220,display:'flex',alignItems:'center',justifyContent:'center'}}><Doughnut data={gvDonut} options={{plugins:{legend:{position:'bottom'}},cutout:'65%'}} /></div></div>
-              <div className="bc-chart-card"><div className="bc-chart-title"><i className="fas fa-chart-bar"></i> Số ca trực theo GV</div><div className="bc-chart-canvas"><Bar data={gvBar} options={{responsive:true,scales:{x:{stacked:false},y:{beginAtZero:true}},plugins:{legend:{position:'top'}}}} /></div></div>
-            </div>
-          )}
 
           {/* Bảng chi tiết GV */}
           <div className="bc-detail-section">
