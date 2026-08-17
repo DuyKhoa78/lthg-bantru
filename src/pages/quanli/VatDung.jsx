@@ -116,7 +116,7 @@ export default function VatDung() {
           <p>Theo dõi các lần mua sắm vật dụng bán trú và phân bổ cho phòng.</p>
         </div>
         <div className="page-header-actions">
-          {user?.can_quan_ly_danh_muc
+          {user?.can_quan_tri
             ? <button className="btn btn-primary" onClick={() => setModal('add')}><i className="fas fa-plus"></i> Thêm lần mua</button>
             : <span className="badge badge-warning" style={{padding:'8px 14px'}}><i className="fas fa-eye"></i> Chế độ xem</span>}
         </div>
@@ -145,7 +145,7 @@ export default function VatDung() {
                 <th>Đã phân bổ</th>
                 <th>Còn lại</th>
                 <th>Phân bổ chi tiết</th>
-                {user?.can_quan_ly_danh_muc && <th>Thao tác</th>}
+                {user?.can_quan_tri && <th>Thao tác</th>}
               </tr>
             </thead>
             <tbody>
@@ -184,7 +184,7 @@ export default function VatDung() {
                         : <span style={{color:'#cbd5e1'}}>Chưa phân bổ</span>
                       }
                     </div>
-                    {user?.can_quan_ly_danh_muc && (vd.con_lai ?? 0) > 0 && (
+                    {user?.can_quan_tri && (vd.con_lai ?? 0) > 0 && (
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{marginTop:4,fontSize:'0.75rem',padding:'2px 8px'}}
@@ -194,7 +194,7 @@ export default function VatDung() {
                       </button>
                     )}
                   </td>
-                  {user?.can_quan_ly_danh_muc && (
+                  {user?.can_quan_tri && (
                     <td><div className="action-btns">
                       <button className="btn-icon delete" onClick={() => handleDeleteMua(vd.id)} title="Xoá">
                         <i className="fas fa-trash"></i>
