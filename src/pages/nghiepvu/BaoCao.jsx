@@ -1130,8 +1130,8 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
           <div style="font-style:italic;">${todayStr}</div>
           <div style="font-weight:bold; margin-top:2px;">KẾ TOÁN</div>
           <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
-          <div class="sig-space-an"></div>
-          <div style="font-weight:bold; font-style:italic;">${user?.fullname || user?.username || ''}</div>
+          <div class="sig-space-an" style="height: 60px;"></div>
+          <div style="font-weight:bold; font-style:italic; font-size:12pt;">${user?.fullname?.trim() ? user.fullname : (user?.username || '')}</div>
         </div>
       </div>`;
 
