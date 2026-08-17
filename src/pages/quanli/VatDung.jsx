@@ -268,7 +268,7 @@ export default function VatDung() {
                   <label className="form-label">Năm học <span className="required">*</span></label>
                   <input className="form-control" value={form.nam_hoc}
                     onChange={e => setForm({...form, nam_hoc: e.target.value})}
-                    placeholder="VD: 2025-2026" />
+                    placeholder="VD: 2026-2027" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Lần mua</label>

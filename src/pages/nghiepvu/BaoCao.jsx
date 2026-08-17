@@ -655,7 +655,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 
             const cauHinhHT = hsCfgRes.data?.he_thong || {};
             const nguoiPhuTrach = cauHinhHT.nguoi_phu_trach || 'Người phụ trách';
-            const namHoc = cauHinhHT.nam_hoc || '2025-2026';
+            const namHoc = cauHinhHT.nam_hoc || '2026-2027';
             const allHs = hsRes.data?.hocsinh || [];
             const phongList = phongRes.data?.phong || [];
             const cfg = ngayCfgRes.data?.cauhinh_ngay || null;

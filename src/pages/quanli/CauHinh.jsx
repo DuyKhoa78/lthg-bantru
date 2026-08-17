@@ -37,7 +37,7 @@ export default function CauHinh() {
         if (resCauHinh.data?.ok) {
           const { he_thong, gia_an, gia_ngu } = resCauHinh.data;
           if (he_thong) setHeThong({
-            nam_hoc:          he_thong.nam_hoc          || '',
+            nam_hoc:          (he_thong.nam_hoc && he_thong.nam_hoc !== '2025-2026') ? he_thong.nam_hoc : '2026-2027',
             nguoi_phu_trach:  he_thong.nguoi_phu_trach  || '',
             ten_truong:       he_thong.ten_truong        || '',
           });
@@ -103,10 +103,9 @@ export default function CauHinh() {
             </div>
             <div className="form-group">
               <label className="form-label">Năm học</label>
-              <select className="form-control" value={heThong.nam_hoc || ''} disabled={!canEdit} onChange={(e) => setHeThong({ ...heThong, nam_hoc: e.target.value })}>
-                {(!heThong.nam_hoc || heThong.nam_hoc < '2025-2026') && <option value={heThong.nam_hoc}>{heThong.nam_hoc}</option>}
+              <select className="form-control" value={heThong.nam_hoc || '2026-2027'} disabled={!canEdit} onChange={(e) => setHeThong({ ...heThong, nam_hoc: e.target.value })}>
                 {Array.from({ length: 10 }, (_, i) => {
-                  const y = 2025 + i;
+                  const y = 2026 + i;
                   return `${y}-${y + 1}`;
                 }).map(y => (
                   <option key={y} value={y}>{y}</option>
