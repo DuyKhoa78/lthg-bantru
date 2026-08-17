@@ -90,23 +90,9 @@ export default function LichTruc() {
       });
   }, [weekStart, showT5]);
 
-  // Fetch danh sách GV và Phòng làm cơ sở (1 lần)
-  useEffect(() => {
-    api.get(`/api/lichtruc/week-public/?tuan=${dateStr(weekStart)}`)
-      .then(res => {
-        if (res.data?.ok) {
-          setGvList(res.data.gv_list || []);
-          setPhongList(res.data.phong_list || []);
-        }
-      })
-      .catch(console.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch data theo view và date
+  // Fetch data theo view và date (bao gồm cả GV & Phòng trong kết quả tuần)
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const req = view === 'week'
       ? Promise.all([
@@ -120,7 +106,11 @@ export default function LichTruc() {
         if (cancelled) return;
         if (view === 'week') {
           const [resData, resConfig] = res;
-          if (resData.data?.ok) setPcData(resData.data.records || []);
+          if (resData.data?.ok) {
+            setPcData(resData.data.records || []);
+            if (resData.data.gv_list?.length) setGvList(resData.data.gv_list);
+            if (resData.data.phong_list?.length) setPhongList(resData.data.phong_list);
+          }
           if (resConfig.data?.ok) setShowT5(resConfig.data.config.show_t5);
         } else {
           if (res.data?.ok) setPcData(res.data.records || []);
