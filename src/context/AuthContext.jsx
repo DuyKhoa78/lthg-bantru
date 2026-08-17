@@ -8,13 +8,19 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Kiểm tra session hiện tại khi load app
+  // Kiểm tra phiên đăng nhập hiện tại khi load app
   useEffect(() => {
     api.get('/api/auth/me')
       .then((res) => {
-        if (res.data?.ok) setUser(res.data.user);
+        if (res.data?.ok) {
+          setUser(res.data.user);
+        } else {
+          localStorage.removeItem('qlbt_token');
+          setUser(null);
+        }
       })
       .catch(() => {
+        localStorage.removeItem('qlbt_token');
         setUser(null);
       })
       .finally(() => setLoading(false));
@@ -22,8 +28,22 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (username, password, remember = false) => {
     try {
-      const res = await api.post('/login/', { username, password, remember });
+      // Ưu tiên gọi /api/auth/login (có fallback sang /login/ nếu cần)
+      let res;
+      try {
+        res = await api.post('/api/auth/login', { username, password, remember });
+      } catch (err) {
+        if (err.response?.status === 404) {
+          res = await api.post('/login/', { username, password, remember });
+        } else {
+          throw err;
+        }
+      }
+
       if (res.data?.ok) {
+        if (res.data.token) {
+          localStorage.setItem('qlbt_token', res.data.token);
+        }
         setUser(res.data.user);
         return res.data.user;
       }
@@ -38,9 +58,15 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/logout/');
-    } catch { /* ignore */ }
-    setUser(null);
+      await api.post('/api/auth/logout');
+    } catch {
+      try {
+        await api.post('/logout/');
+      } catch { /* ignore */ }
+    } finally {
+      localStorage.removeItem('qlbt_token');
+      setUser(null);
+    }
   }, []);
 
   return (
@@ -49,3 +75,4 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
