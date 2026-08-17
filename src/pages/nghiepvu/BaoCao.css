@@ -91,7 +91,6 @@
   .gv-stat-grid    { grid-template-columns:1fr 1fr; }
 }
 
-
 .bc-dropdown {
     position: relative;
     display: inline-block;
@@ -110,6 +109,15 @@
 }
 .bc-dropdown:hover .bc-dropdown-content {
     display: block;
+}
+/* Cầu nối vô hình để chuột không bị mất hover khi đi qua margin */
+.bc-dropdown::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 10px;
 }
 .bc-dropdown-content button {
     color: black;
@@ -130,4 +138,59 @@
     width: 20px;
     text-align: center;
     margin-right: 6px;
+}
+
+/* Print Settings */
+@media print {
+  /* Ẩn các thành phần không cần thiết khi in */
+  .sidebar, .top-header, .page-header, .bc-main-tabs, .bc-filter-row, .bc-dropdown, button, .btn {
+    display: none !important;
+  }
+  
+  /* Reset background và margin để in trang trắng sạch sẽ */
+  body, .main-layout, .main-content, #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    width: 100% !important;
+  }
+
+  /* Ẩn charts nếu muốn tập trung vào bảng số liệu */
+  .bc-charts-row {
+    display: none !important;
+  }
+
+  /* Ẩn các khối stat để tiết kiệm giấy nếu cần (có thể giữ lại nếu muốn) */
+  .gv-stat-grid {
+    break-after: auto;
+  }
+
+  /* Xóa box-shadow và border thừa */
+  .bc-main-panel, .bc-detail-section, .gv-unit-card {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Đảm bảo bảng in rõ ràng */
+  .data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  .data-table th, .data-table td {
+    border: 1px solid #cbd5e1 !important;
+    color: #000 !important;
+    padding: 8px !important;
+  }
+
+  /* Bắt buộc in trang mới nếu cần (tuỳ chọn) */
+  .bc-detail-section {
+    page-break-inside: auto;
+  }
+  
+  /* Ẩn phần phân trang */
+  .bc-main-panel > div:last-child > div:last-child {
+      display: none !important;
+  }
 }

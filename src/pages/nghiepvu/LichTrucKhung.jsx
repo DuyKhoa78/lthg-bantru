@@ -13,6 +13,7 @@ const LOAI_PHONG = { 0: 'Ăn', 1: 'Ngủ' };
 export default function LichTrucKhung() {
   const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
+  const canEdit = user?.can_quan_tri;
 
   // ─── State ─────────────────────────────────────────────────────────
   const [loading, setLoading]       = useState(true);
@@ -256,6 +257,7 @@ export default function LichTrucKhung() {
           <h2><i className="fas fa-th" style={{ color: 'var(--primary)' }}></i> Lịch trực Cố định (T2–T6)</h2>
           <p>Lịch khung cố định quanh năm dựa theo lịch rảnh giáo viên.</p>
         </div>
+        {canEdit && (
         <div className="page-header-actions">
           <button
             className="btn btn-success"
@@ -275,6 +277,7 @@ export default function LichTrucKhung() {
             <i className="fas fa-calendar-check"></i> Nạp vào Lịch Thực Tế
           </button>
         </div>
+        )}
       </div>
 
       {/* Info Banner */}

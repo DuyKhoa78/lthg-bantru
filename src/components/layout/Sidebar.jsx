@@ -6,9 +6,9 @@ const menuItems = [
   { to: '/', icon: 'fas fa-th-large', label: 'Dashboard', roles: 'all' },
 
   // ─── Điểm danh ───
-  { label: 'ĐIỂM DANH', type: 'label', roles: 'authenticated' },
-  { to: '/diemdanh-an',  icon: 'fas fa-utensils', label: 'Điểm danh ăn',  roles: 'authenticated' },
-  { to: '/diemdanh-ngu', icon: 'fas fa-bed',      label: 'Điểm danh ngủ', roles: 'authenticated' },
+  { label: 'ĐIỂM DANH', type: 'label', permission: 'can_diem_danh' },
+  { to: '/diemdanh-an',  icon: 'fas fa-utensils', label: 'Điểm danh ăn',  permission: 'can_diem_danh' },
+  { to: '/diemdanh-ngu', icon: 'fas fa-bed',      label: 'Điểm danh ngủ', permission: 'can_diem_danh' },
 
   // ─── Lịch trực & Báo cáo ───
   { label: 'LỊCH TRỰC & BÁO CÁO', type: 'label', roles: 'authenticated' },
@@ -16,11 +16,11 @@ const menuItems = [
   { to: '/bao-cao',   icon: 'fas fa-chart-bar',    label: 'Thống kê & Báo cáo',   roles: 'authenticated' },
 
   // ─── Quản lý danh mục (Admin + Quản lý + Kế toán xem) ───
-  { label: 'QUẢN LÝ DANH MỤC', type: 'label', permission: 'can_quan_ly_danh_muc' },
+  { label: 'QUẢN LÝ DANH MỤC', type: 'label', customRoleCheck: (u) => u.can_quan_ly_danh_muc || u.is_ke_toan },
   { to: '/lich-truc-admin', icon: 'fas fa-calendar-check', label: 'Phân công theo Ngày',  permission: 'can_quan_ly_danh_muc' },
   { to: '/lich-truc-khung', icon: 'fas fa-th',             label: 'Lịch trực Cố định',    permission: 'can_quan_ly_danh_muc' },
   { to: '/cau-hinh',        icon: 'fas fa-sliders-h',      label: 'Thiết lập',             permission: 'can_quan_ly_danh_muc' },
-  { to: '/vat-dung',        icon: 'fas fa-boxes',          label: 'Vật dụng',              permission: 'can_quan_ly_danh_muc' },
+  { to: '/vat-dung',        icon: 'fas fa-boxes',          label: 'Vật dụng',              customRoleCheck: (u) => u.can_quan_ly_danh_muc || u.is_ke_toan },
 
   // ─── Quản trị (Admin only) ───
   { label: 'QUẢN TRỊ', type: 'label', permission: 'can_quan_tri' },
@@ -47,6 +47,7 @@ export default function Sidebar({ collapsed, mobileOpen }) {
     if (item.roles === 'all') return true;
     if (item.roles === 'authenticated') return true;
     if (item.permission && user[item.permission]) return true;
+    if (item.customRoleCheck && item.customRoleCheck(user)) return true;
     if (item.onlyQuanLy && user.is_quan_ly && !user.can_quan_tri) return true;
     return false;
   };

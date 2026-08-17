@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import '../../styles/admin.css';
@@ -62,7 +63,9 @@ function CaCell({ ngay, loai, pcData, gvList, phongList, filterGvId }) {
 }
 
 export default function LichTruc() {
-  const [view, setView] = useState('week');
+  const { user } = useAuth();
+  const canExport = user?.is_admin || user?.is_superuser;
+  const [view, setView] = useState('week'); // 'week' | 'month'
   const [baseDate, setBaseDate] = useState(new Date());
   const [filterGvId, setFilterGvId] = useState('');
   const [detailDate, setDetailDate] = useState(null);
@@ -93,6 +96,7 @@ export default function LichTruc() {
   // Fetch data theo view và date (bao gồm cả GV & Phòng trong kết quả tuần)
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line
     setLoading(true);
     const req = view === 'week'
       ? Promise.all([
@@ -163,7 +167,7 @@ export default function LichTruc() {
     const we2 = addDays(ws2, 4);
 
     let allRec = [...pcData];
-    let namHoc = '2025-2026';
+    let namHoc = '2026-2027';
     let phuTrach = 'Tạ Thị Diệu Lê';
 
     try {
@@ -411,7 +415,7 @@ export default function LichTruc() {
   // ── Print Special Day PDF ──
   const printSpecialDayPDF = async () => {
     setPrintingSpecial(true);
-    let namHoc = '2025-2026';
+    let namHoc = '2026-2027';
     let phuTrach = 'Người phụ trách';
     const sDateObj = new Date(specialDate);
     const ws = getWeekStart(sDateObj);
@@ -668,20 +672,22 @@ export default function LichTruc() {
           <h2><i className="fas fa-calendar-alt" style={{color:'var(--primary)',marginRight:8}}></i>Lịch trực Giáo viên</h2>
           <p>Xem lịch phân công trực theo phòng, ca ăn và ca ngủ theo từng ngày.</p>
         </div>
-        <div className="page-header-actions">
-          <button className="btn btn-primary btn-sm" onClick={printPDF} style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)'}}>
-            <i className="fas fa-print"></i> In lịch 2 tuần (GV ký)
-          </button>
-          <button className="btn btn-sm" style={{background:'linear-gradient(135deg,#f59e0b,#fbbf24)',color:'#fff',border:'none',fontWeight:600}} onClick={() => setShowSpecialModal(true)}>
-            <i className="fas fa-star"></i> In ngày đặc biệt
-          </button>
-          <button className="btn btn-success btn-sm" onClick={exportExcel}>
-            <i className="fas fa-file-excel"></i> Xuất Excel
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={printPDF}>
-            <i className="fas fa-print"></i> In trang này
-          </button>
-        </div>
+        {canExport && (
+          <div className="page-header-actions">
+            <button className="btn btn-primary btn-sm" onClick={printPDF} style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)'}}>
+              <i className="fas fa-print"></i> In lịch 2 tuần (GV ký)
+            </button>
+            <button className="btn btn-sm" style={{background:'linear-gradient(135deg,#f59e0b,#fbbf24)',color:'#fff',border:'none',fontWeight:600}} onClick={() => setShowSpecialModal(true)}>
+              <i className="fas fa-star"></i> In ngày đặc biệt
+            </button>
+            <button className="btn btn-success btn-sm" onClick={exportExcel}>
+              <i className="fas fa-file-excel"></i> Xuất Excel
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={printPDF}>
+              <i className="fas fa-print"></i> In trang này
+            </button>
+          </div>
+        )}
       </div>
 
       {/* TOOLBAR */}

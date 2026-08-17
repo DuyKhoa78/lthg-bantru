@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
       } catch { /* ignore */ }
     } finally {
       localStorage.removeItem('qlbt_token');
+      try { sessionStorage.clear(); } catch { /* ignore */ }
       setUser(null);
     }
   }, []);

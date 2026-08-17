@@ -45,6 +45,7 @@ const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 export default function LichTrucAdmin() {
   const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
+  const canEdit = user?.can_quan_tri;
 
   // ─── State ─────────────────────────────────────────────────────────
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -486,6 +487,7 @@ export default function LichTrucAdmin() {
         </div>
         <div className="page-header-actions">
           <div className="header-button-group" style={{ display: 'flex', gap: '8px' }}>
+            {canEdit && (
             <button 
               className={`btn btn-sm ${showT5 ? 'btn-primary' : 'btn-ghost'}`} 
               onClick={async () => {
@@ -495,6 +497,7 @@ export default function LichTrucAdmin() {
             >
               <i className={`fas ${showT5 ? 'fa-eye-slash' : 'fa-eye'}`}></i> {showT5 ? 'Ẩn Thứ 5' : 'Dạy bù (T5)'}
             </button>
+            )}
             <button 
               className="btn btn-ghost btn-sm" 
               onClick={goToday} 
@@ -502,6 +505,7 @@ export default function LichTrucAdmin() {
             >
               <i className="fas fa-calendar-day"></i> Tuần này
             </button>
+            {canEdit && (
             <button 
               className="btn btn-success btn-sm" 
               style={{ fontWeight: 600, boxShadow: '0 2px 6px rgba(34,197,94,0.2)' }}
@@ -510,6 +514,7 @@ export default function LichTrucAdmin() {
             >
               {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-magic"></i>} Nạp lịch cố định
             </button>
+            )}
           </div>
         </div>
       </div>

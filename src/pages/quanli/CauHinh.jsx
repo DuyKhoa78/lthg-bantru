@@ -9,7 +9,7 @@ import './CauHinh.css';
 export default function CauHinh() {
   const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
-  const canEdit = user?.is_admin || user?.is_superuser || user?.role === 'quan_ly';
+  const canEdit = user?.is_admin || user?.is_superuser;
 
   const [heThong, setHeThong] = useState({ nam_hoc: '', nguoi_phu_trach: '', ten_truong: '' });
   const [giaAn, setGiaAn] = useState('');
@@ -104,9 +104,9 @@ export default function CauHinh() {
             <div className="form-group">
               <label className="form-label">Năm học</label>
               <select className="form-control" value={heThong.nam_hoc || ''} disabled={!canEdit} onChange={(e) => setHeThong({ ...heThong, nam_hoc: e.target.value })}>
-                {(!heThong.nam_hoc || heThong.nam_hoc < '2025-2026') && <option value={heThong.nam_hoc}>{heThong.nam_hoc}</option>}
+                {(!heThong.nam_hoc || heThong.nam_hoc < '2026-2027') && <option value={heThong.nam_hoc}>{heThong.nam_hoc}</option>}
                 {Array.from({ length: 10 }, (_, i) => {
-                  const y = 2025 + i;
+                  const y = 2026 + i;
                   return `${y}-${y + 1}`;
                 }).map(y => (
                   <option key={y} value={y}>{y}</option>
@@ -141,44 +141,7 @@ export default function CauHinh() {
         </div>
       </div>
 
-      {/* Lịch sử chỉnh sửa */}
-      <div className="cauhinh-section" style={{ marginTop: 24 }}>
-        <div className="cauhinh-section-header">
-          <i className="fas fa-history" style={{ color: 'var(--primary)' }}></i> Lịch sử Chỉnh sửa &amp; Người Thao tác
-        </div>
-        <div className="cauhinh-section-body" style={{ padding: 0 }}>
-          <table className="data-table" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ width: 60 }}>#</th>
-                <th style={{ width: 170 }}>Thời gian</th>
-                <th style={{ width: 180 }}>Người thực hiện</th>
-                <th style={{ width: 130 }}>Chức vụ</th>
-                <th>Nội dung chỉnh sửa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                    Chưa có lịch sử chỉnh sửa thiết lập.
-                  </td>
-                </tr>
-              ) : (
-                history.map((item, idx) => (
-                  <tr key={item.id || idx}>
-                    <td>{idx + 1}</td>
-                    <td>{new Date(item.created_at).toLocaleString('vi-VN')}</td>
-                    <td><b>{item.nguoi_thao_tac_ten}</b></td>
-                    <td><span className="badge badge-info">{item.chuc_vu}</span></td>
-                    <td>{item.noidung}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
 
       {!canEdit && (
         <div className="info-banner" style={{ marginTop: 16 }}>
@@ -189,3 +152,4 @@ export default function CauHinh() {
     </>
   );
 }
+

@@ -43,7 +43,7 @@ export default function Profile() {
   const handleChangePasswordDirect = async () => {
     if (!pwForm.old || !pwForm.new1) return showAlert('Vui lòng nhập mật khẩu hiện tại và mật khẩu mới!', 'warning');
     if (pwForm.new1 !== pwForm.new2) return showAlert('Mật khẩu xác nhận không khớp!', 'warning');
-    if (pwForm.new1.length < 6) return showAlert('Mật khẩu mới ít nhất 6 ký tự!', 'warning');
+    if (pwForm.new1.length < 8 || pwForm.new1.length > 26) return showAlert('Mật khẩu mới phải từ 8 đến 26 ký tự!', 'warning');
     setSaving(true);
     try {
       const res = await api.post('/api/profile/change-password/', { current_password: pwForm.old, new_password: pwForm.new1 });
@@ -60,7 +60,7 @@ export default function Profile() {
   const handleSendOtp = async () => {
     if (!pwForm.old || !pwForm.new1) return showAlert('Vui lòng điền đầy đủ thông tin!', 'warning');
     if (pwForm.new1 !== pwForm.new2) return showAlert('Mật khẩu xác nhận không khớp!', 'warning');
-    if (pwForm.new1.length < 6) return showAlert('Mật khẩu mới ít nhất 6 ký tự!', 'warning');
+    if (pwForm.new1.length < 8 || pwForm.new1.length > 26) return showAlert('Mật khẩu mới phải từ 8 đến 26 ký tự!', 'warning');
     setSaving(true);
     try {
       const res = await api.post('/api/profile/send-otp/', { current_password: pwForm.old, new_password: pwForm.new1 });
@@ -163,7 +163,7 @@ export default function Profile() {
                   <div className="form-group">
                     <label className="form-label">Mật khẩu hiện tại <span className="required">*</span></label>
                     <div style={{ position: 'relative' }}>
-                      <input type={pwForm.showOld ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.old} onChange={(e) => setPwForm({ ...pwForm, old: e.target.value })} placeholder="••••••••" />
+                      <input type={pwForm.showOld ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.old} onChange={(e) => setPwForm({ ...pwForm, old: e.target.value })} />
                       <button type="button" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showOld: !pwForm.showOld })}>
                         <i className={`fas ${pwForm.showOld ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
@@ -172,16 +172,31 @@ export default function Profile() {
                   <div className="form-group">
                     <label className="form-label">Mật khẩu mới <span className="required">*</span></label>
                     <div style={{ position: 'relative' }}>
-                      <input type={pwForm.showNew ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.new1} onChange={(e) => setPwForm({ ...pwForm, new1: e.target.value })} placeholder="••••••••" />
+                      <input type={pwForm.showNew ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.new1} onChange={(e) => setPwForm({ ...pwForm, new1: e.target.value })} minLength={8} maxLength={26} />
                       <button type="button" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showNew: !pwForm.showNew })}>
                         <i className={`fas ${pwForm.showNew ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
+                    {pwForm.new1 && (() => {
+                      let score = 0;
+                      if (pwForm.new1.length > 7) score++;
+                      if (/[a-z]/.test(pwForm.new1) && /[A-Z]/.test(pwForm.new1)) score++;
+                      if (/\d/.test(pwForm.new1)) score++;
+                      if (/[^a-zA-Z\d]/.test(pwForm.new1)) score++;
+                      let label = 'Yếu', color = '#ef4444';
+                      if (score > 1) { label = 'Trung bình'; color = '#f59e0b'; }
+                      if (score > 3) { label = 'Mạnh'; color = '#10b981'; }
+                      return (
+                        <div style={{ fontSize: '0.85rem', marginTop: 6, color: color, fontWeight: 600 }}>
+                          Độ mạnh mật khẩu: {label}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Xác nhận mật khẩu mới <span className="required">*</span></label>
                     <div style={{ position: 'relative' }}>
-                      <input type={pwForm.showConfirm ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.new2} onChange={(e) => setPwForm({ ...pwForm, new2: e.target.value })} placeholder="••••••••" />
+                      <input type={pwForm.showConfirm ? 'text' : 'password'} className="form-control" style={{ paddingRight: 44 }} value={pwForm.new2} onChange={(e) => setPwForm({ ...pwForm, new2: e.target.value })} minLength={8} maxLength={26} />
                       <button type="button" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setPwForm({ ...pwForm, showConfirm: !pwForm.showConfirm })}>
                         <i className={`fas ${pwForm.showConfirm ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { Chart, ArcElement, BarElement, LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
@@ -15,6 +16,8 @@ const p2 = n => String(n).padStart(2, '0');
 const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 export default function BaoCao() {
+  const { user } = useAuth();
+  const canExport = user?.is_admin || user?.is_superuser;
   const [activeTab, setActiveTab] = useState('panel-hs');
   const today = new Date().toISOString().slice(0,10);
   
@@ -641,7 +644,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
       
       const cauHinhHT = hsCfgRes.data?.he_thong || {};
       const nguoiPhuTrach = cauHinhHT.nguoi_phu_trach || 'Người phụ trách';
-      const namHoc = cauHinhHT.nam_hoc || '2025-2026';
+      const namHoc = cauHinhHT.nam_hoc || '2026-2027';
       const allHs = hsRes.data?.hocsinh || [];
       const phongList = phongRes.data?.phong || [];
       const cfg = ngayCfgRes.data?.cauhinh_ngay || null;
@@ -1099,11 +1102,13 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
           <h2><i className="fas fa-chart-bar" style={{color:'var(--primary)',marginRight:8}}></i>Thống kê &amp; Báo cáo</h2>
           <p>Báo cáo chuyên cần học sinh và thống kê lương ca trực giáo viên theo thời gian thực tế.</p>
         </div>
-        <div className="page-header-actions">
-          {activeTab === 'panel-gv' && (
-            <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel Lương GV</button>
-          )}
-        </div>
+        {canExport && (
+          <div className="page-header-actions">
+            {activeTab === 'panel-gv' && (
+              <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel Lương GV</button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* MAIN TABS */}
