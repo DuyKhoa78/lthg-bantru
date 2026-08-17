@@ -73,7 +73,7 @@ export default function DiemDanhNgu() {
     const [exportRooms, setExportRooms] = useState([]);
 
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
-    const [namHocCauHinh, setNamHocCauHinh] = useState('2026-2027');
+    const [namHocCauHinh, setNamHocCauHinh] = useState('2025-2026');
 
 
     // Load phòng & học sinh (cache sessionStorage 30 phút)
@@ -87,7 +87,7 @@ export default function DiemDanhNgu() {
             if (hs) setHsList(hs);
             if (cauhinh) {
                 setNguoiPhuTrach(cauhinh.nguoi_phu_trach || 'Người phụ trách');
-                setNamHocCauHinh(cauhinh.nam_hoc || '2026-2027');
+                setNamHocCauHinh(cauhinh.nam_hoc || '2025-2026');
             }
         }).catch(console.error);
     }, []);

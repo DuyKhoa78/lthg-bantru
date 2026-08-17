@@ -167,7 +167,7 @@ export default function LichTruc() {
     const we2 = addDays(ws2, 4);
 
     let allRec = [...pcData];
-    let namHoc = '2026-2027';
+    let namHoc = '2025-2026';
     let phuTrach = 'Tạ Thị Diệu Lê';
 
     try {
@@ -415,7 +415,7 @@ export default function LichTruc() {
   // ── Print Special Day PDF ──
   const printSpecialDayPDF = async () => {
     setPrintingSpecial(true);
-    let namHoc = '2026-2027';
+    let namHoc = '2025-2026';
     let phuTrach = 'Người phụ trách';
     const sDateObj = new Date(specialDate);
     const ws = getWeekStart(sDateObj);
