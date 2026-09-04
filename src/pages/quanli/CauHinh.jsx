@@ -11,7 +11,7 @@ export default function CauHinh() {
   const { showAlert, AlertUI } = useAlert();
   const canEdit = user?.is_admin || user?.is_superuser;
 
-  const [heThong, setHeThong] = useState({ nam_hoc: '', nguoi_phu_trach: '', ten_truong: '' });
+  const [heThong, setHeThong] = useState({ nam_hoc: '', nguoi_phu_trach: '', ten_truong: '', ma_bao_mat_gv: 'BT789' });
   const [giaAn, setGiaAn] = useState('');
   const [giaNgu, setGiaNgu] = useState('');
   const [managers, setManagers] = useState([]);
@@ -31,6 +31,7 @@ export default function CauHinh() {
             nam_hoc:          (he_thong.nam_hoc && he_thong.nam_hoc !== '2025-2026') ? he_thong.nam_hoc : '2026-2027',
             nguoi_phu_trach:  he_thong.nguoi_phu_trach  || '',
             ten_truong:       he_thong.ten_truong        || '',
+            ma_bao_mat_gv:    he_thong.ma_bao_mat_gv     || 'BT789',
           });
           if (gia_an) setGiaAn(parseInt(gia_an.don_gia) || '');
           if (gia_ngu) setGiaNgu(parseInt(gia_ngu.don_gia) || '');
@@ -122,6 +123,61 @@ export default function CauHinh() {
             <div className="form-group">
               <label className="form-label"><i className="fas fa-bed" style={{ color: '#a855f7' }}></i> Đơn giá ca Ngủ (VNĐ/ca)</label>
               <input type="text" className="form-control" value={giaNgu ? Number(giaNgu).toLocaleString('vi-VN') : ''} disabled={!canEdit} onChange={(e) => setGiaNgu(e.target.value.replace(/\D/g, ''))} placeholder="VD: 30.000" />
+            </div>
+          </div>
+        </div>
+
+        {/* Cấu hình Mã bảo mật Báo cáo trực GV */}
+        <div className="cauhinh-section">
+          <div className="cauhinh-section-header">
+            <i className="fas fa-shield-alt" style={{ color: '#10b981' }}></i> Xác thực Báo cáo Trực GV (Google Form)
+          </div>
+          <div className="cauhinh-section-body">
+            <div className="form-group">
+              <label className="form-label">
+                Mã bảo mật ca trực (Đúng 5 ký tự)
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  maxLength={5}
+                  className="form-control"
+                  style={{
+                    fontWeight: 700,
+                    letterSpacing: '3px',
+                    fontSize: '1.15rem',
+                    textTransform: 'uppercase',
+                    maxWidth: 180,
+                    color: '#047857',
+                    background: '#f0fdf4',
+                    borderColor: '#a7f3d0'
+                  }}
+                  value={heThong.ma_bao_mat_gv || ''}
+                  disabled={!canEdit}
+                  onChange={(e) => setHeThong({ ...heThong, ma_bao_mat_gv: e.target.value.toUpperCase().slice(0, 5) })}
+                  placeholder="BT789"
+                />
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    title="Tạo mã 5 ký tự ngẫu nhiên"
+                    onClick={() => {
+                      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                      let res = 'BT';
+                      for (let i = 0; i < 3; i++) {
+                        res += chars.charAt(Math.floor(Math.random() * chars.length));
+                      }
+                      setHeThong({ ...heThong, ma_bao_mat_gv: res });
+                    }}
+                  >
+                    <i className="fas fa-dice"></i> Đổi mã ngẫu nhiên
+                  </button>
+                )}
+              </div>
+              <small style={{ display: 'block', marginTop: 8, color: '#64748b', lineHeight: 1.5 }}>
+                <i className="fas fa-info-circle" style={{ color: '#0284c7' }}></i> <strong>Chống học sinh giả mạo:</strong> Mã bí mật 5 ký tự này chỉ cung cấp nội bộ cho các Giáo viên trực ca điền vào Google Form. Nếu học sinh gửi form mà không biết mã hoặc nhập sai, hệ thống sẽ tự động gắn cờ cảnh báo <em>⚠️ Sai mã</em> trên bảng duyệt.
+              </small>
             </div>
           </div>
         </div>

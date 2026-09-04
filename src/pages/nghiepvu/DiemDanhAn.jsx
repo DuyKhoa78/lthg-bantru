@@ -20,10 +20,10 @@ const STATUS = {
 // ── Helpers export ────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
 const addDL = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
-const getWeekDays = (baseDate, inclT5) => {
+const getWeekDays = (baseDate, inclT6) => {
     const d = new Date(baseDate + 'T00:00:00');
     const mon = addDL(d, d.getDay() === 0 ? -6 : 1 - d.getDay());
-    return [0, 1, 2, 3, 4].map(i => addDL(mon, i)).filter(x => x.getDay() !== 4 || inclT5);
+    return [0, 1, 2, 3, 4].map(i => addDL(mon, i)).filter(x => x.getDay() !== 5 || inclT6);
 };
 const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 // Chuyển YYYY-MM-DD → DD/MM/YYYY
@@ -80,7 +80,7 @@ export default function DiemDanhAn() {
     const [exportMonth, setExportMonth] = useState(new Date().getMonth() + 1);
     const [exportYear, setExportYear] = useState(new Date().getFullYear());
     const [exportWeeksActive, setExportWeeksActive] = useState([0, 1, 2, 3]); // which of the 4 weeks to include
-    const [exportWeeksT5, setExportWeeksT5] = useState([]);
+    const [exportWeeksT6, setExportWeeksT6] = useState([]);
     const [exportRooms, setExportRooms] = useState([]);
 
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
@@ -481,7 +481,7 @@ ${htmlPages}
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportWeeksActive(weekLabelsForModal.map((_, i) => i));
-        setExportWeeksT5([]);
+        setExportWeeksT6([]);
     }, [weekLabelsForModal]);
 
     // Auto-detect tháng + tuần hiện tại khi mở modal
@@ -500,7 +500,7 @@ ${htmlPages}
         const monStr = mon.getFullYear() + '-' + p2(mon.getMonth() + 1) + '-' + p2(mon.getDate());
         const idx = allMons.indexOf(monStr);
         setExportWeeksActive(idx >= 0 ? [idx] : [0]);
-        setExportWeeksT5([]);
+        setExportWeeksT6([]);
     }, [showMonthExportModal, date]);
 
     // ── XUẤT EXCEL THEO THÁNG ──────────────────────────────────────────
@@ -513,8 +513,8 @@ ${htmlPages}
 
         let allDays = [];
         activeWeekIndices.forEach(wIndex => {
-            const inclT5 = exportWeeksT5.includes(wIndex);
-            const wd = getWeekDays(allWeekMons[wIndex], inclT5);
+            const inclT6 = exportWeeksT6.includes(wIndex);
+            const wd = getWeekDays(allWeekMons[wIndex], inclT6);
             allDays = allDays.concat(wd);
         });
 
@@ -541,8 +541,8 @@ ${htmlPages}
 
         const startDateStr = `${p2(allDays[0].getDate())}/${allDays[0].getMonth() + 1}`;
         const endDateStr = `${p2(allDays[allDays.length - 1].getDate())}/${allDays[allDays.length - 1].getMonth() + 1}/${exportYear}`;
-        const t5Dates = allDays.filter(d => d.getDay() === 4).map(d => `${d.getDate()}/${d.getMonth() + 1}`);
-        const t5Str = t5Dates.length > 0 ? `có học bù ${t5Dates.length} ngày thứ 5 (${t5Dates.join(' và ')})` : 'không học bù thứ 5';
+        const t6Dates = allDays.filter(d => d.getDay() === 5).map(d => `${d.getDate()}/${d.getMonth() + 1}`);
+        const t6Str = t6Dates.length > 0 ? `có học bù ${t6Dates.length} ngày thứ 6 (${t6Dates.join(' và ')})` : 'không học bù thứ 6';
 
         const wb = XLSX.utils.book_new();
 
@@ -554,7 +554,7 @@ ${htmlPages}
             aoa.push(['Phân hiệu THPT', '', 'ĐIỂM DANH ĂN TRƯA', ...Array(NC - 3).fill('')]);
             aoa.push(['Lê Thị Hồng Gấm', '', `NĂM HỌC ${namHocCauHinh}`, ...Array(NC - 3).fill('')]);
 
-            const r2 = ['Thời gian bắt đầu ăn 11g00 đến 11g35', '', 'Thời gian nghỉ trưa: 11g45 13g00', '', `THÁNG ${exportMonth}/${exportYear} (${startDateStr} - ${endDateStr})`, '', '', t5Str, '', '', `${numDays} buổi ăn`, ...Array(NC - 11).fill('')];
+            const r2 = ['Thời gian bắt đầu ăn 11g00 đến 11g35', '', 'Thời gian nghỉ trưa: 11g45 13g00', '', `THÁNG ${exportMonth}/${exportYear} (${startDateStr} - ${endDateStr})`, '', '', t6Str, '', '', `${numDays} buổi ăn`, ...Array(NC - 11).fill('')];
             aoa.push(r2);
 
             aoa.push(['Lưu ý: HS di chuyển đến đúng vị trí/phòng ăn đã phân công; giữ gìn vệ sinh khu vực ăn và chấp hành điều động của thầy cô.', ...Array(NC - 1).fill('')]);
@@ -615,8 +615,8 @@ ${htmlPages}
         const activeWeekIndices = allWeekMons.map((_, i) => i).filter(i => exportWeeksActive.includes(i));
 
         const weeksData = activeWeekIndices.map(wIndex => {
-            const inclT5 = exportWeeksT5.includes(wIndex);
-            const wd = getWeekDays(allWeekMons[wIndex], inclT5);
+            const inclT6 = exportWeeksT6.includes(wIndex);
+            const wd = getWeekDays(allWeekMons[wIndex], inclT6);
             const mon = wd[0];
             const fri = wd[wd.length - 1];
             const label = `Tuần ${wIndex + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
@@ -1140,8 +1140,8 @@ ${htmlPages}
                                                         if (e.target.checked) setExportWeeksActive(prev => [...prev, wIndex]);
                                                         else {
                                                             setExportWeeksActive(prev => prev.filter(w => w !== wIndex));
-                                                            // Bỏ T5 của tuần bị bỏ chọn
-                                                            setExportWeeksT5(prev => prev.filter(w => w !== wIndex));
+                                                            // Bỏ T6 của tuần bị bỏ chọn
+                                                            setExportWeeksT6(prev => prev.filter(w => w !== wIndex));
                                                         }
                                                     }}
                                                 />
@@ -1160,26 +1160,26 @@ ${htmlPages}
                                 </div>
                             </div>
 
-                            {/* ── DẠY BÙ THỨ NĂM ──────────────────────────── */}
+                            {/* ── DẠY BÙ THỨ SÁU ──────────────────────────── */}
                             <div className="export-modal-group">
                                 <div className="export-modal-section-title">
-                                    <i className="fas fa-calendar-plus" style={{ color: '#10b981' }}></i> DẠY BÙ THỨ NĂM (T5)
+                                    <i className="fas fa-calendar-plus" style={{ color: '#10b981' }}></i> DẠY BÙ THỨ SÁU (T6)
                                 </div>
                                 <div className="export-t5-box">
                                     <div className="export-t5-grid">
                                         {weekLabelsForModal.map((_, i) => i).filter(i => exportWeeksActive.includes(i)).map(wIndex => (
                                             <label key={wIndex} className="export-t5-label">
-                                                <input type="checkbox" checked={exportWeeksT5.includes(wIndex)}
+                                                <input type="checkbox" checked={exportWeeksT6.includes(wIndex)}
                                                     onChange={e => {
-                                                        if (e.target.checked) setExportWeeksT5(prev => [...prev, wIndex]);
-                                                        else setExportWeeksT5(prev => prev.filter(w => w !== wIndex));
+                                                        if (e.target.checked) setExportWeeksT6(prev => [...prev, wIndex]);
+                                                        else setExportWeeksT6(prev => prev.filter(w => w !== wIndex));
                                                     }} />
                                                 {weekLabelsForModal[wIndex]?.split(':')[0] || `Tuần ${wIndex + 1}`}
                                             </label>
                                         ))}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 10 }}>
-                                        Tích vào tuần nào có lịch dạy bù Thứ Năm
+                                        Tích vào tuần nào có lịch dạy bù Thứ Sáu
                                     </div>
                                 </div>
                             </div>

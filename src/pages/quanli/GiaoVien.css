@@ -14,3 +14,51 @@
 @media (max-width: 768px) {
   .ranh-mini-dot { width: 18px; height: 18px; font-size: 0.55rem; }
 }
+
+.gv-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.gv-code-btn {
+  background: transparent;
+  border: none;
+  color: #059669;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.gv-code-btn:hover {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.gv-code-reset-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.gv-code-reset-btn:hover {
+  background: #f1f5f9;
+  color: #e11d48;
+}
+

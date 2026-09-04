@@ -12,8 +12,9 @@ const menuItems = [
 
   // ─── Lịch trực & Báo cáo ───
   { label: 'LỊCH TRỰC & BÁO CÁO', type: 'label', roles: 'authenticated' },
-  { to: '/lich-truc', icon: 'fas fa-calendar-alt', label: 'Lịch trực GV',         roles: 'authenticated' },
-  { to: '/bao-cao',   icon: 'fas fa-chart-bar',    label: 'Thống kê & Báo cáo',   roles: 'authenticated' },
+  { to: '/lich-truc',     icon: 'fas fa-calendar-alt',    label: 'Lịch trực GV',         roles: 'authenticated' },
+  { to: '/bao-cao-truc',  icon: 'fas fa-clipboard-check', label: 'Báo cáo trực GV',      roles: 'authenticated' },
+  { to: '/bao-cao',       icon: 'fas fa-chart-bar',       label: 'Thống kê & Báo cáo',   roles: 'authenticated' },
 
   // ─── Quản lý danh mục (Admin + Quản lý + Kế toán xem) ───
   { label: 'QUẢN LÝ DANH MỤC', type: 'label', customRoleCheck: (u) => u.can_quan_ly_danh_muc || u.is_ke_toan },

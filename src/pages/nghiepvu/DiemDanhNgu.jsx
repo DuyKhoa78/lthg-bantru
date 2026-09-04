@@ -79,7 +79,7 @@ export default function DiemDanhNgu() {
     const [exportMonth, setExportMonth] = useState(new Date().getMonth() + 1);
     const [exportYear, setExportYear] = useState(new Date().getFullYear());
     const [exportSelectedWeek, setExportSelectedWeek] = useState(0); // single week index
-    const [exportT5, setExportT5] = useState(false);               // T5 for that week
+    const [exportT6, setExportT6] = useState(false);               // T6 for that week
     const [exportRooms, setExportRooms] = useState([]);
 
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
@@ -458,12 +458,12 @@ ${htmlPages}
     // ── Helpers export ─────────────────────────────────────
     const p2 = n => String(n).padStart(2, '0');
     const addDaysLocal = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
-    const getWeekDays = (baseDate, inclT5) => {
+    const getWeekDays = (baseDate, inclT6) => {
         const d = new Date(baseDate + 'T00:00:00');
         const dow = d.getDay();
         const monday = addDaysLocal(d, dow === 0 ? -6 : 1 - dow);
         return [0, 1, 2, 3, 4].map(i => addDaysLocal(monday, i))
-            .filter(day => day.getDay() !== 4 || inclT5);
+            .filter(day => day.getDay() !== 5 || inclT6);
     };
 
     const todayLabel = () => { const t = new Date(); return `TP Hồ Chí Minh, ngày ${t.getDate()} tháng ${t.getMonth() + 1} năm ${t.getFullYear()}`; };
@@ -494,7 +494,7 @@ ${htmlPages}
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportSelectedWeek(0);
-        setExportT5(false);
+        setExportT6(false);
     }, [weekLabelsForModal]);
 
     // Auto-detect tuần hiện tại khi mở modal
@@ -512,7 +512,7 @@ ${htmlPages}
         const monStr = mon.getFullYear() + '-' + p2(mon.getMonth() + 1) + '-' + p2(mon.getDate());
         const idx = allMons.indexOf(monStr);
         setExportSelectedWeek(idx >= 0 ? idx : 0);
-        setExportT5(false);
+        setExportT6(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showMonthExportModal, date]);
 
@@ -520,7 +520,7 @@ ${htmlPages}
     const exportWeekExcel = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng!', 'warning');
         const allWeekMons = computeWeekMondayStrs(exportMonth, exportYear);
-        const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT5);
+        const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT6);
         const numDays = weekDays.length;
         const NC = 7 + numDays + 1;
         const mon = weekDays[0], fri = weekDays[weekDays.length - 1];
@@ -579,7 +579,7 @@ ${htmlPages}
     const exportWeekPDF = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng!', 'warning');
         const allWeekMons = computeWeekMondayStrs(exportMonth, exportYear);
-        const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT5);
+        const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT6);
         const numDays = weekDays.length;
         const mon = weekDays[0], fri = weekDays[weekDays.length - 1];
         const weekLabel = `Tuần ${exportSelectedWeek + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
@@ -1065,7 +1065,7 @@ ${htmlPages}
                                             }}>
                                                 <input type="radio" name="exportWeek" checked={sel}
                                                     style={{ accentColor: '#6c5ce7' }}
-                                                    onChange={() => { setExportSelectedWeek(wIndex); setExportT5(false); }} />
+                                                    onChange={() => { setExportSelectedWeek(wIndex); setExportT6(false); }} />
                                                 <span style={{ fontSize: '0.82rem' }}>
                                                     <span style={{ fontWeight: 700 }}>{lbl.split(':')[0]}</span>
                                                     <span style={{ fontWeight: 400, fontSize: '0.75rem', marginLeft: 4, color: sel ? '#6c5ce7' : '#94a3b8' }}>{lbl.split(': ')[1]}</span>
@@ -1076,16 +1076,16 @@ ${htmlPages}
                                 </div>
                             </div>
 
-                            {/* DẠY BÙ T5 */}
+                            {/* DẠY BÙ T6 */}
                             <div className="export-modal-group">
                                 <label style={{
                                     display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none',
                                     padding: '8px 12px', borderRadius: 7, border: '1.5px solid #e2e8f0', background: '#f8fafc'
                                 }}>
-                                    <input type="checkbox" checked={exportT5} style={{ accentColor: '#10b981' }}
-                                        onChange={e => setExportT5(e.target.checked)} />
+                                    <input type="checkbox" checked={exportT6} style={{ accentColor: '#10b981' }}
+                                        onChange={e => setExportT6(e.target.checked)} />
                                     <span style={{ fontWeight: 600, color: '#10b981' }}>
-                                        <i className="fas fa-calendar-plus"></i> Tuần này có dạy bù Thứ Năm (T5)
+                                        <i className="fas fa-calendar-plus"></i> Tuần này có dạy bù Thứ Sáu (T6)
                                     </span>
                                 </label>
                             </div>

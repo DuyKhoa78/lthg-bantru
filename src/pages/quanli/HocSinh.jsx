@@ -211,6 +211,28 @@ export default function HocSinh() {
   };
 
 
+  // Tải file mẫu CSV chuẩn cho Học sinh (bỏ phòng mặc định để trống)
+  const handleDownloadTemplate = () => {
+    const header = 'STT,Mã BT,Họ tên,GT,Lớp,P.Ngủ,P.Ăn,Ghi chú\n';
+    const sample = '1,1001,Nguyễn Văn An,Nam,10A1,,,\n2,1002,Trần Thị Mai,Nữ,10A1,,,\n3,1003,Lê Hoàng Nam,Nam,10A2,,,\n';
+    const blob = new Blob(['\uFEFF' + header + sample], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Mau_Danh_Sach_Hoc_Sinh_Ban_Tru.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Kiểm tra nếu người dùng chọn nhầm file Giáo viên
+  const isTeacherFile = useMemo(() => {
+    if (!csvLines || csvLines.length === 0) return false;
+    const header = csvLines[0].toLowerCase();
+    return header.includes('mã bảo mật') || header.includes('số điện thoại') || header.includes('gv');
+  }, [csvLines]);
+
   // Build preview info
   const hasHeader  = csvLines ? isNaN(csvLines[0]?.split(',')[0]?.trim()) : false;
 
@@ -418,12 +440,34 @@ export default function HocSinh() {
                 }
               </div>
 
-              {/* Gợi ý định dạng */}
-              <div style={{ fontSize: '.78rem', color: '#64748b', marginBottom: 12, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, lineHeight: 1.7 }}>
-                <i className="fas fa-info-circle" style={{ color: 'var(--primary)' }}></i> <b>Định dạng CSV:</b> {CSV_COLS.join(' , ')}
-                <br />
-                <i className="fas fa-exclamation-triangle" style={{ color: '#f59e0b' }}></i> Dòng đầu có thể là tiêu đề (bắt đầu bằng <b>STT</b>) hoặc dữ liệu luôn.
+              {/* Gợi ý định dạng & Nút tải file mẫu */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontSize: '.82rem', fontWeight: 600, color: '#475569' }}>
+                  <i className="fas fa-info-circle" style={{ color: 'var(--primary)', marginRight: 4 }}></i>
+                  Cột chuẩn: <code>{CSV_COLS.join(' , ')}</code>
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={handleDownloadTemplate}
+                  style={{ fontSize: '.78rem', padding: '3px 10px', borderRadius: 6 }}
+                  title="Tải file CSV mẫu chuẩn về máy để điền thông tin"
+                >
+                  <i className="fas fa-download" style={{ marginRight: 4 }}></i> Tải file mẫu CSV
+                </button>
               </div>
+              <div style={{ fontSize: '.76rem', color: '#64748b', marginBottom: 10 }}>
+                💡 Cột <b>P.Ngủ</b>, <b>P.Ăn</b>, <b>Ghi chú</b> là tùy chọn (có thể để trống, xếp phòng sau).
+              </div>
+
+              {isTeacherFile && (
+                <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, color: '#b91c1c', fontSize: '.82rem', marginBottom: 12, lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <i className="fas fa-exclamation-triangle"></i> Bạn đang chọn nhầm file "Danh sách Giáo viên"!
+                  </div>
+                  File này chứa các cột <i>(Mã bảo mật Form, Số điện thoại...)</i> của Giáo viên. Vui lòng chọn đúng file <b>Học sinh</b> hoặc bấm <b>"Tải file mẫu CSV"</b> ở trên để điền danh sách học sinh.
+                </div>
+              )}
 
               {/* Preview table */}
               {csvLines && (
@@ -518,7 +562,7 @@ export default function HocSinh() {
                   <button
                     className="btn btn-success"
                     onClick={handleDoImport}
-                    disabled={!csvFile || importing}
+                    disabled={!csvFile || importing || isTeacherFile}
                   >
                     <i className={`fas ${importing ? 'fa-spinner fa-spin' : 'fa-file-import'}`}></i>
                     {importing ? ' Đang import...' : ' Bắt đầu Import'}

@@ -7,7 +7,7 @@ import { removeAccents } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './LichTruc.css';
 
-const DAYS_LABEL = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5 ☕', 'Thứ 6'];
+const DAYS_LABEL = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6 ☕'];
 const LOAI_PHONG = { 0: 'Ăn', 1: 'Ngủ' };
 
 export default function LichTrucKhung() {
@@ -223,16 +223,10 @@ export default function LichTrucKhung() {
         if (gv.gioi_tinh !== currentPhong.gioi_tinh) return false;
       }
 
-      // Kiểm tra GV đã bận ở phòng CÙNG LOẠI cùng buổi (ăn vs ăn, ngủ vs ngủ)
-      const currentPhongObj = phongList.find(p => p.ma_phong === picker.phong_id);
-      const currentLoai = currentPhongObj?.loai_phong;
-      const isBusy = Object.entries(khungData).some(([pid, thuMap]) => {
-        if (pid === picker.phong_id) return false;
-        const otherPhong = phongList.find(p => p.ma_phong === pid);
-        if (otherPhong?.loai_phong !== currentLoai) return false; // khác loại thì OK
-        return (thuMap[picker.thu] || []).some(x => x.ma_gv_id === gv.id);
-      });
-      if (isBusy) return false;
+      // Cho phép 1 GV trực/hỗ trợ nhiều phòng khác nhau trong cùng một thứ.
+      // Chỉ ẩn nếu GV đã có trong CHÍNH PHÒNG NÀY trong thứ này.
+      const alreadyInThisRoom = (khungData[picker.phong_id]?.[picker.thu] || []).some(x => x.ma_gv_id === gv.id);
+      if (alreadyInThisRoom) return false;
     }
     return true;
   });
@@ -284,8 +278,8 @@ export default function LichTrucKhung() {
       <div className="info-banner">
         <i className="fas fa-info-circle" style={{ fontSize: '1.1rem' }}></i>
         <span>
-          GV trực <strong>Thứ 2 → Thứ 6</strong>, buổi trưa.&nbsp;
-          <span style={{ color: '#d97706' }}>☕ Thứ 5</span> mặc định nghỉ — phân công khi có <strong>dạy bù</strong>.
+          GV trực <strong>Thứ 2 → Thứ 5</strong>, buổi trưa.&nbsp;
+          <span style={{ color: '#d97706' }}>☕ Thứ 6</span> mặc định nghỉ — phân công khi có <strong>dạy bù</strong>.
           &nbsp;·&nbsp; <strong>Xếp tự động</strong> dùng thuật toán cân bằng tải (Weighted Round-Robin).
         </span>
       </div>
@@ -303,7 +297,7 @@ export default function LichTrucKhung() {
             <div className="khung-header" style={{ textAlign: 'left', paddingLeft: 14 }}>Phòng</div>
             {DAYS_LABEL.map((d, i) => (
               <div key={i} className="khung-header"
-                style={i === 3 ? { background: 'linear-gradient(135deg,#78350f,#d97706)' } : {}}>
+                style={i === 4 ? { background: 'linear-gradient(135deg,#78350f,#d97706)' } : {}}>
                 {d}
               </div>
             ))}
@@ -466,7 +460,7 @@ export default function LichTrucKhung() {
             </div>
             <div className="modal-body">
               <p style={{ color: '#64748b', marginBottom: 16, fontSize: '0.9rem' }}>
-                Hệ thống sẽ nạp lịch khung cố định vào lịch phân công thực tế cho tuần đã chọn (T2–T6).
+                Hệ thống sẽ nạp lịch khung cố định vào lịch phân công thực tế cho tuần đã chọn (Thứ 2 – Thứ 5). Thứ 6 là ngày dạy bù / nghỉ, Admin có thể tự thêm trực tiếp tại Lịch trực khi có dạy bù.
               </p>
               <div className="form-group">
                 <label className="form-label">Chọn tuần (ngày bất kỳ trong tuần)</label>

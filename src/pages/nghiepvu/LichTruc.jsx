@@ -76,21 +76,21 @@ export default function LichTruc() {
   const [phongList, setPhongList] = useState([]);
   const [pcData, setPcData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showT5, setShowT5] = useState(false); // Lưu cấu hình hiện Thứ 5
+  const [showT6, setShowT6] = useState(false); // Lưu cấu hình hiện Thứ 6
 
   const weekStart = useMemo(() => getWeekStart(baseDate), [baseDate]);
   const weekEnd   = useMemo(() => addDays(weekStart, 6), [weekStart]);
   
-  // Chỉ hiện các ngày làm việc (T2-T6), T5 chỉ hiện nếu showT5=true
+  // Chỉ hiện các ngày làm việc (T2-T5), T6 chỉ hiện nếu showT6=true
   const weekDays  = useMemo(() => {
     return Array.from({length:7}, (_,i) => addDays(weekStart,i))
       .filter(d => {
         const dow = d.getDay();
         if (dow === 0 || dow === 6) return false; // Ẩn CN, T7
-        if (dow === 4) return showT5; // T5 ẩn mặc định
-        return true; // Hiện T2,3,4,6
+        if (dow === 5) return showT6; // T6 ẩn mặc định
+        return true; // Hiện T2,3,4,5
       });
-  }, [weekStart, showT5]);
+  }, [weekStart, showT6]);
 
   // Fetch data theo view và date (bao gồm cả GV & Phòng trong kết quả tuần)
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function LichTruc() {
             if (resData.data.gv_list?.length) setGvList(resData.data.gv_list);
             if (resData.data.phong_list?.length) setPhongList(resData.data.phong_list);
           }
-          if (resConfig.data?.ok) setShowT5(resConfig.data.config.show_t5);
+          if (resConfig.data?.ok) setShowT6(resConfig.data.config.show_t6);
         } else {
           if (res.data?.ok) setPcData(res.data.records || []);
         }

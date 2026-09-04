@@ -15,6 +15,7 @@ import LichTruc     from './pages/nghiepvu/LichTruc';
 const LichTrucAdmin = lazy(() => import('./pages/nghiepvu/LichTrucAdmin'));
 const LichTrucKhung = lazy(() => import('./pages/nghiepvu/LichTrucKhung'));
 const BaoCao        = lazy(() => import('./pages/nghiepvu/BaoCao'));
+const BaoCaoTrucGV  = lazy(() => import('./pages/nghiepvu/BaoCaoTrucGV'));
 const GiaoVien      = lazy(() => import('./pages/quanli/GiaoVien'));
 const HocSinh       = lazy(() => import('./pages/quanli/HocSinh'));
 const Phong         = lazy(() => import('./pages/quanli/Phong'));
@@ -58,6 +59,7 @@ export default function App() {
               <Route path="/lich-truc-admin" element={<LichTrucAdmin />} />
               <Route path="/lich-truc-khung" element={<LichTrucKhung />} />
               <Route path="/bao-cao"         element={<BaoCao />} />
+              <Route path="/bao-cao-truc"    element={<BaoCaoTrucGV />} />
 
               {/* Quản lý */}
               <Route path="/giao-vien" element={<GiaoVien />} />

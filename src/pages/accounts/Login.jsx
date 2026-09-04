@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import './Login.css';
@@ -10,37 +10,34 @@ const FEATURES = [
   { icon: 'fas fa-chart-bar',   color: 'pill-green',  label: 'Báo cáo &\nthống kê' },
 ];
 
+function getSavedRemember() {
+  try {
+    const saved = localStorage.getItem('qlbt_remember');
+    if (saved) {
+      const decoded = JSON.parse(atob(saved));
+      if (decoded.u && decoded.p) return decoded;
+    }
+  } catch {
+    localStorage.removeItem('qlbt_remember');
+  }
+  return null;
+}
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const savedCreds = useMemo(() => getSavedRemember(), []);
+  const [username, setUsername] = useState(() => savedCreds?.u || '');
+  const [password, setPassword] = useState(() => savedCreds?.p || '');
+  const [remember, setRemember] = useState(() => !!savedCreds);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
   const from = location.state?.from?.pathname || '/';
-
-  // Khôi phục thông tin đăng nhập từ localStorage khi component mount
-  useEffect(() => {
-    const saved = localStorage.getItem('qlbt_remember');
-    if (saved) {
-      try {
-        const decoded = JSON.parse(atob(saved));
-        if (decoded.u && decoded.p) {
-          setUsername(decoded.u);
-          setPassword(decoded.p);
-          setRemember(true);
-        }
-      } catch (e) {
-        localStorage.removeItem('qlbt_remember');
-      }
-    }
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

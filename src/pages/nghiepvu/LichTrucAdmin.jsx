@@ -50,7 +50,7 @@ export default function LichTrucAdmin() {
   // ─── State ─────────────────────────────────────────────────────────
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [loading, setLoading]     = useState(false);
-  const [showT5, setShowT5]       = useState(false);
+  const [showT6, setShowT6]       = useState(false);
   const [roomTab, setRoomTab]     = useState(0); // 0: Phòng ăn, 1: Phòng ngủ
 
   const [giaoVienList, setGiaoVienList] = useState([]);
@@ -123,11 +123,11 @@ export default function LichTrucAdmin() {
       return Array.from({ length: 5 }, (_, i) => addDays(weekStart, i))
         .filter(d => {
           const dow = d.getDay();
-          if (dow === 4) return showT5;
+          if (dow === 5) return showT6;
           return true;
         });
     } catch { return []; }
-  }, [weekStart, showT5]);
+  }, [weekStart, showT6]);
 
   const weekLabel = useMemo(() => {
     if (!weekDays || weekDays.length === 0) return '...';
@@ -164,7 +164,7 @@ export default function LichTrucAdmin() {
         api.get(`/api/cauhinh-ngay/range/?tu=${dateStrMon}&den=${friday}`).catch(() => ({ data: { ok: false } })),
       ]);
       if (resData.data?.ok) setPcData(resData.data.records || []);
-      if (resConfig.data?.ok) setShowT5(resConfig.data.config.show_t5 || false);
+      if (resConfig.data?.ok) setShowT6(resConfig.data.config.show_t6 || false);
       if (resCauhinhNgay.data?.ok) setCauhinhNgayMap(resCauhinhNgay.data.map || {});
     } catch (err) {
       showAlert('Lỗi tải dữ liệu: ' + (err.response?.data?.error || err.message), 'danger');
@@ -452,13 +452,15 @@ export default function LichTrucAdmin() {
           if (gv.gioi_tinh !== currentPhong.gioi_tinh) return false;
         }
 
-        // 2. Kiểm tra GV đã bận ở phòng khác trong cùng buổi (loai_truc) chưa
-        const isBusy = (pcData || []).some(pc => 
+        // 2. Cho phép 1 GV trực/hỗ trợ nhiều phòng trong cùng ca/ngày.
+        // Chỉ ẩn nếu GV đã có mặt trong CHÍNH PHÒNG NÀY trong ca trực này.
+        const alreadyInCurrentRoom = (pcData || []).some(pc => 
           pc.ngay === ngay && 
           pc.loai_truc === loai_truc && 
+          pc.ma_phong_id === phong_id &&
           (pc.ma_gv_id === gv.id || pc.ma_gv_truc_thay_id === gv.id)
         );
-        if (isBusy) return false;
+        if (alreadyInCurrentRoom) return false;
 
         // 3. Nếu là trực thay, không cho tự thay cho mình
         if (picker.mode === 'substitute' && picker.originalPCId) {
@@ -489,13 +491,13 @@ export default function LichTrucAdmin() {
           <div className="header-button-group" style={{ display: 'flex', gap: '8px' }}>
             {canEdit && (
             <button 
-              className={`btn btn-sm ${showT5 ? 'btn-primary' : 'btn-ghost'}`} 
+              className={`btn btn-sm ${showT6 ? 'btn-primary' : 'btn-ghost'}`} 
               onClick={async () => {
-                const nv = !showT5; setShowT5(nv);
-                try { await api.post('/api/lichtruc/config-tuan/save/', { tuan: toDateStr(weekStart), show_t5: nv }); } catch { /* ignore */ }
+                const nv = !showT6; setShowT6(nv);
+                try { await api.post('/api/lichtruc/config-tuan/save/', { tuan: toDateStr(weekStart), show_t6: nv }); } catch { /* ignore */ }
               }}
             >
-              <i className={`fas ${showT5 ? 'fa-eye-slash' : 'fa-eye'}`}></i> {showT5 ? 'Ẩn Thứ 5' : 'Dạy bù (T5)'}
+              <i className={`fas ${showT6 ? 'fa-eye-slash' : 'fa-eye'}`}></i> {showT6 ? 'Ẩn Thứ 6' : 'Dạy bù (T6)'}
             </button>
             )}
             <button 
