@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
+import { getSortNames } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './LichTruc.css';
 
@@ -184,118 +185,143 @@ export default function LichTruc() {
         const dow = d1.getDay();
         const recs1 = allRec.filter(p => p.ngay === ds1 && p.loai_truc === loai);
         const recs2 = allRec.filter(p => p.ngay === ds2 && p.loai_truc === loai);
-        const phongSet = [...new Set([...recs1, ...recs2].map(p => p.ma_phong_id))].sort();
-        
-        phongSet.forEach(phong => {
-          const gvSet = [...new Set([
-            ...recs1.filter(p => p.ma_phong_id === phong).map(p => p.ma_gv_id),
-            ...recs2.filter(p => p.ma_phong_id === phong).map(p => p.ma_gv_id)
-          ])];
-          gvSet.forEach(gv_id => {
-            const g = gvList.find(x => x.id === gv_id);
-            if (!g) return;
-            const hasW1 = recs1.some(p => p.ma_phong_id === phong && p.ma_gv_id === gv_id);
-            const hasW2 = recs2.some(p => p.ma_phong_id === phong && p.ma_gv_id === gv_id);
-            let ghichu = 'Điểm danh, kiểm tra, đối chiếu ds';
-            if (g.nhiem_vu === 1) ghichu = 'Hỗ trợ và giám sát';
-            else if (g.nhiem_vu === null || g.nhiem_vu === undefined) ghichu = 'Giám sát';
-            rows.push({ thu: THU_LABELS[dow], thu_idx: di, phong, gv_id, ho_ten: g.ho_ten, nhiem_vu: g.nhiem_vu, ghichu, hasW1, hasW2 });
+
+        // Gom theo GV: 1 GV chỉ xuất hiện 1 dòng duy nhất trong 1 ngày
+        const gvMap = {};
+        const keyOrder = [];
+        [...recs1, ...recs2].forEach(p => {
+          const key = p.ma_gv_id;
+          if (!gvMap[key]) {
+            gvMap[key] = {
+              gv_id: p.ma_gv_id,
+              records: [],
+              w1Phongs: new Set(),
+              w2Phongs: new Set(),
+              allPhongs: new Set()
+            };
+            keyOrder.push(key);
+          }
+          gvMap[key].records.push(p);
+        });
+        recs1.forEach(p => {
+          const key = p.ma_gv_id;
+          if (gvMap[key]) {
+            gvMap[key].w1Phongs.add(p.ma_phong_id);
+            gvMap[key].allPhongs.add(p.ma_phong_id);
+          }
+        });
+        recs2.forEach(p => {
+          const key = p.ma_gv_id;
+          if (gvMap[key]) {
+            gvMap[key].w2Phongs.add(p.ma_phong_id);
+            gvMap[key].allPhongs.add(p.ma_phong_id);
+          }
+        });
+
+        const dayRows = [];
+        keyOrder.forEach(key => {
+          const info = gvMap[key];
+          const g = gvList.find(x => x.id === info.gv_id);
+          if (!g) return;
+          const recNvs = info.records.map(r => r.nhiem_vu).filter(v => v !== undefined && v !== null);
+          let isGiamSat;
+          if (recNvs.length > 0 && recNvs.every(v => v === 1)) {
+            isGiamSat = true;
+          } else if (recNvs.length > 0 && recNvs.every(v => v === 0)) {
+            isGiamSat = false;
+          } else {
+            isGiamSat = (g.nhiem_vu === 1);
+          }
+          const ghichu = loai === 1 ? '' : (isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
+          dayRows.push({
+            thu: THU_LABELS[dow], thu_idx: di,
+            phong: [...info.allPhongs].sort().join(', '),
+            gv_id: info.gv_id, ho_ten: g.ho_ten, nhiem_vu: isGiamSat ? 1 : 0, ghichu,
+            hasW1: info.w1Phongs.size > 0,
+            hasW2: info.w2Phongs.size > 0
           });
         });
+
+        // Sắp xếp danh sách giáo viên trong ngày theo Alphabet tên GV
+        dayRows.sort((a, b) => {
+          const nameA = getSortNames(a.ho_ten);
+          const nameB = getSortNames(b.ho_ten);
+          let cmp = nameA.first.localeCompare(nameB.first, 'vi');
+          if (cmp !== 0) return cmp;
+          cmp = nameA.last.localeCompare(nameB.last, 'vi');
+          if (cmp !== 0) return cmp;
+          return nameA.middle.localeCompare(nameB.middle, 'vi');
+        });
+
+        rows.push(...dayRows);
       }
       return rows;
     }
 
-    function buildTableBody(rows) {
-      if (!rows.length) return `<tr><td colspan="7" style="text-align:center;color:#999;font-style:italic;padding:10px;">Chưa có phân công</td></tr>`;
-      let html = '';
-      let stt;
-      let i = 0;
-      while (i < rows.length) {
-        const thuIdx = rows[i].thu_idx;
-        let j = i;
-        while (j < rows.length && rows[j].thu_idx === thuIdx) j++;
-        const span = j - i;
-        stt = 1;
-        for (let k = i; k < j; k++) {
-          const r = rows[k];
-          const thuCell = k === i ? `<td rowspan="${span}" class="td-thu">${r.thu}</td>` : '';
-          const w1Cell = r.hasW1 ? `<td class="td-ky td-w1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>` : `<td class="td-ky td-w1-empty"></td>`;
-          const w2Cell = r.hasW2 ? `<td class="td-ky td-w2">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>` : `<td class="td-ky td-w2-empty"></td>`;
-          html += `<tr>
-            <td class="td-stt">${stt}</td>
-            ${thuCell}
-            <td class="td-phong">${r.phong}</td>
-            <td class="td-ten">${r.ho_ten}</td>
-            ${w1Cell}
-            ${w2Cell}
-            <td class="td-ghi">${r.ghichu}</td>
-          </tr>`;
-          stt++;
-        }
-        i = j;
+    function buildSchedulePages(title, subNote, rows, week1Label, week2Label, notesHtml) {
+      function renderThead() {
+        return `<thead>
+          <tr class="th-wrap">
+            <th class="th-stt" rowspan="2">STT</th>
+            <th class="th-thu" rowspan="2">THỨ</th>
+            <th class="th-ten" rowspan="2">HỌ TÊN</th>
+            <th class="th-phong" rowspan="2">PHÒNG</th>
+            <th class="th-ky-parent" colspan="2">KÝ TRỰC</th>
+            <th class="th-ghi" rowspan="2">GHI CHÚ</th>
+          </tr>
+          <tr class="th-wrap">
+            <th class="th-ky-sub">${week1Label}</th>
+            <th class="th-ky-sub">${week2Label}</th>
+          </tr>
+        </thead>`;
       }
-      return html;
-    }
 
-    const css = `
-      * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #000; }
-      .page { padding: 10mm 12mm; page-break-after: always; }
-      .page:last-child { page-break-after: auto; }
-      
-      .hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-      .hdr-left { font-size: 9pt; line-height: 1.5; text-align: center; min-width: 180px; }
-      .hdr-left b { font-size: 9pt; font-weight: bold; letter-spacing: .3px; }
-      .underline { text-decoration: underline; font-weight: bold; }
-      .hdr-right { font-size: 9pt; text-align: center; min-width: 200px; line-height: 1.5; }
-      .hdr-right .cong-hoa { font-weight: bold; text-transform: uppercase; font-size: 9pt; letter-spacing: .3px; }
-      .hdr-right .doc-lap { font-size: 9pt; font-style: italic; text-decoration: underline; }
-      
-      .title-wrap { text-align: center; margin: 12px 0 16px; }
-      .main-title { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; }
-      .sub-title { font-size: 9.5pt; margin-top: 4px; }
-      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 2px; color: #333; }
-      .divider { border-top: 2px solid #000; margin: 5px 0; }
-      
-      table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4px; }
-      th, td { border: 1px solid #000; padding: 3px 5px; vertical-align: middle; text-align: center; }
-      .th-wrap th { background: #f0f0f0; font-weight: bold; font-size: 9pt; }
-      .th-stt  { width: 28px; }
-      .th-thu  { width: 46px; }
-      .th-phong{ min-width: 80px; }
-      .th-ten  { min-width: 130px; text-align: left; padding-left: 6px; }
-      .th-ky   { min-width: 80px; font-size: 8.5pt; }
-      .th-ghi  { min-width: 160px; text-align: left; padding-left: 5px; }
-      
-      .td-stt  { color: #444; font-size: 8.5pt; }
-      .td-thu  { font-weight: bold; font-size: 9pt; background: #f9f9f9; }
-      .td-phong{ font-weight: 600; font-size: 8.5pt; }
-      .td-ten  { text-align: left; padding-left: 6px; white-space: nowrap; }
-      .td-ky   { height: 28px; min-width: 80px; }
-      .td-w1   { background: #fff; }
-      .td-w2   { background: #fff; }
-      .td-w1-empty { background: #fafafa; }
-      .td-w2-empty { background: #fafafa; }
-      .td-ghi  { text-align: left; padding-left: 5px; font-size: 8.5pt; }
-      
-      .sig-wrap { margin-top: 10px; display: flex; justify-content: flex-end; }
-      .sig-box { text-align: center; min-width: 200px; display: inline-block; }
-      .sig-date { font-size: 9pt; font-style: italic; margin-bottom: 3px; }
-      .sig-title { font-weight: bold; font-size: 9.5pt; text-transform: uppercase; }
-      .sig-space { height: 44px; }
-      .sig-name { font-size: 9pt; font-weight: bold; font-style: italic; }
-      
-      .notes-wrap { margin-top: 8px; font-size: 8.5pt; line-height: 1.6; }
-      .notes-wrap p { margin-bottom: 3px; }
-      .notes-wrap .luu-y { font-weight: bold; }
-      
-      @page { size: A4 portrait; margin: 8mm; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    `;
+      function renderTableBody(allRows) {
+        if (!allRows.length) {
+          return `<tbody><tr><td colspan="7" style="text-align:center;color:#999;font-style:italic;padding:8px;">Chưa có phân công</td></tr></tbody>`;
+        }
+        let html = '<tbody>';
+        let i = 0;
+        while (i < allRows.length) {
+          const thuIdx = allRows[i].thu_idx;
+          let j = i;
+          while (j < allRows.length && allRows[j].thu_idx === thuIdx) j++;
+          let stt = 1;
+          const mid = i + Math.floor((j - i) / 2);
+          for (let k = i; k < j; k++) {
+            const r = allRows[k];
+            const isFirstInDay = (k === i);
+            const isLastInDay = (k === j - 1);
+            const rowClass = isFirstInDay ? ' class="row-first-day"' : '';
 
-    function buildPage(title, subNote, tableBody, week1Label, week2Label, notesHtml) {
-      return `<div class="page">
+            let thuClass = 'td-thu';
+            if (isFirstInDay && isLastInDay) thuClass += ' thu-single';
+            else if (isFirstInDay) thuClass += ' thu-first';
+            else if (isLastInDay) thuClass += ' thu-last';
+            else thuClass += ' thu-mid';
+
+            const thuText = (k === mid) ? r.thu : '';
+            const thuCell = `<td class="${thuClass}">${thuText}</td>`;
+            const w1Cell = r.hasW1 ? `<td class="td-ky td-w1"></td>` : `<td class="td-ky td-w1-empty"></td>`;
+            const w2Cell = r.hasW2 ? `<td class="td-ky td-w2"></td>` : `<td class="td-ky td-w2-empty"></td>`;
+            html += `<tr${rowClass}>
+              <td class="td-stt">${stt}</td>
+              ${thuCell}
+              <td class="td-ten">${r.ho_ten}</td>
+              <td class="td-phong">${r.phong}</td>
+              ${w1Cell}
+              ${w2Cell}
+              <td class="td-ghi">${r.ghichu}</td>
+            </tr>`;
+            stt++;
+          }
+          i = j;
+        }
+        html += '</tbody>';
+        return html;
+      }
+
+      return `<div class="doc-section">
         <div class="hdr">
           <div class="hdr-left">
             <b>SỞ GIÁO DỤC VÀ ĐÀO TẠO</b><br>
@@ -305,7 +331,6 @@ export default function LichTruc() {
           <div class="hdr-right">
             <div class="cong-hoa">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
             <div class="doc-lap">Độc lập – Tự do – Hạnh phúc</div>
-            <div style="font-size:8pt;margin-top:2px;">————————————————</div>
           </div>
         </div>
         <div class="title-wrap">
@@ -314,79 +339,161 @@ export default function LichTruc() {
           ${subNote ? `<div class="sub-note">(${subNote})</div>` : ''}
         </div>
         <table>
-          <thead>
-            <tr class="th-wrap">
-              <th class="th-stt" rowspan="2">STT</th>
-              <th class="th-thu" rowspan="2">THỨ</th>
-              <th class="th-phong" rowspan="2">PHÒNG</th>
-              <th class="th-ten" rowspan="2">HỌ TÊN</th>
-              <th class="th-ky">KÝ TRỰC<br><span style="font-weight:normal;font-size:8pt;">${week1Label}</span></th>
-              <th class="th-ky">KÝ TRỰC<br><span style="font-weight:normal;font-size:8pt;">${week2Label}</span></th>
-              <th class="th-ghi" rowspan="2">GHI CHÚ</th>
-            </tr>
-          </thead>
-          <tbody>${tableBody}</tbody>
+          ${renderThead()}
+          ${renderTableBody(rows)}
         </table>
-        <div class="notes-wrap">
-          ${notesHtml}
-        </div>
-        <div class="sig-wrap">
-          <div class="sig-box">
-            <div class="sig-date">TP Hồ Chí Minh, ngày ${ws1.getDate()} tháng ${ws1.getMonth()+1} năm ${ws1.getFullYear()}</div>
-            <div class="sig-title">Phụ trách bán trú</div>
-            <div class="sig-space"></div>
-            <div class="sig-name">${phuTrach}</div>
+        <div class="footer-wrap">
+          <div class="notes-wrap">${notesHtml}</div>
+          <div class="sig-wrap">
+            <div class="sig-box">
+              <div class="sig-date">TP Hồ Chí Minh, ngày ${ws1.getDate()} tháng ${ws1.getMonth()+1} năm ${ws1.getFullYear()}</div>
+              <div class="sig-title">GIÁM ĐỐC</div>
+              <div class="sig-space"></div>
+              <div class="sig-name">${phuTrach}</div>
+            </div>
           </div>
         </div>
       </div>`;
     }
+
+    const css = `
+      @page {
+        size: A4 portrait;
+        margin-top: 1cm;
+        margin-right: 1cm;
+        margin-bottom: 1cm;
+        margin-left: 1.5cm;
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #000; background: #fff; margin: 0; padding: 0; }
+      .doc-section { page-break-after: always; break-after: page; margin: 0; padding: 0; }
+      .doc-section:last-child { page-break-after: auto; break-after: auto; }
+      
+      .hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; line-height: 1.3; }
+      .hdr-left { font-size: 8.5pt; line-height: 1.3; text-align: center; min-width: 170px; }
+      .hdr-left b { font-size: 8.5pt; font-weight: bold; letter-spacing: .2px; }
+      .underline { text-decoration: underline; font-weight: bold; }
+      .hdr-right { font-size: 8.5pt; text-align: center; min-width: 190px; line-height: 1.3; }
+      .hdr-right .cong-hoa { font-weight: bold; text-transform: uppercase; font-size: 8.5pt; letter-spacing: .2px; }
+      .hdr-right .doc-lap { font-size: 8.5pt; font-style: italic; text-decoration: underline; }
+      
+      .title-wrap { text-align: center; margin: 4px 0 6px; }
+      .main-title { font-size: 13pt; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; line-height: 1.3; }
+      .sub-title { font-size: 12pt; margin-top: 2px; line-height: 1.25; }
+      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 2px; color: #333; }
+      
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border-spacing: 0;
+        font-size: 9.5pt;
+        margin-top: 2px;
+      }
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      thead tr { page-break-inside: avoid; break-inside: avoid; }
+      tr { page-break-inside: avoid; break-inside: avoid; }
+      th, td { border: 1px solid #000; padding: 3px 3px; vertical-align: middle; text-align: center; }
+      
+      tr.row-first-day td { border-top: 2px solid #000; }
+      
+      .th-wrap th { background: #f0f0f0; font-weight: bold; font-size: 9pt; padding: 3px 2px; }
+      .th-stt  { width: 30px; }
+      .th-thu  { width: 44px; text-align: center !important; vertical-align: middle !important; }
+      .th-ten  { width: 200px; text-align: left; padding-left: 6px; }
+      .th-phong{ width: 90px; text-align: center; }
+      .th-ky-parent { font-size: 9pt; font-weight: bold; }
+      .th-ky-sub { width: 85px; min-width: 80px; font-size: 8pt; font-weight: normal; }
+      .th-ghi  { width: 148px; text-align: left; padding-left: 4px; font-size: 8.5pt; }
+      
+      .td-stt  { color: #222; font-size: 9pt; padding: 3px 3px; }
+      .td-thu  {
+        font-weight: bold;
+        font-size: 10pt;
+        background: #fafafa;
+        text-align: center !important;
+        vertical-align: middle !important;
+        padding: 3px 3px;
+        border-top: hidden;
+        border-bottom: hidden;
+      }
+      .td-thu.thu-first { border-top: 2px solid #000; }
+      .td-thu.thu-last { border-bottom: 2px solid #000; }
+      .td-thu.thu-single { border-top: 2px solid #000; border-bottom: 2px solid #000; }
+      .td-ten  { text-align: left; padding: 3px 6px; white-space: nowrap; font-size: 13pt; width: 200px; line-height: 1.1; }
+      .td-phong{ font-weight: 600; font-size: 11pt; width: 90px; text-align: center; padding: 3px 3px; }
+      .td-ky   { height: 18px; width: 85px; padding: 3px 3px; }
+      .td-w1   { background: #fff; }
+      .td-w2   { background: #fff; }
+      .td-w1-empty { background: #fafafa; }
+      .td-w2-empty { background: #fafafa; }
+      .td-ghi  { text-align: left; padding: 3px 3px; font-size: 7.5pt; line-height: 1.15; width: 148px; }
+      
+      .footer-wrap { margin-top: 8px; page-break-inside: avoid; break-inside: avoid; }
+      .sig-wrap { margin-top: 6px; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid; }
+      .sig-box { text-align: center; min-width: 210px; display: inline-block; }
+      .sig-date { font-size: 12pt; font-style: italic; margin-bottom: 2px; }
+      .sig-title { font-weight: bold; font-size: 12pt; text-transform: uppercase; }
+      .sig-space { height: 48px; }
+      .sig-name { font-size: 12pt; font-weight: bold; font-style: italic; }
+      
+      .notes-wrap { font-size: 11pt; line-height: 1.3; }
+      .notes-wrap p { margin-bottom: 2px; }
+      .notes-wrap .luu-y { font-weight: bold; }
+      
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+      }
+    `;
 
     const rowsAn = buildRows(0);
     const rowsNgu = buildRows(1);
     const w1Label = `${fd(ws1)}-${fd(we1)}`;
     const w2Label = `${fd(ws2)}-${fd(we2)}`;
 
-    const notesAn = `
-      <p class="luu-y" style="font-style: italic; font-weight: bold;">Lưu ý: - Thời gian trực ăn trưa: từ 11g00-11g35</p>
-      <p>- GV-NV trực ăn bán trú kiểm điểm số lượng học sinh, phân chia khu vực ăn cho hs cố định và báo số lượng ăn mỗi ngày theo phòng cho C Thanh Hà vào cuối buổi ăn. GV-NV ký tên điểm danh trực và báo cáo số liệu chậm nhất 11g45 hàng ngày.</p>
-    `;
+    const notesAn = '';
 
-    const notesNgu = `
-      <p>- Anh Trần Nhật Tân trực thiết bị điện hàng ngày; Cô Mai Thị Quỳnh Châu - Nhân viên y tế - trực y tế và kiểm tra thực phẩm hàng ngày.</p>
-      <p>- GV-NV trực bán trú thực hiện: nhận bảng điểm danh học sinh (c Phạm Thị Thanh Hà) và điểm danh học sinh hàng ngày, gửi lại cho C Thanh Hà chậm nhất 11g45; quản lý học sinh trong thời gian ngủ; phân phát, thu lại và cất giữ gối cho HS.</p>
-      <p>- GV-NV sẽ mở khóa tủ gối vào đầu giờ bán trú và chìa khoá các phòng (A20, A21, A22, E-E3) tại P. Bảo vệ; 12g15 cô Thanh và cô Lan sẽ xuống tầng trệt làm vệ sinh cho 2 nhà vệ sinh Nam và Nữ. Thầy cô trực cùng sẽ khóa tủ gối/khoá phòng lại lúc kết thúc bán trú.</p>
-      <p>- <strong>Học sinh sẽ mang theo vỏ gối để sử dụng hàng ngày nên thầy cô nhắc hs tháo vỏ gối mang về sau mỗi buổi bán trú. Kết thúc học kỳ thì thực hiện giặt chiếu.</strong></p>
-    `;
+    const notesNgu = '';
 
     const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
       <title>Bảng Phân Công Trực Bán Trú</title>
       <style>${css}</style></head><body>
-      ${buildPage(
+      ${buildSchedulePages(
           `BẢNG PHÂN CÔNG TRỰC BÁN TRÚ ĂN NH ${namHoc}`,
           '',
-          buildTableBody(rowsAn),
+          rowsAn,
           w1Label, w2Label,
           notesAn
       )}
-      ${buildPage(
+      ${buildSchedulePages(
           `BẢNG PHÂN CÔNG TRỰC BÁN TRÚ NGỦ NH ${namHoc}`,
           '',
-          buildTableBody(rowsNgu),
+          rowsNgu,
           w1Label, w2Label,
           notesNgu
       )}
       </body></html>`;
 
     const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
     document.body.appendChild(iframe);
     iframe.contentDocument.write(html);
     iframe.contentDocument.close();
     iframe.onload = () => {
       setTimeout(() => {
+        iframe.contentWindow.focus();
         iframe.contentWindow.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 500);
+        setTimeout(() => {
+          if (iframe.parentNode) document.body.removeChild(iframe);
+        }, 2000);
+      }, 400);
     };
   };
 
@@ -437,39 +544,78 @@ export default function LichTruc() {
     function buildRows(loai) {
       const rows = [];
       const recs = dsAll.filter(p => p.ngay === targetDateStr && p.loai_truc === loai);
-      const phongSet = [...new Set(recs.map(p => p.ma_phong_id))].sort();
-      
-      phongSet.forEach(phong => {
-        const gvSet = [...new Set(recs.filter(p => p.ma_phong_id === phong).map(p => p.ma_gv_id))];
-        gvSet.forEach(gv_id => {
-          const g = dGv.find(x => x.id === gv_id);
-          if (!g) return;
-          let ghichu = 'Điểm danh, kiểm tra, đối chiếu ds';
-          if (g.nhiem_vu === 1) ghichu = 'Hỗ trợ và giám sát';
-          else if (g.nhiem_vu === null || g.nhiem_vu === undefined) ghichu = 'Giám sát';
-          rows.push({ thu: thuStr, phong, gv_id, ho_ten: g.ho_ten, nhiem_vu: g.nhiem_vu, ghichu });
-        });
+
+      // Gom theo GV: 1 GV chỉ xuất hiện 1 dòng duy nhất trong ngày
+      const gvMap = {};
+      const keyOrder = [];
+      recs.forEach(p => {
+        const key = p.ma_gv_id;
+        if (!gvMap[key]) {
+          gvMap[key] = { gv_id: p.ma_gv_id, records: [], phongs: new Set() };
+          keyOrder.push(key);
+        }
+        gvMap[key].records.push(p);
+        gvMap[key].phongs.add(p.ma_phong_id);
       });
+
+      keyOrder.forEach(key => {
+        const info = gvMap[key];
+        const g = dGv.find(x => x.id === info.gv_id);
+        if (!g) return;
+        const recNvs = info.records.map(r => r.nhiem_vu).filter(v => v !== undefined && v !== null);
+        let isGiamSat;
+        if (recNvs.length > 0 && recNvs.every(v => v === 1)) {
+          isGiamSat = true;
+        } else if (recNvs.length > 0 && recNvs.every(v => v === 0)) {
+          isGiamSat = false;
+        } else {
+          isGiamSat = (g.nhiem_vu === 1);
+        }
+        const ghichu = loai === 1 ? '' : (isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
+        rows.push({ thu: thuStr, phong: [...info.phongs].sort().join(', '), gv_id: info.gv_id, ho_ten: g.ho_ten, nhiem_vu: isGiamSat ? 1 : 0, ghichu });
+      });
+
+      // Sắp xếp danh sách giáo viên theo Alphabet tên GV
+      rows.sort((a, b) => {
+        const nameA = getSortNames(a.ho_ten);
+        const nameB = getSortNames(b.ho_ten);
+        let cmp = nameA.first.localeCompare(nameB.first, 'vi');
+        if (cmp !== 0) return cmp;
+        cmp = nameA.last.localeCompare(nameB.last, 'vi');
+        if (cmp !== 0) return cmp;
+        return nameA.middle.localeCompare(nameB.middle, 'vi');
+      });
+
       return rows;
     }
 
     function buildTableBody(rows) {
-      if (!rows.length) return `<tr><td colspan="6" style="text-align:center;color:#999;font-style:italic;padding:10px;">Chưa có phân công</td></tr>`;
-      let html = '';
+      if (!rows.length) return `<tbody><tr><td colspan="6" style="text-align:center;color:#999;font-style:italic;padding:8px;">Chưa có phân công</td></tr></tbody>`;
+      let html = '<tbody class="day-group">';
       let stt = 1;
       let i = 0;
       while (i < rows.length) {
         let j = i;
-        while (j < rows.length && rows[j].thu === thuStr) j++;
-        const span = j - i;
+        const mid = i + Math.floor((j - i) / 2);
         for (let k = i; k < j; k++) {
           const r = rows[k];
-          const thuCell = k === i ? `<td rowspan="${span}" class="td-thu">${r.thu}</td>` : '';
-          html += `<tr>
+          const isFirstInDay = (k === i);
+          const isLastInDay = (k === j - 1);
+          const rowClass = isFirstInDay ? ' class="row-first-day"' : '';
+
+          let thuClass = 'td-thu';
+          if (isFirstInDay && isLastInDay) thuClass += ' thu-single';
+          else if (isFirstInDay) thuClass += ' thu-first';
+          else if (isLastInDay) thuClass += ' thu-last';
+          else thuClass += ' thu-mid';
+
+          const thuText = (k === mid) ? r.thu : '';
+          const thuCell = `<td class="${thuClass}">${thuText}</td>`;
+          html += `<tr${rowClass}>
             <td class="td-stt">${stt}</td>
             ${thuCell}
-            <td class="td-phong">${r.phong}</td>
             <td class="td-ten">${r.ho_ten}</td>
+            <td class="td-phong">${r.phong}</td>
             <td class="td-ky td-w1-empty"></td>
             <td class="td-ghi">${r.ghichu}</td>
           </tr>`;
@@ -477,64 +623,101 @@ export default function LichTruc() {
         }
         i = j;
       }
+      html += '</tbody>';
       return html;
     }
 
     const css = `
+      @page {
+        size: A4 portrait;
+        margin-top: 1cm;
+        margin-right: 1cm;
+        margin-bottom: 1cm;
+        margin-left: 1.5cm;
+      }
       * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #000; }
-      .page { padding: 10mm 12mm; page-break-after: always; }
-      .page:last-child { page-break-after: auto; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #000; background: #fff; margin: 0; padding: 0; }
+      .doc-section { page-break-after: always; break-after: page; margin: 0; padding: 0; }
+      .doc-section:last-child { page-break-after: auto; break-after: auto; }
       
-      .hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-      .hdr-left { font-size: 9pt; line-height: 1.5; text-align: center; min-width: 180px; }
-      .hdr-left b { font-size: 9pt; font-weight: bold; letter-spacing: .3px; }
+      .hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; line-height: 1.3; }
+      .hdr-left { font-size: 8.5pt; line-height: 1.3; text-align: center; min-width: 170px; }
+      .hdr-left b { font-size: 8.5pt; font-weight: bold; letter-spacing: .2px; }
       .underline { text-decoration: underline; font-weight: bold; }
-      .hdr-right { font-size: 9pt; text-align: center; min-width: 200px; line-height: 1.5; }
-      .hdr-right .cong-hoa { font-weight: bold; text-transform: uppercase; font-size: 9pt; letter-spacing: .3px; }
-      .hdr-right .doc-lap { font-size: 9pt; font-style: italic; text-decoration: underline; }
+      .hdr-right { font-size: 8.5pt; text-align: center; min-width: 190px; line-height: 1.3; }
+      .hdr-right .cong-hoa { font-weight: bold; text-transform: uppercase; font-size: 8.5pt; letter-spacing: .2px; }
+      .hdr-right .doc-lap { font-size: 8.5pt; font-style: italic; text-decoration: underline; }
       
-      .title-wrap { text-align: center; margin: 6px 0 2px; }
-      .main-title { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; }
-      .sub-title { font-size: 9.5pt; margin-top: 2px; }
-      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 1px; color: #333; }
-      .divider { border-top: 2px solid #000; margin: 5px 0; }
+      .title-wrap { text-align: center; margin: 4px 0 6px; }
+      .main-title { font-size: 13pt; font-weight: bold; text-transform: uppercase; letter-spacing: .3px; line-height: 1.3; }
+      .sub-title { font-size: 12pt; margin-top: 2px; line-height: 1.25; }
+      .sub-note { font-size: 8.5pt; font-style: italic; margin-top: 2px; color: #333; }
       
-      table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4px; }
-      th, td { border: 1px solid #000; padding: 4px 5px; vertical-align: middle; text-align: center; }
-      .th-wrap th { background: #f0f0f0; font-weight: bold; font-size: 9pt; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border-spacing: 0;
+        font-size: 9.5pt;
+        margin-top: 2px;
+      }
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      thead tr { page-break-inside: avoid; break-inside: avoid; }
+      tbody.day-group { page-break-inside: auto; break-inside: auto; }
+      tr { page-break-inside: avoid; break-inside: avoid; }
+      th, td { border: 1px solid #000; padding: 3px 3px; vertical-align: middle; text-align: center; }
+      
+      tr.row-first-day td { border-top: 2px solid #000; }
+      
+      .th-wrap th { background: #f0f0f0; font-weight: bold; font-size: 9pt; padding: 3px 2px; }
       .th-stt  { width: 30px; }
-      .th-thu  { width: 60px; }
-      .th-phong{ min-width: 80px; }
-      .th-ten  { min-width: 140px; text-align: left; padding-left: 6px; }
-      .th-ky   { min-width: 100px; font-size: 8.5pt; }
-      .th-ghi  { min-width: 160px; text-align: left; padding-left: 5px; }
+      .th-thu  { width: 44px; text-align: center !important; vertical-align: middle !important; }
+      .th-ten  { width: 205px; text-align: left; padding-left: 6px; }
+      .th-phong{ width: 95px; text-align: center; }
+      .th-ky   { width: 90px; font-size: 9pt; }
+      .th-ghi  { width: 200px; text-align: left; padding-left: 5px; font-size: 8.5pt; }
       
-      .td-stt  { color: #444; font-size: 8.5pt; }
-      .td-thu  { font-weight: bold; font-size: 9pt; background: #f9f9f9; }
-      .td-phong{ font-weight: 600; font-size: 8.5pt; }
-      .td-ten  { text-align: left; padding-left: 6px; white-space: nowrap; }
-      .td-ky   { height: 32px; min-width: 100px; }
+      .td-stt  { color: #222; font-size: 9pt; padding: 3px 3px; }
+      .td-thu  {
+        font-weight: bold;
+        font-size: 10pt;
+        background: #fafafa;
+        text-align: center !important;
+        vertical-align: middle !important;
+        padding: 3px 3px;
+        border-top: hidden;
+        border-bottom: hidden;
+      }
+      .td-thu.thu-first { border-top: 2px solid #000; }
+      .td-thu.thu-last { border-bottom: 2px solid #000; }
+      .td-thu.thu-single { border-top: 2px solid #000; border-bottom: 2px solid #000; }
+      .td-ten  { text-align: left; padding: 3px 6px; white-space: nowrap; font-size: 13pt; width: 205px; line-height: 1.1; }
+      .td-phong{ font-weight: 600; font-size: 11pt; width: 95px; text-align: center; padding: 3px 3px; }
+      .td-ky   { height: 18px; width: 90px; padding: 3px 3px; }
       .td-w1-empty { background: #fafafa; }
-      .td-ghi  { text-align: left; padding-left: 5px; font-size: 8.5pt; }
+      .td-ghi  { text-align: left; padding: 3px 3px; font-size: 7.5pt; line-height: 1.15; width: 200px; }
       
-      .sig-wrap { margin-top: 10px; display: flex; justify-content: flex-end; }
-      .sig-box { text-align: center; min-width: 200px; display: inline-block; }
-      .sig-date { font-size: 9pt; font-style: italic; margin-bottom: 3px; }
-      .sig-title { font-weight: bold; font-size: 9.5pt; text-transform: uppercase; }
-      .sig-space { height: 44px; }
-      .sig-name { font-size: 9pt; font-weight: bold; font-style: italic; }
+      .footer-wrap { margin-top: 8px; page-break-inside: avoid; break-inside: avoid; }
+      .sig-wrap { margin-top: 6px; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid; }
+      .sig-box { text-align: center; min-width: 210px; display: inline-block; }
+      .sig-date { font-size: 12pt; font-style: italic; margin-bottom: 2px; }
+      .sig-title { font-weight: bold; font-size: 12pt; text-transform: uppercase; }
+      .sig-space { height: 48px; }
+      .sig-name { font-size: 12pt; font-weight: bold; font-style: italic; }
       
-      .notes-wrap { margin-top: 8px; font-size: 8.5pt; line-height: 1.6; }
-      .notes-wrap p { margin-bottom: 3px; }
+      .notes-wrap { font-size: 11pt; line-height: 1.3; }
+      .notes-wrap p { margin-bottom: 2px; }
       .notes-wrap .luu-y { font-weight: bold; }
       
-      @page { size: A4 portrait; margin: 8mm; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+      }
     `;
 
     function buildPage(title, subNote, tableBody, notesHtml) {
-      return `<div class="page">
+      return `<div class="doc-section">
         <div class="hdr">
           <div class="hdr-left">
             <b>SỞ GIÁO DỤC VÀ ĐÀO TẠO</b><br>
@@ -544,7 +727,6 @@ export default function LichTruc() {
           <div class="hdr-right">
             <div class="cong-hoa">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
             <div class="doc-lap">Độc lập – Tự do – Hạnh phúc</div>
-            <div style="font-size:8pt;margin-top:2px;">————————————————</div>
           </div>
         </div>
         <div class="title-wrap">
@@ -552,29 +734,30 @@ export default function LichTruc() {
           <div class="sub-title">Ngày: <b>${fd(sDateObj)}</b></div>
           ${subNote ? `<div class="sub-note">(${subNote})</div>` : ''}
         </div>
-        <div class="divider"></div>
         <table>
           <thead>
             <tr class="th-wrap">
               <th class="th-stt">STT</th>
               <th class="th-thu">THỨ</th>
-              <th class="th-phong">PHÒNG</th>
               <th class="th-ten">HỌ TÊN</th>
+              <th class="th-phong">PHÒNG</th>
               <th class="th-ky">KÝ TRỰC</th>
               <th class="th-ghi">GHI CHÚ</th>
             </tr>
           </thead>
-          <tbody>${tableBody}</tbody>
+          ${tableBody}
         </table>
-        <div class="notes-wrap">
-          ${notesHtml}
-        </div>
-        <div class="sig-wrap">
-          <div class="sig-box">
-            <div class="sig-date">TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}</div>
-            <div class="sig-title">Phụ trách bán trú</div>
-            <div class="sig-space"></div>
-            <div class="sig-name">${phuTrach}</div>
+        <div class="footer-wrap">
+          <div class="notes-wrap">
+            ${notesHtml}
+          </div>
+          <div class="sig-wrap">
+            <div class="sig-box">
+              <div class="sig-date">TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}</div>
+              <div class="sig-title">GIÁM ĐỐC</div>
+              <div class="sig-space"></div>
+              <div class="sig-name">${phuTrach}</div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -583,17 +766,9 @@ export default function LichTruc() {
     const rowsAn = buildRows(0);
     const rowsNgu = buildRows(1);
 
-    const notesAn = `
-      <p class="luu-y" style="font-style: italic; font-weight: bold;">Lưu ý: - Thời gian trực ăn trưa: từ 11g00-11g35</p>
-      <p>- GV-NV trực ăn bán trú kiểm điểm số lượng học sinh, phân chia khu vực ăn cho hs cố định và báo số lượng ăn mỗi ngày theo phòng cho C Thanh Hà vào cuối buổi ăn. GV-NV ký tên điểm danh trực và báo cáo số liệu chậm nhất 11g45 hàng ngày.</p>
-    `;
+    const notesAn = '';
 
-    const notesNgu = `
-      <p>- Anh Trần Nhật Tân trực thiết bị điện hàng ngày; Cô Mai Thị Quỳnh Châu - Nhân viên y tế - trực y tế và kiểm tra thực phẩm hàng ngày.</p>
-      <p>- GV-NV trực bán trú thực hiện: nhận bảng điểm danh học sinh (c Phạm Thị Thanh Hà) và điểm danh học sinh hàng ngày, gửi lại cho C Thanh Hà chậm nhất 11g45; quản lý học sinh trong thời gian ngủ; phân phát, thu lại và cất giữ gối cho HS.</p>
-      <p>- GV-NV sẽ mở khóa tủ gối vào đầu giờ bán trú và chìa khoá các phòng (A20, A21, A22, E-E3) tại P. Bảo vệ; 12g15 cô Thanh và cô Lan sẽ xuống tầng trệt làm vệ sinh cho 2 nhà vệ sinh Nam và Nữ. Thầy cô trực cùng sẽ khóa tủ gối/khoá phòng lại lúc kết thúc bán trú.</p>
-      <p>- <strong>Học sinh sẽ mang theo vỏ gối để sử dụng hàng ngày nên thầy cô nhắc hs tháo vỏ gối mang về sau mỗi buổi bán trú. Kết thúc học kỳ thì thực hiện giặt chiếu.</strong></p>
-    `;
+    const notesNgu = '';
 
     const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
       <title>Bảng Phân Công Trực Bán Trú Đặc Biệt</title>
@@ -613,14 +788,22 @@ export default function LichTruc() {
       </body></html>`;
 
     const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
     document.body.appendChild(iframe);
     iframe.contentDocument.write(html);
     iframe.contentDocument.close();
     iframe.onload = () => {
       setTimeout(() => {
+        iframe.contentWindow.focus();
         iframe.contentWindow.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
+        setTimeout(() => {
+          if (iframe.parentNode) document.body.removeChild(iframe);
+        }, 2000);
         setPrintingSpecial(false);
         setShowSpecialModal(false);
       }, 500);
@@ -707,7 +890,7 @@ export default function LichTruc() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: 8, height: 8, background: '#16a34a', borderRadius: '50%' }}></span>
-          <span style={{ fontWeight: 600, color: '#475569' }}>Hỗ trợ</span>
+          <span style={{ fontWeight: 600, color: '#475569' }}>Giám sát</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <i className="fas fa-exchange-alt" style={{ color: '#d97706', fontSize: '0.7rem' }}></i>
@@ -746,8 +929,9 @@ export default function LichTruc() {
                         {cellData.map(pc => {
                           const gv = gvList.find(g => g.id === pc.ma_gv_id) || pc.giao_vien;
                           const gvThay = pc.ma_gv_truc_thay_id ? (gvList.find(g => g.id === pc.ma_gv_truc_thay_id) || pc.giao_vien_truc_thay) : null;
-                          const isDD = gv?.nhiem_vu === 0;
-                          const isHT = gv?.nhiem_vu === 1;
+                          const nv = pc.nhiem_vu !== undefined && pc.nhiem_vu !== null ? pc.nhiem_vu : (gv?.nhiem_vu ?? 0);
+                          const isDD = nv === 0;
+                          const isHT = nv === 1;
                           const borderColor = isDD ? '#2563eb' : (isHT ? '#16a34a' : '#64748b');
                           const bgColor = isDD ? '#eff6ff' : (isHT ? '#f0fdf4' : '#f8fafc');
 

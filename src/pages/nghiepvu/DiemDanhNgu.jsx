@@ -103,8 +103,8 @@ export default function DiemDanhNgu() {
     }, []);
 
     // Fetch lịch sử điểm danh theo ngày
-    const fetchDiemDanh = useCallback((d) => {
-        setLoading(true);
+    const fetchDiemDanh = useCallback((d, silent = false) => {
+        if (!silent) setLoading(true);
         api.get(`/api/diemdanh/?ngay=${d}&loai=ngu`)
             .then(res => {
                 if (res.data?.ok) {
@@ -245,7 +245,7 @@ export default function DiemDanhNgu() {
             }));
             await api.post('/api/diemdanh/save/', { loai: 'ngu', records });
             setSaved(true);
-            fetchDiemDanh(date); // reload from DB
+            fetchDiemDanh(date, true); // reload from DB
             setOverrides({});
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -435,7 +435,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
   </div>
   <div class="ft-right">
     <div><em>${todayStr}</em></div>
-    <div class="sig-title">PHỤ TRÁCH BÁN TRÚ</div>
+    <div class="sig-title">GIÁM ĐỐC</div>
     <div class="sig-space"></div>
     <div class="sig-name">${nguoiPhuTrach}</div>
   </div>
@@ -746,7 +746,7 @@ ${htmlPages}
   </div>
   <div class="ft-right">
     <div><em>${todayLabel()}</em></div>
-    <div class="sig-title">PHỤ TRÁCH BÁN TRÚ</div>
+    <div class="sig-title">GIÁM ĐỐC</div>
     <div class="sig-space"></div>
     <div class="sig-name">${nguoiPhuTrach}</div>
   </div>

@@ -33,8 +33,8 @@ export default function VatDung() {
   const [confirmDel, setConfirmDel] = useState(null); // id number
   const [history, setHistory] = useState([]);
 
-  const fetchData = () => {
-    setLoading(true);
+  const fetchData = (silent = false) => {
+    if (!silent) setLoading(true);
     Promise.all([
       api.get('/api/vatdung/'),
       api.get('/api/phong/'),
@@ -73,7 +73,7 @@ export default function VatDung() {
       await api.post('/api/vatdung/mua/save/', form);
       setModal(null);
       setForm(EMPTY_FORM);
-      fetchData();
+      fetchData(true);
     } catch (err) { showAlert(err.response?.data?.error || 'Lưu thất bại'); }
     finally { setSaving(false); }
   };
@@ -84,7 +84,7 @@ export default function VatDung() {
     setConfirmDel(null);
     try {
       await api.post('/api/vatdung/mua/delete/', { id });
-      fetchData();
+      fetchData(true);
     } catch (err) { showAlert(err.response?.data?.error || 'Xóa thất bại'); }
   };
 
@@ -99,7 +99,7 @@ export default function VatDung() {
       });
       setPhanboModal(null);
       setPbForm({ phong_id: '', so_luong: '' });
-      fetchData();
+      fetchData(true);
     } catch (err) { showAlert(err.response?.data?.error || 'Phân bổ thất bại'); }
     finally { setSaving(false); }
   };

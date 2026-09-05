@@ -102,8 +102,8 @@ export default function DiemDanhAn() {
         }).catch(console.error);
     }, []);
 
-    const fetchDiemDanh = useCallback((d) => {
-        setLoading(true);
+    const fetchDiemDanh = useCallback((d, silent = false) => {
+        if (!silent) setLoading(true);
         api.get(`/api/diemdanh/?ngay=${d}&loai=an`)
             .then(res => {
                 if (res.data?.ok) {
@@ -229,7 +229,7 @@ export default function DiemDanhAn() {
             const records = students.map(s => ({ ma_hs: s.id, ngay: date, status: INV_STATUS_MAP[s.trang_thai] }));
             await api.post('/api/diemdanh/save/', { loai: 'an', records });
             setSaved(true);
-            fetchDiemDanh(date);
+            fetchDiemDanh(date, true);
             setOverrides({});
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -431,7 +431,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
   </div>
   <div class="ft-right">
     <div><em>${todayStr}</em></div>
-    <div class="sig-title">PHỤ TRÁCH BÁN TRÚ</div>
+    <div class="sig-title">GIÁM ĐỐC</div>
     <div class="sig-space"></div>
     <div class="sig-name">${nguoiPhuTrach}</div>
   </div>
@@ -797,7 +797,7 @@ ${htmlPages}
   </div>
   <div class="ft-right-an">
     <div><em>${todayStr}</em></div>
-    <div style="font-weight:bold;margin-top:2px;">PHỤ TRÁCH BÁN TRÚ</div>
+    <div style="font-weight:bold;margin-top:2px;">GIÁM ĐỐC</div>
     <div class="sig-space-an"></div>
     <div style="font-weight:bold;font-style:italic;">${nguoiPhuTrach}</div>
   </div>

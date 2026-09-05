@@ -41,7 +41,7 @@ function PhongCard({ p, isAdmin, onEdit, onDelete }) {
       </div>
       <div className="phong-meta" style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: 6 }}>
         <span><i className="fas fa-user-tie" style={{ marginRight: 4 }}></i>Điểm danh: {p.sl_diem_danh} GV</span>
-        <span style={{ marginLeft: 12 }}><i className="fas fa-hands-helping" style={{ marginRight: 4 }}></i>Hỗ trợ: {p.sl_ho_tro} GV</span>
+        <span style={{ marginLeft: 12 }}><i className="fas fa-hands-helping" style={{ marginRight: 4 }}></i>Giám sát: {p.sl_ho_tro} GV</span>
       </div>
       {isAdmin && (
         <div className="phong-actions">
@@ -64,8 +64,8 @@ export default function Phong() {
   const [saving, setSaving]   = useState(false);
   const [confirmDel, setConfirmDel] = useState(null); // ma_phong string
 
-  const fetchData = () => {
-    setLoading(true);
+  const fetchData = (silent = false) => {
+    if (!silent) setLoading(true);
     api.get('/api/phong/')
       .then(res => { if (res.data?.ok) setData(res.data.phong); })
       .catch(console.error)
@@ -124,7 +124,7 @@ export default function Phong() {
         sl_ho_tro:    Number(form.sl_ho_tro),
       });
       setModal(null);
-      fetchData();
+      fetchData(true);
     } catch (err) { showAlert(err.response?.data?.error || 'Lưu thất bại'); }
     finally { setSaving(false); }
   };
@@ -195,7 +195,7 @@ export default function Phong() {
               <thead>
                 <tr>
                   <th>Mã phòng</th><th>Loại</th><th>Giới tính</th>
-                  <th>Sức chứa</th><th>GV ĐD</th><th>GV HT</th>
+                  <th>Sức chứa</th><th>GV ĐD</th><th>GV GS</th>
                   {user?.is_admin && <th>Thao tác</th>}
                 </tr>
               </thead>
@@ -276,7 +276,7 @@ export default function Phong() {
                     onChange={e => setForm({...form, sl_diem_danh: Number(e.target.value)})} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Số GV hỗ trợ</label>
+                  <label className="form-label">Số GV giám sát</label>
                   <input type="number" className="form-control" min="0" value={form.sl_ho_tro}
                     onChange={e => setForm({...form, sl_ho_tro: Number(e.target.value)})} />
                 </div>

@@ -68,7 +68,7 @@ export default function CauHinh() {
         <div className="page-header-left">
           <div className="breadcrumb"><Link to="/">Dashboard</Link><span className="breadcrumb-sep"><i className="fas fa-chevron-right"></i></span><span>Thiết lập</span></div>
           <h2><i className="fas fa-sliders-h" style={{ color: 'var(--primary)' }}></i> Thiết lập Hệ thống</h2>
-          <p>Cấu hình thông tin chung, năm học, người phụ trách và đơn giá bán trú.</p>
+          <p>Cấu hình thông tin chung, năm học, Giám đốc và đơn giá bán trú.</p>
         </div>
         {canEdit && (
           <div className="page-header-actions">
@@ -101,9 +101,9 @@ export default function CauHinh() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Người phụ trách</label>
+              <label className="form-label">Giám Đốc</label>
               <select className="form-control" value={heThong.nguoi_phu_trach} disabled={!canEdit} onChange={(e) => setHeThong({ ...heThong, nguoi_phu_trach: e.target.value })}>
-                <option value="">-- Chọn người phụ trách --</option>
+                <option value="">-- Chọn Giám đốc --</option>
                 {managers.map(m => (
                   <option key={m.id} value={m.fullname}>{m.fullname}</option>
                 ))}

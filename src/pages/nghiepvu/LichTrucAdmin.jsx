@@ -70,6 +70,9 @@ export default function LichTrucAdmin() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   // Confirm clear day (Nghỉ)
   const [confirmClearDay, setConfirmClearDay] = useState(null); // Date object
+  // Confirm apply khung
+  const [confirmApplyKhung, setConfirmApplyKhung] = useState(false);
+  const [applyKhungLoading, setApplyKhungLoading] = useState(false);
   // Modal ngày đặc biệt
   const [specialDayModal, setSpecialDayModal] = useState(null); // { ngay: 'YYYY-MM-DD' }
   const [cauhinhNgayMap, setCauhinhNgayMap] = useState({}); // { 'YYYY-MM-DD': config }
@@ -153,8 +156,8 @@ export default function LichTrucAdmin() {
     }).catch(() => {});
   }, []);
 
-  const loadWeek = useCallback(async (monday) => {
-    setLoading(true);
+  const loadWeek = useCallback(async (monday, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const dateStrMon = toDateStr(monday);
       const friday = toDateStr(addDays(monday, 4));
@@ -188,7 +191,7 @@ export default function LichTrucAdmin() {
     setDetailPC(null);
     try {
       const res = await api.post('/api/lichtruc/delete/', { id: pcId });
-      if (res.data?.ok) await loadWeek(weekStart);
+      if (res.data?.ok) await loadWeek(weekStart, true);
     } catch (err) {
       showAlert('Lỗi xóa: ' + (err.response?.data?.error || err.message), 'danger');
     }
@@ -207,13 +210,14 @@ export default function LichTrucAdmin() {
     if (picker.mode !== 'substitute') {
       const phong = (phongList || []).find(p => p.ma_phong === phong_id);
       if (phong) {
-        const slToiDa = gvSelected.nhiem_vu === 0 ? (phong.sl_diem_danh || 1) : (phong.sl_ho_tro || 1);
+        const nv = gvSelected.nhiem_vu ?? 0;
+        const slToiDa = nv === 0 ? (phong.sl_diem_danh || 1) : (phong.sl_ho_tro || 1);
         const hienTai = cellEntries.filter(p => {
-          const g = (giaoVienList || []).find(x => x.id === p.ma_gv_id);
-          return g?.nhiem_vu === gvSelected.nhiem_vu;
+          const pnv = p.nhiem_vu !== undefined && p.nhiem_vu !== null ? p.nhiem_vu : ((giaoVienList || []).find(x => x.id === p.ma_gv_id)?.nhiem_vu ?? 0);
+          return pnv === nv;
         }).length;
         if (hienTai >= slToiDa) {
-          showAlert(`Phòng ${phong_id} đã đủ GV ${gvSelected.nhiem_vu === 0 ? 'điểm danh' : 'hỗ trợ'}`, 'danger');
+          showAlert(`Phòng ${phong_id} đã đủ GV ${nv === 0 ? 'điểm danh' : 'giám sát'}`, 'danger');
           return;
         }
       }
@@ -231,9 +235,10 @@ export default function LichTrucAdmin() {
         ma_phong_id: phong_id,
         ngay,
         loai_truc,
+        nhiem_vu: gvSelected.nhiem_vu ?? 0,
       });
       if (res.data?.ok) {
-        await loadWeek(weekStart);
+        await loadWeek(weekStart, true);
         setPicker(null);
         setDetailPC(null);
       }
@@ -244,13 +249,24 @@ export default function LichTrucAdmin() {
     }
   };
 
-  const applyKhung = async () => {
-    setLoading(true);
+  const applyKhung = () => {
+    setConfirmApplyKhung(true);
+  };
+
+  const doApplyKhung = async () => {
+    setApplyKhungLoading(true);
     try {
-      const res = await api.post('/api/lichtruc/apply-khung/', { tuan: toDateStr(weekStart), force: false });
-      if (res.data?.ok) { showAlert(res.data.message, 'success'); loadWeek(weekStart); }
-    } catch (err) { showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger'); }
-    finally { setLoading(false); }
+      const res = await api.post('/api/lichtruc/apply-khung/', { tuan: toDateStr(weekStart), force: true });
+      if (res.data?.ok) {
+        showAlert(res.data.message, 'success');
+        setConfirmApplyKhung(false);
+        await loadWeek(weekStart, true);
+      }
+    } catch (err) {
+      showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger');
+    } finally {
+      setApplyKhungLoading(false);
+    }
   };
 
   const clearDay = (d) => {
@@ -263,7 +279,7 @@ export default function LichTrucAdmin() {
     if (!d) return;
     try {
       const res = await api.post('/api/lichtruc/clear-day/', { ngay: toDateStr(d) });
-      if (res.data?.ok) { showAlert(res.data.message, 'success'); await loadWeek(weekStart); }
+      if (res.data?.ok) { showAlert(res.data.message, 'success'); await loadWeek(weekStart, true); }
     } catch (err) { showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger'); }
   };
 
@@ -354,7 +370,7 @@ export default function LichTrucAdmin() {
         showAlert(`Đã lưu: ngày ${specialDayModal.ngay} — ${msg.join(' | ')}`, 'success');
       }
       setSpecialDayModal(null);
-      await loadWeek(weekStart);
+      await loadWeek(weekStart, true);
     } catch (err) {
       showAlert('Lỗi lưu cấu hình: ' + (err.response?.data?.error || err.message), 'danger');
     } finally { setSpecialSaving(false); }
@@ -379,7 +395,7 @@ export default function LichTrucAdmin() {
         } else {
           showAlert(res.data.message, 'success');
         }
-        await loadWeek(weekStart);
+        await loadWeek(weekStart, true);
       }
     } catch (err) { showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger'); }
   };
@@ -544,7 +560,7 @@ export default function LichTrucAdmin() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 8, height: 8, background: '#16a34a', borderRadius: '50%' }}></span>
-            <span style={{ fontWeight: 600, color: '#475569' }}>Hỗ trợ</span>
+            <span style={{ fontWeight: 600, color: '#475569' }}>Giám sát</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <i className="fas fa-exchange-alt" style={{ color: '#d97706', fontSize: '0.7rem' }}></i>
@@ -659,8 +675,9 @@ export default function LichTrucAdmin() {
                       {cellData.map(pc => {
                         const gv = getGVInfo(pc);
                         const gvThay = pc.ma_gv_truc_thay_id ? getGVThayInfo(pc) : null;
-                        const isDD = gv?.nhiem_vu === 0;
-                        const isHT = gv?.nhiem_vu === 1;
+                        const nv = pc.nhiem_vu !== undefined && pc.nhiem_vu !== null ? pc.nhiem_vu : (gv?.nhiem_vu ?? 0);
+                        const isDD = nv === 0;
+                        const isHT = nv === 1;
                         const borderColor = isDD ? '#2563eb' : (isHT ? '#16a34a' : '#64748b');
                         const bgColor = isDD ? '#eff6ff' : (isHT ? '#f0fdf4' : '#f8fafc');
 
@@ -698,8 +715,8 @@ export default function LichTrucAdmin() {
                       })}
 
                       {user?.is_admin && (() => {
-                        const countDD = cellData.filter(p => (p.giao_vien?.nhiem_vu ?? (giaoVienList || []).find(g => g.id === p.ma_gv_id)?.nhiem_vu) === 0).length;
-                        const countHT = cellData.filter(p => (p.giao_vien?.nhiem_vu ?? (giaoVienList || []).find(g => g.id === p.ma_gv_id)?.nhiem_vu) === 1).length;
+                        const countDD = cellData.filter(p => (p.nhiem_vu !== undefined && p.nhiem_vu !== null ? p.nhiem_vu : (p.giao_vien?.nhiem_vu ?? (giaoVienList || []).find(g => g.id === p.ma_gv_id)?.nhiem_vu ?? 0)) === 0).length;
+                        const countHT = cellData.filter(p => (p.nhiem_vu !== undefined && p.nhiem_vu !== null ? p.nhiem_vu : (p.giao_vien?.nhiem_vu ?? (giaoVienList || []).find(g => g.id === p.ma_gv_id)?.nhiem_vu ?? 0)) === 1).length;
                         if (countDD < (phong.sl_diem_danh || 1) || countHT < (phong.sl_ho_tro || 1)) {
                           return <button className="lt-add-btn" onClick={() => setPicker({ ngay: ngayStr, phong_id: phong.ma_phong, loai_truc: phong.loai_phong, mode: 'add' })}><i className="fas fa-plus"></i></button>;
                         }
@@ -718,8 +735,9 @@ export default function LichTrucAdmin() {
       {detailPC && (() => {
         const gv    = getGVInfo(detailPC);
         const gvThay = detailPC.ma_gv_truc_thay_id ? getGVThayInfo(detailPC) : null;
-        const isDD  = gv?.nhiem_vu === 0;
-        const isHT  = gv?.nhiem_vu === 1;
+        const nv    = detailPC.nhiem_vu !== undefined && detailPC.nhiem_vu !== null ? detailPC.nhiem_vu : (gv?.nhiem_vu ?? 0);
+        const isDD  = nv === 0;
+        const isHT  = nv === 1;
         return (
           <div className="modal-overlay open" onClick={() => setDetailPC(null)}>
             <div className="modal-box" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
@@ -744,7 +762,7 @@ export default function LichTrucAdmin() {
                   </div>
                   <div style={{ fontSize: '0.7rem', marginTop: 2 }}>
                     <span className={`badge ${isDD ? 'badge-primary' : (isHT ? 'badge-success' : '')}`} style={{ fontSize: '0.6rem' }}>
-                      {isDD ? 'Điểm danh' : (isHT ? 'Hỗ trợ' : '?')}
+                      {isDD ? 'Điểm danh' : (isHT ? 'Giám sát' : '?')}
                     </span>
                   </div>
                 </div>
@@ -804,7 +822,7 @@ export default function LichTrucAdmin() {
                 <select className="form-select" style={{ width: 130 }} value={pickerNhiemVu} onChange={e => setPickerNhiemVu(e.target.value)}>
                   <option value="all">Tất cả</option>
                   <option value="0">Điểm danh</option>
-                  <option value="1">Hỗ trợ</option>
+                  <option value="1">Giám sát</option>
                 </select>
               </div>
               <div style={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -819,7 +837,7 @@ export default function LichTrucAdmin() {
                   }}>
                     <span style={{ fontWeight: 500 }}>{gv.ho_ten}</span>
                     <span className={`badge ${gv.nhiem_vu === 0 ? 'badge-primary' : 'badge-success'}`} style={{ fontSize: '0.6rem' }}>
-                      {gv.nhiem_vu === 0 ? 'Điểm danh' : 'Hỗ trợ'}
+                      {gv.nhiem_vu === 0 ? 'Điểm danh' : 'Giám sát'}
                     </span>
                   </div>
                 ))}
@@ -1406,7 +1424,7 @@ export default function LichTrucAdmin() {
                         await api.post('/api/cauhinh-ngay/delete/', { ngay: specialDayModal.ngay });
                         showAlert('Đã xóa cấu hình, ngày này trở về bình thường', 'success');
                         setSpecialDayModal(null);
-                        await loadWeek(weekStart);
+                        await loadWeek(weekStart, true);
                       } catch (err) {
                         showAlert('Lỗi xóa cấu hình: ' + err.message, 'danger');
                       } finally { setSpecialSaving(false); }
@@ -1460,6 +1478,31 @@ export default function LichTrucAdmin() {
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                 <button className="btn btn-ghost" onClick={() => setConfirmClearDay(null)}>Hủy</button>
                 <button className="btn btn-danger" onClick={doClearDay}><i className="fas fa-ban"></i> Đánh dấu Nghỉ</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Xác nhận Nạp lịch cố định ─── */}
+      {confirmApplyKhung && (
+        <div className="modal-overlay open">
+          <div className="modal-box" style={{ maxWidth: 460, textAlign: 'center' }}>
+            <div style={{ padding: '24px 20px 20px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>📅</div>
+              <h3 style={{ marginBottom: 8, fontSize: '1.1rem' }}>Đồng bộ lịch trực cố định</h3>
+              <p style={{ color: '#475569', marginBottom: 12, fontSize: '0.9rem', lineHeight: '1.5' }}>
+                Hệ thống sẽ đồng bộ toàn bộ phân công trực từ <strong>Thứ 2 đến Thứ 5</strong> của tuần ({weekLabel}) theo đúng <strong>Lịch Khung Cố Định</strong> mới nhất.
+              </p>
+              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', marginBottom: 20, textAlign: 'left', fontSize: '0.8rem', color: '#92400e' }}>
+                <i className="fas fa-info-circle" style={{ marginRight: 6 }}></i>
+                Các phân công cũ từ T2 đến T5 sẽ được ghi đè chính xác theo lịch khung. Phân công Thứ 6 (nếu có) được giữ nguyên.
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button className="btn btn-ghost" onClick={() => setConfirmApplyKhung(false)} disabled={applyKhungLoading}>Hủy</button>
+                <button className="btn btn-success" onClick={doApplyKhung} disabled={applyKhungLoading}>
+                  {applyKhungLoading ? <><i className="fas fa-spinner fa-spin"></i> Đang nạp...</> : <><i className="fas fa-check"></i> Xác nhận đồng bộ</>}
+                </button>
               </div>
             </div>
           </div>

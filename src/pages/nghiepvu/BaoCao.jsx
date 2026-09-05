@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Chart, ArcElement, BarElement, LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler } from 'chart.js';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
-import { formatLopList } from '../../utils/stringUtils';
+import { formatLopList, getSortNames } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './BaoCao.css';
 
@@ -109,7 +109,16 @@ export default function BaoCao() {
         api.get(`/api/baocao/luong-gv/?tu_ngay=${tuNgayGV}&den_ngay=${denNgayGV}`, { signal: ctrl.signal })
             .then(res => {
                 if (res.data?.ok) {
-                    setGvData(res.data.data || []);
+                    const sortedGv = (res.data.data || []).sort((a, b) => {
+                        const nameA = getSortNames(a.ho_ten);
+                        const nameB = getSortNames(b.ho_ten);
+                        let cmp = nameA.first.localeCompare(nameB.first, 'vi');
+                        if (cmp !== 0) return cmp;
+                        cmp = nameA.last.localeCompare(nameB.last, 'vi');
+                        if (cmp !== 0) return cmp;
+                        return nameA.middle.localeCompare(nameB.middle, 'vi');
+                    });
+                    setGvData(sortedGv);
                     setGiaAn(res.data.don_gia_an || 0);
                     setGiaNgu(res.data.don_gia_ngu || 0);
                     setQuanLyName(res.data.quan_ly_name || '');
@@ -326,7 +335,7 @@ export default function BaoCao() {
   </div>
   <div class="ft-right-an">
     <div><em>${todayStr}</em></div>
-    <div style="font-weight:bold;margin-top:2px;">PHỤ TRÁCH BÁN TRÚ</div>
+    <div style="font-weight:bold;margin-top:2px;">GIÁM ĐỐC</div>
     <div class="sig-space-an"></div>
     <div style="font-weight:bold;font-style:italic;">${nguoi_phu_trach}</div>
   </div>
@@ -539,7 +548,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
   </div>
   <div class="ft-right-an">
     <div><em>${todayStr}</em></div>
-    <div style="font-weight:bold;margin-top:2px;">PHỤ TRÁCH BÁN TRÚ</div>
+    <div style="font-weight:bold;margin-top:2px;">GIÁM ĐỐC</div>
     <div class="sig-space-an"></div>
     <div style="font-weight:bold;font-style:italic;">${nguoi_phu_trach}</div>
   </div>
@@ -862,7 +871,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
   </div>
   <div class="ft-right">
     <div><em>${todayStr}</em></div>
-    <div class="sig-title">PHỤ TRÁCH BÁN TRÚ</div>
+    <div class="sig-title">GIÁM ĐỐC</div>
     <div class="sig-space"></div>
     <div class="sig-name">${nguoiPhuTrach}</div>
   </div>
@@ -1045,7 +1054,7 @@ ${htmlPages}
 </table>
 <div class="ft">
   <div class="ft-l"><div>Lớp ${lop}: <strong>${hsArr.length} học sinh</strong></div><div>Tổng thu: <strong>${fmtM(tongTienLop)} đồng</strong></div></div>
-  <div class="ft-r"><div>${todayStr}</div><div class="sig-t">PHỤ TRÁCH BÁN TRÚ</div><div class="sig-s"></div><div class="sig-n">${nguoi_phu_trach}</div></div>
+  <div class="ft-r"><div>${todayStr}</div><div class="sig-t">GIÁM ĐỐC</div><div class="sig-s"></div><div class="sig-n">${nguoi_phu_trach}</div></div>
 </div></div>`;
         }).join('');
         const css = `*{margin:0;padding:0;box-sizing:border-box}
@@ -1346,7 +1355,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     </div>
                     <div class="ft-right-an">
                         <div style="font-style:italic;">${todayStr}</div>
-                        <div style="font-weight:bold; margin-top:2px;">PHỤ TRÁCH BÁN TRÚ</div>
+                        <div style="font-weight:bold; margin-top:2px;">GIÁM ĐỐC</div>
                         <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
                         <div class="sig-space-an" style="height: 60px;"></div>
                         <div style="font-weight:bold; font-style:italic; font-size:12pt;">${managerName}</div>

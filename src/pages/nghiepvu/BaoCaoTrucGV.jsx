@@ -25,8 +25,8 @@ export default function BaoCaoTrucGV() {
   const [copySuccess, setCopySuccess] = useState(false);
 
   // Load danh sách báo cáo
-  const loadReports = useCallback(async () => {
-    setLoading(true);
+  const loadReports = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       let url = `/api/baocaotruc/?ngay=${ngay}`;
       if (caTruc !== 'all') {
@@ -53,7 +53,7 @@ export default function BaoCaoTrucGV() {
       const res = await api.post('/api/baocaotruc/delete/', { id });
       if (res.data?.ok) {
         showAlert('Đã xóa báo cáo thành công', 'success');
-        loadReports();
+        loadReports(true);
       }
     } catch (err) {
       showAlert('Không thể xóa: ' + (err.response?.data?.error || err.message), 'danger');

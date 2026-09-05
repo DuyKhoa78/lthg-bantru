@@ -53,8 +53,8 @@ export default function TaiKhoan() {
 
   const isAdmin = currentUser?.is_admin || currentUser?.is_superuser;
 
-  const fetchData = () => {
-    setLoading(true);
+  const fetchData = (silent = false) => {
+    if (!silent) setLoading(true);
     api.get('/api/taikhoan/')
       .then(res => { if (res.data?.ok) setData(res.data.users); })
       .catch(console.error)
@@ -98,10 +98,25 @@ export default function TaiKhoan() {
     byRole: Object.fromEntries(ROLES.map(r => [r.value, data.filter(u => u.role === r.value).length])),
   };
 
+  const isSuperUser = Boolean(currentUser?.is_superuser);
+
   // ── Mở modal ──────────────────────────────────────────────────────
   const openAdd  = () => { setForm(EMPTY_FORM); setShowPw(false); setModal('add'); };
-  const openEdit = (u) => { setForm({ username: u.username, fullname: u.fullname || '', position: u.position || '', role: u.role, is_active: u.is_active, password: '' }); setModal({ edit: u }); };
-  const openReset = (u) => { setResetPw(''); setShowResetPw(false); setModal({ reset: u }); };
+  const openEdit = (u) => {
+    if (u.is_superuser && !isSuperUser) {
+      return showAlert('Bạn không có quyền chỉnh sửa tài khoản Super Admin!', 'warning');
+    }
+    setForm({ username: u.username, fullname: u.fullname || '', position: u.position || '', role: u.role, is_active: u.is_active, password: '' });
+    setModal({ edit: u });
+  };
+  const openReset = (u) => {
+    if (u.is_superuser && !isSuperUser) {
+      return showAlert('Bạn không có quyền đặt lại mật khẩu cho tài khoản Super Admin!', 'warning');
+    }
+    setResetPw('');
+    setShowResetPw(false);
+    setModal({ reset: u });
+  };
 
   // ── Lưu tạo / cập nhật ────────────────────────────────────────────
   const handleSave = async () => {
@@ -118,9 +133,9 @@ export default function TaiKhoan() {
 
       await api.post('/api/taikhoan/save/', payload);
       setModal(null);
-      fetchData();
+      fetchData(true);
     } catch (err) {
-      showAlert(err.response?.data?.error || 'Lưu thất bại!');
+      showAlert(err.response?.data?.error || 'Lưu thất bại!', 'danger');
     } finally {
       setSaving(false);
     }
@@ -128,7 +143,15 @@ export default function TaiKhoan() {
 
   // ── Toggle trạng thái hoạt động nhanh ─────────────────────────────
   const toggleActive = async (u) => {
-    if (u.id === currentUser?.id) return showAlert('Không thể tắt tài khoản đang đăng nhập!', 'warning');
+    if (u.is_superuser) {
+      return showAlert('Không thể vô hiệu hóa tài khoản Super Admin!', 'warning');
+    }
+    if (u.id === currentUser?.id) {
+      return showAlert('Không thể tắt tài khoản đang đăng nhập!', 'warning');
+    }
+    if (u.role === 'admin' && !isSuperUser) {
+      return showAlert('Bạn không có quyền vô hiệu hóa Quản trị viên!', 'warning');
+    }
     try {
       await api.post('/api/taikhoan/save/', {
         id: u.id, username: u.username, fullname: u.fullname,
@@ -136,7 +159,7 @@ export default function TaiKhoan() {
       });
       setData(prev => prev.map(x => x.id === u.id ? { ...x, is_active: !u.is_active } : x));
     } catch (err) {
-      showAlert(err.response?.data?.error || 'Cập nhật thất bại!');
+      showAlert(err.response?.data?.error || 'Cập nhật thất bại!', 'danger');
     }
   };
 
@@ -271,26 +294,58 @@ export default function TaiKhoan() {
               </div>
 
               <div className="tk-card-actions">
-                <button className="btn-icon edit" title="Sửa thông tin" onClick={() => openEdit(u)}>
+                <button
+                  className="btn-icon edit"
+                  title={u.is_superuser && !isSuperUser ? "Không thể chỉnh sửa Super Admin" : "Sửa thông tin"}
+                  onClick={() => openEdit(u)}
+                  disabled={u.is_superuser && !isSuperUser}
+                  style={u.is_superuser && !isSuperUser ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                >
                   <i className="fas fa-edit"></i>
                 </button>
-                <button className="btn-icon" title="Đặt lại mật khẩu" style={{ color: '#f59e0b' }} onClick={() => openReset(u)}>
+                <button
+                  className="btn-icon"
+                  title={u.is_superuser && !isSuperUser ? "Không thể đặt lại mật khẩu Super Admin" : "Đặt lại mật khẩu"}
+                  style={{ color: '#f59e0b', ...(u.is_superuser && !isSuperUser ? { opacity: 0.35, cursor: 'not-allowed' } : {}) }}
+                  onClick={() => openReset(u)}
+                  disabled={u.is_superuser && !isSuperUser}
+                >
                   <i className="fas fa-key"></i>
                 </button>
                 <button
                   className="btn-icon"
-                  title={u.is_active ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt tài khoản'}
-                  style={{ color: u.is_active ? '#f59e0b' : '#22c55e' }}
+                  title={
+                    u.is_superuser
+                      ? "Không thể vô hiệu hóa Super Admin"
+                      : u.id === currentUser?.id
+                        ? "Không thể tắt tài khoản của chính mình"
+                        : (!isSuperUser && u.role === 'admin')
+                          ? "Bạn không có quyền vô hiệu hóa Quản trị viên"
+                          : (u.is_active ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt tài khoản')
+                  }
+                  style={{
+                    color: u.is_active ? '#f59e0b' : '#22c55e',
+                    ...(u.is_superuser || u.id === currentUser?.id || (!isSuperUser && u.role === 'admin') ? { opacity: 0.35, cursor: 'not-allowed' } : {})
+                  }}
                   onClick={() => toggleActive(u)}
-                  disabled={u.id === currentUser?.id}
+                  disabled={u.is_superuser || u.id === currentUser?.id || (!isSuperUser && u.role === 'admin')}
                 >
                   <i className={`fas ${u.is_active ? 'fa-user-slash' : 'fa-user-check'}`}></i>
                 </button>
                 <button
                   className="btn-icon delete"
-                  title="Xóa tài khoản"
+                  title={
+                    u.is_superuser
+                      ? "Không thể xóa Super Admin"
+                      : u.id === currentUser?.id
+                        ? "Không thể xóa tài khoản của chính mình"
+                        : (!isSuperUser && u.role === 'admin')
+                          ? "Chỉ Super Admin mới được xóa Quản trị viên"
+                          : "Xóa tài khoản"
+                  }
+                  style={u.is_superuser || u.id === currentUser?.id || (!isSuperUser && u.role === 'admin') ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                   onClick={() => setConfirmDel({ id: u.id, name: u.fullname || u.username })}
-                  disabled={u.is_superuser || u.id === currentUser?.id}
+                  disabled={u.is_superuser || u.id === currentUser?.id || (!isSuperUser && u.role === 'admin')}
                 >
                   <i className="fas fa-trash"></i>
                 </button>
@@ -336,9 +391,15 @@ export default function TaiKhoan() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Vai trò <span className="required">*</span></label>
-                  <select className="form-control" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                  <select
+                    className="form-control"
+                    value={form.role}
+                    onChange={e => setForm({ ...form, role: e.target.value })}
+                    disabled={modal?.edit?.is_superuser}
+                  >
                     {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
+                  {modal?.edit?.is_superuser && <small style={{ color: '#94a3b8' }}>Super Admin luôn có vai trò Quản trị viên</small>}
                 </div>
               </div>
 
@@ -363,10 +424,18 @@ export default function TaiKhoan() {
 
               <div className="toggle-wrapper" style={{ marginTop: 4 }}>
                 <label className="toggle">
-                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })} />
+                  <input
+                    type="checkbox"
+                    checked={form.is_active}
+                    onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                    disabled={modal?.edit?.is_superuser}
+                  />
                   <span className="toggle-slider"></span>
                 </label>
-                <span className="toggle-label">Tài khoản đang hoạt động</span>
+                <span className="toggle-label">
+                  Tài khoản đang hoạt động
+                  {modal?.edit?.is_superuser && <small style={{ color: '#94a3b8', display: 'block' }}>(Tài khoản Super Admin không thể bị vô hiệu hóa)</small>}
+                </span>
               </div>
             </div>
             <div className="modal-footer">

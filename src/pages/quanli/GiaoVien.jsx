@@ -23,7 +23,7 @@ function RanhGrid({ ranh }) {
   );
 }
 
-const EMPTY_FORM = { ho_ten: '', gioi_tinh: '', so_dien_thoai: '', dang_lam: true, lich_ranh: [false, false, false, false, false] };
+const EMPTY_FORM = { ho_ten: '', gioi_tinh: '', so_dien_thoai: '', nhiem_vu: 0, dang_lam: true, lich_ranh: [false, false, false, false, false] };
 
 export default function GiaoVien() {
   const { user } = useAuth();
@@ -42,8 +42,8 @@ export default function GiaoVien() {
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
 
-  const fetchData = () => {
-    setLoading(true);
+  const fetchData = (silent = false) => {
+    if (!silent) setLoading(true);
     api.get('/api/giaovien/')
       .then((res) => { if (res.data?.ok) setData(res.data.giaovien); })
       .catch(console.error)
@@ -66,7 +66,7 @@ export default function GiaoVien() {
       const res = await api.post(`/api/giaovien/${gv.id}/reset-code/`);
       if (res.data?.ok) {
         showAlert(`Đã cấp mã mới cho ${gv.ho_ten}: ${res.data.ma_bao_mat}`, 'success');
-        fetchData();
+        fetchData(true);
       }
     } catch (err) {
       showAlert(err.response?.data?.error || 'Cấp mã thất bại', 'danger');
@@ -116,7 +116,7 @@ export default function GiaoVien() {
         showAlert(msg, 'success');
         setModal(null);
         setImportFile(null);
-        fetchData();
+        fetchData(true);
       }
     } catch (err) {
       showAlert(err.response?.data?.error || 'Nhập file thất bại', 'danger');
@@ -159,7 +159,7 @@ export default function GiaoVien() {
   };
 
   const openAdd = () => { setForm({ ...EMPTY_FORM, ma_bao_mat: '' }); setModal('add'); };
-  const openEdit = (gv) => { setForm({ ...gv, so_dien_thoai: gv.so_dien_thoai || '', ma_bao_mat: gv.ma_bao_mat || '' }); setModal({ edit: gv }); };
+  const openEdit = (gv) => { setForm({ ...gv, so_dien_thoai: gv.so_dien_thoai || '', ma_bao_mat: gv.ma_bao_mat || '', nhiem_vu: gv.nhiem_vu ?? 0 }); setModal({ edit: gv }); };
 
   // Hàm sinh mã 5 ký tự ngẫu nhiên duy nhất trên Client (đảm bảo không trùng với bất kỳ GV nào đang có)
   const generateUniqueClientCode = () => {
@@ -198,7 +198,7 @@ export default function GiaoVien() {
         message: <span style={{ color: '#ea580c' }}>⚠️ Mã Form phải đúng 5 ký tự (hiện có: {raw.length}/5)</span>
       };
     }
-    const currentId = modal === 'add' ? null : modal.edit?.id;
+    const currentId = modal === 'add' ? null : modal?.edit?.id ?? null;
     const dup = data.find(g => g.ma_bao_mat && g.ma_bao_mat.toUpperCase() === raw && g.id !== currentId);
     if (dup) {
       return {
@@ -264,7 +264,7 @@ export default function GiaoVien() {
           'success'
         );
         setModal(null);
-        fetchData();
+        fetchData(true);
       }
     } catch (err) {
       showAlert(err.response?.data?.error || 'Lưu thất bại', 'danger');
@@ -326,14 +326,14 @@ export default function GiaoVien() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>#</th><th>Họ tên</th><th>Mã Form (5 ký tự)</th><th>Giới tính</th>
+                <th>#</th><th>Họ tên</th><th>Mã Form (5 ký tự)</th><th>Giới tính</th><th>Nhiệm vụ</th>
                 <th>Trạng thái</th><th>Ca tháng</th><th>Lịch rảnh (T2–T6)</th>
                 {(user?.is_admin || user?.is_superuser) && <th style={{ textAlign: 'center' }}>Thao tác</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}><i className="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px' }}><i className="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
               ) : filtered.map((gv, idx) => (
                 <tr key={gv.id}>
                   <td>{idx + 1}</td>
@@ -365,6 +365,7 @@ export default function GiaoVien() {
                     )}
                   </td>
                   <td><span className={`badge ${gv.gioi_tinh === 0 ? 'badge-info' : 'badge-warning'}`}>{gv.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</span></td>
+                  <td><span className={`badge ${gv.nhiem_vu === 1 ? 'badge-success' : 'badge-primary'}`}>{gv.nhiem_vu === 1 ? 'Giám sát' : 'Điểm danh'}</span></td>
                   <td>{gv.dang_lam ? <span className="badge badge-success"><i className="fas fa-circle" style={{ fontSize: '.5rem' }}></i> Đang làm</span> : <span className="badge badge-danger">Nghỉ</span>}</td>
                   <td><span className="badge badge-gray">{gv.ca_thang ?? 0} ca</span></td>
                   <td><RanhGrid ranh={gv.lich_ranh} /></td>
@@ -379,7 +380,7 @@ export default function GiaoVien() {
                 </tr>
               ))}
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Không có dữ liệu</td></tr>
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Không có dữ liệu</td></tr>
               )}
             </tbody>
           </table>
@@ -409,6 +410,14 @@ export default function GiaoVien() {
                   <label className="form-label">Số điện thoại</label>
                   <input className="form-control" value={form.so_dien_thoai} onChange={(e) => setForm({ ...form, so_dien_thoai: e.target.value })} placeholder="090xxxx567" />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Nhiệm vụ mặc định</label>
+                <select className="form-select" value={form.nhiem_vu ?? 0} onChange={(e) => setForm({ ...form, nhiem_vu: parseInt(e.target.value) })}>
+                  <option value={0}>Điểm danh (ĐD)</option>
+                  <option value={1}>Giám sát (GS)</option>
+                </select>
               </div>
 
               <div className="form-group">
