@@ -7,11 +7,19 @@ import '../../styles/admin.css';
 import './CauHinh.css';
 
 export default function CauHinh() {
-  const { user } = useAuth();
+  const { user, refreshSystemStatus } = useAuth();
   const { showAlert, AlertUI } = useAlert();
   const canEdit = user?.is_admin || user?.is_superuser;
 
-  const [heThong, setHeThong] = useState({ nam_hoc: '', nguoi_phu_trach: '', ten_truong: '', ma_bao_mat_gv: 'BT789' });
+  const [heThong, setHeThong] = useState({
+    nam_hoc: '',
+    nguoi_phu_trach: '',
+    ten_truong: '',
+    ma_bao_mat_gv: 'BT789',
+    bao_tri: false,
+    thong_bao_bao_tri: '',
+    thoi_gian_bao_tri: '',
+  });
   const [giaAn, setGiaAn] = useState('');
   const [giaNgu, setGiaNgu] = useState('');
   const [managers, setManagers] = useState([]);
@@ -28,10 +36,13 @@ export default function CauHinh() {
         if (resCauHinh.data?.ok) {
           const { he_thong, gia_an, gia_ngu } = resCauHinh.data;
           if (he_thong) setHeThong({
-            nam_hoc:          (he_thong.nam_hoc && he_thong.nam_hoc !== '2025-2026') ? he_thong.nam_hoc : '2026-2027',
-            nguoi_phu_trach:  he_thong.nguoi_phu_trach  || '',
-            ten_truong:       he_thong.ten_truong        || '',
-            ma_bao_mat_gv:    he_thong.ma_bao_mat_gv     || 'BT789',
+            nam_hoc:           (he_thong.nam_hoc && he_thong.nam_hoc !== '2025-2026') ? he_thong.nam_hoc : '2026-2027',
+            nguoi_phu_trach:   he_thong.nguoi_phu_trach   || '',
+            ten_truong:        he_thong.ten_truong         || '',
+            ma_bao_mat_gv:     he_thong.ma_bao_mat_gv      || 'BT789',
+            bao_tri:           Boolean(he_thong.bao_tri),
+            thong_bao_bao_tri: he_thong.thong_bao_bao_tri  || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô và Học sinh vui lòng quay lại sau ít phút!',
+            thoi_gian_bao_tri: he_thong.thoi_gian_bao_tri  || 'Dự kiến hoàn tất trong 15-30 phút',
           });
           if (gia_an) setGiaAn(parseInt(gia_an.don_gia) || '');
           if (gia_ngu) setGiaNgu(parseInt(gia_ngu.don_gia) || '');
@@ -51,6 +62,7 @@ export default function CauHinh() {
         api.post('/api/hethong/save/', heThong),
         api.post('/api/cauhinh/save/', { an: parseFloat(giaAn) || 0, ngu: parseFloat(giaNgu) || 0 }),
       ]);
+      if (refreshSystemStatus) await refreshSystemStatus();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -181,9 +193,96 @@ export default function CauHinh() {
             </div>
           </div>
         </div>
+
+        {/* Chế độ bảo trì hệ thống */}
+        <div className="cauhinh-section" style={{
+          border: heThong.bao_tri ? '2px solid #f59e0b' : '1px solid var(--border)',
+          boxShadow: heThong.bao_tri ? '0 0 16px rgba(245, 158, 11, 0.25)' : undefined,
+        }}>
+          <div className="cauhinh-section-header" style={{
+            background: heThong.bao_tri ? '#fffbeb' : undefined,
+            color: heThong.bao_tri ? '#b45309' : undefined,
+          }}>
+            <i className="fas fa-tools" style={{ color: '#f59e0b' }}></i>
+            <span>Chế độ Bảo trì Hệ thống (Maintenance Mode)</span>
+            {heThong.bao_tri ? (
+              <span style={{
+                marginLeft: 'auto',
+                background: '#fef3c7',
+                color: '#b45309',
+                border: '1px solid #fcd34d',
+                padding: '2px 8px',
+                borderRadius: 4,
+                fontSize: '.75rem',
+                fontWeight: 700
+              }}>
+                ĐANG BẬT
+              </span>
+            ) : (
+              <span style={{
+                marginLeft: 'auto',
+                background: '#f1f5f9',
+                color: '#64748b',
+                padding: '2px 8px',
+                borderRadius: 4,
+                fontSize: '.75rem',
+                fontWeight: 600
+              }}>
+                Đang tắt
+              </span>
+            )}
+          </div>
+          <div className="cauhinh-section-body">
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Trạng thái bảo trì:</span>
+                <label style={{ cursor: canEdit ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={heThong.bao_tri}
+                    disabled={!canEdit}
+                    onChange={(e) => setHeThong({ ...heThong, bao_tri: e.target.checked })}
+                    style={{ width: 18, height: 18, accentColor: '#f59e0b', cursor: 'pointer' }}
+                  />
+                  <strong style={{ color: heThong.bao_tri ? '#b45309' : '#15803d', fontSize: '.92rem' }}>
+                    {heThong.bao_tri ? 'BẬT BẢO TRÌ (Khóa truy cập người dùng)' : 'TẮT BẢO TRÌ (Hoạt động bình thường)'}
+                  </strong>
+                </label>
+              </label>
+              <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 6, lineHeight: 1.5 }}>
+                Khi bật, mọi người dùng thông thường khi vào web sẽ thấy trang <strong>"Hệ thống đang bảo trì"</strong>. Chỉ tài khoản <strong>Quản trị viên (Admin)</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
+              </p>
+            </div>
+
+            {heThong.bao_tri && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e2e8f0' }}>
+                <div className="form-group">
+                  <label className="form-label">Nội dung thông báo bảo trì gửi người dùng</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    disabled={!canEdit}
+                    value={heThong.thong_bao_bao_tri}
+                    onChange={(e) => setHeThong({ ...heThong, thong_bao_bao_tri: e.target.value })}
+                    placeholder="Nhập lời nhắn gửi đến phụ huynh, học sinh và giáo viên..."
+                  />
+                </div>
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label className="form-label">Thời gian dự kiến hoàn tất</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    disabled={!canEdit}
+                    value={heThong.thoi_gian_bao_tri}
+                    onChange={(e) => setHeThong({ ...heThong, thoi_gian_bao_tri: e.target.value })}
+                    placeholder="VD: 15-30 phút, hoặc Đến 15h00 ngày hôm nay"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-
-
 
       {!canEdit && (
         <div className="info-banner" style={{ marginTop: 16 }}>

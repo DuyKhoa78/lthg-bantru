@@ -7,21 +7,44 @@ export const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [systemStatus, setSystemStatus] = useState({
+    bao_tri: false,
+    thong_bao: '',
+    thoi_gian: '',
+    ten_truong: '',
+    nam_hoc: '',
+  });
 
-  // Kiểm tra phiên đăng nhập hiện tại khi load app
+  const refreshSystemStatus = useCallback(async () => {
+    try {
+      const res = await api.get('/api/public/system-status/');
+      if (res.data?.ok) {
+        setSystemStatus(res.data);
+        return res.data;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }, []);
+
+  // Kiểm tra phiên đăng nhập và trạng thái hệ thống khi load app
   useEffect(() => {
-    api.get('/api/auth/me')
-      .then((res) => {
-        if (res.data?.ok) {
-          setUser(res.data.user);
+    Promise.allSettled([
+      api.get('/api/auth/me'),
+      api.get('/api/public/system-status/'),
+    ])
+      .then(([authRes, statusRes]) => {
+        if (authRes.status === 'fulfilled' && authRes.value?.data?.ok) {
+          setUser(authRes.value.data.user);
         } else {
           localStorage.removeItem('qlbt_token');
           setUser(null);
         }
-      })
-      .catch(() => {
-        localStorage.removeItem('qlbt_token');
-        setUser(null);
+
+        if (statusRes.status === 'fulfilled' && statusRes.value?.data?.ok) {
+          setSystemStatus(statusRes.value.data);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -71,7 +94,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      login,
+      logout,
+      systemStatus,
+      setSystemStatus,
+      refreshSystemStatus,
+    }}>
       {children}
     </AuthContext.Provider>
   );

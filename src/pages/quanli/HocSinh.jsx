@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import api from '../../services/api';
@@ -81,6 +82,7 @@ export default function HocSinh() {
   const [exportSelectedLop, setExportSelectedLop] = useState('');
   const [exportOnlyDangHoc, setExportOnlyDangHoc] = useState(true);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState('');
   const [cauhinh, setCauhinh] = useState({
     nam_hoc: '2026-2027',
     nguoi_phu_trach: 'Vũ Quốc Phong',
@@ -548,6 +550,8 @@ export default function HocSinh() {
 
   const handleDownloadPdf = async (targetLop) => {
     setExportingPdf(true);
+    setDownloadProgress('Đang chuẩn bị dữ liệu...');
+    let container = null;
     try {
       const d = new Date();
       const todayStr = `TP. Hồ Chí Minh, ngày ${d.getDate()} tháng ${d.getMonth() + 1} năm ${d.getFullYear()}`;
@@ -560,44 +564,77 @@ export default function HocSinh() {
         return;
       }
 
-      const pagesHtml = classesToExport.map((lop, idx) => {
-        let students = data.filter(s => s.lop === lop);
-        if (exportOnlyDangHoc) {
-          students = students.filter(s => s.dang_hoc);
-        }
-        students.sort((a, b) => compareVietnameseNames(a.ho_ten, b.ho_ten));
-        return generateClassHtml(lop, students, namHoc, nguoiPhuTrach, todayStr, idx > 0);
-      }).join('\n');
-
-      const container = document.createElement('div');
+      // Tạo container render chuẩn hiển thị ngầm, tránh toạ độ âm -9999px gây lỗi html2canvas
+      container = document.createElement('div');
       container.style.position = 'fixed';
-      container.style.top = '-9999px';
-      container.style.left = '-9999px';
-      container.style.width = '210mm';
-      container.innerHTML = `<style>${getBasePrintCss()}</style>${pagesHtml}`;
+      container.style.left = '0';
+      container.style.top = '0';
+      container.style.width = '794px'; // Chuẩn A4 96dpi (210mm)
+      container.style.minHeight = '1123px'; // Chuẩn A4 96dpi (297mm)
+      container.style.background = '#ffffff';
+      container.style.zIndex = '-9999';
+      container.style.pointerEvents = 'none';
+      container.style.boxSizing = 'border-box';
+      container.style.padding = '8mm 12mm 8mm 15mm';
       document.body.appendChild(container);
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
 
       const pdfFileName = targetLop 
         ? `Danh_Sach_HS_${targetLop.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
         : `Danh_Sach_HS_Tat_Ca_${classesToExport.length}_Lop.pdf`;
 
-      const opt = {
-        margin: [8, 12, 8, 15],
-        filename: pdfFileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] }
-      };
+      const baseCss = getBasePrintCss();
 
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
+      // Kết xuất tuần tự từng trang/lớp một để đảm bảo canvas siêu nhẹ, không bị tràn bộ nhớ hay trắng trang
+      for (let i = 0; i < classesToExport.length; i++) {
+        const lop = classesToExport[i];
+        setDownloadProgress(`Đang tạo lớp ${lop} (${i + 1}/${classesToExport.length})...`);
+
+        let students = data.filter(s => s.lop === lop);
+        if (exportOnlyDangHoc) {
+          students = students.filter(s => s.dang_hoc);
+        }
+        students.sort((a, b) => compareVietnameseNames(a.ho_ten, b.ho_ten));
+
+        const classHtml = generateClassHtml(lop, students, namHoc, nguoiPhuTrach, todayStr, false);
+        container.innerHTML = `<style>${baseCss}</style>${classHtml}`;
+
+        // Đợi DOM render font chữ đầy đủ
+        await new Promise(r => setTimeout(r, 60));
+
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: 1024,
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) {
+          pdf.addPage('a4', 'portrait');
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      }
+
+      setDownloadProgress('Đang tải file về máy...');
+      pdf.save(pdfFileName);
       showAlert(`Đã tạo và tải file "${pdfFileName}" thành công!`, 'success');
     } catch (err) {
       console.error('Lỗi xuất PDF:', err);
       showAlert('Lỗi kết xuất PDF trực tiếp. Bạn có thể sử dụng nút "In / Lưu file PDF" để lưu PDF chuẩn sắc nét!', 'warning');
     } finally {
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
       setExportingPdf(false);
+      setDownloadProgress('');
     }
   };
 
@@ -1154,11 +1191,14 @@ export default function HocSinh() {
                   className="btn btn-success"
                   onClick={() => handleDownloadPdf(exportSelectedLop)}
                   disabled={previewStudents.length === 0 || exportingPdf}
-                  title="Tự động kết xuất và tải trực tiếp file .pdf về máy tính"
+                  title="Tự động kết xuất từng lớp và ghép thành file .pdf chuẩn tải về máy tính"
                 >
                   <i className={`fas ${exportingPdf ? 'fa-spinner fa-spin' : 'fa-download'}`}></i>
-                  {exportingPdf ? ' Đang xuất PDF...' : ' Tải trực tiếp (.pdf)'}
+                  {exportingPdf ? ` ${downloadProgress || 'Đang xuất PDF...'}` : ' Tải trực tiếp (.pdf)'}
                 </button>
+              </div>
+              <div style={{ width: '100%', textAlign: 'right', fontSize: '.76rem', color: '#64748b', fontStyle: 'italic', marginTop: 4 }}>
+                * Khuyên dùng: Nút "In / Lưu file PDF" tạo bản in chuẩn văn bản vector sắc nét 100% qua hộp thoại in của trình duyệt (chọn Lưu dạng PDF).
               </div>
             </div>
           </div>

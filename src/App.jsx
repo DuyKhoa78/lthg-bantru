@@ -7,6 +7,7 @@ import MainLayout from './components/layout/MainLayout';
 // ── Tải ngay (trang dùng thường xuyên) ──
 import Login        from './pages/accounts/Login';
 import Dashboard    from './pages/core/Dashboard';
+import Maintenance  from './pages/core/Maintenance';
 import DiemDanhAn   from './pages/nghiepvu/DiemDanhAn';
 import DiemDanhNgu  from './pages/nghiepvu/DiemDanhNgu';
 import LichTruc     from './pages/nghiepvu/LichTruc';
@@ -39,6 +40,7 @@ export default function App() {
           <Routes>
             {/* ─── Public ─── */}
             <Route path="/login" element={<Login />} />
+            <Route path="/maintenance" element={<Maintenance />} />
 
             {/* ─── Protected ─── */}
             <Route

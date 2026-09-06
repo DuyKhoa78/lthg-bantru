@@ -1,8 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import Maintenance from '../../pages/core/Maintenance';
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, systemStatus, refreshSystemStatus } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -17,6 +18,12 @@ export default function ProtectedRoute({ children }) {
         <span>Đang tải...</span>
       </div>
     );
+  }
+
+  // Khi hệ thống bật bảo trì: Chặn mọi người dùng, ngoại trừ Quản trị viên (Admin / Superuser)
+  const isAdmin = user && (user.is_superuser || user.is_admin || user.role === 'admin');
+  if (systemStatus?.bao_tri && !isAdmin) {
+    return <Maintenance status={systemStatus} onRetry={refreshSystemStatus} />;
   }
 
   if (!user) {
