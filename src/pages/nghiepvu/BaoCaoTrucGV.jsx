@@ -3,12 +3,14 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert';
 import api from '../../services/api';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import '../../styles/admin.css';
 import './BaoCaoTrucGV.css';
 
 export default function BaoCaoTrucGV() {
   const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
+  const [confirmDel, setConfirmDel] = useState(null);
 
   // Chế độ xem: 'day' | 'week' | 'month'
   const [viewMode, setViewMode] = useState('day');
@@ -140,18 +142,62 @@ export default function BaoCaoTrucGV() {
     };
   }, [viewMode, selectedDate, weekRange, selectedMonth, selectedYear, caTruc, showAlert]);
 
-  // Xóa báo cáo (Admin/Quản lý)
-  const handleDelete = async (id, phong, gv) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa bản ghi báo cáo của ${gv} (Phòng ${phong})?`)) return;
+  // Xóa báo cáo (Admin/Quản lý) sử dụng ConfirmDialog thay thế window.confirm
+  const handleDelete = (id, phong, gv, ca_truc) => {
+    setConfirmDel({
+      type: 'single',
+      id,
+      title: 'Xác nhận xóa bản ghi báo cáo',
+      message: `Bạn có chắc chắn muốn xóa bản ghi báo cáo của giáo viên "${gv}" (Phòng ${phong} - ${ca_truc === 0 ? 'Ăn trưa' : 'Nghỉ trưa'}) khỏi hệ thống?`
+    });
+  };
+
+  // Xóa toàn bộ dữ liệu theo khoảng thời gian sau khi đã xuất báo cáo
+  const handleClearRange = () => {
+    const rangeName = viewMode === 'month'
+      ? `Tháng ${selectedMonth}/${selectedYear}`
+      : viewMode === 'week'
+        ? `Tuần từ ${formatDateVN(data.tu_ngay)} đến ${formatDateVN(data.den_ngay)}`
+        : `Ngày ${formatDateVN(data.tu_ngay)}`;
+    setConfirmDel({
+      type: 'range',
+      title: `Xác nhận xóa dữ liệu ${rangeName}`,
+      message: `Hành động này sẽ xóa toàn bộ ${data.records?.length || 0} lượt báo cáo của ${rangeName} (sau khi Thầy/Cô đã xuất biên bản/báo cáo). Thao tác này không thể hoàn tác!`
+    });
+  };
+
+  const doDelete = async () => {
+    if (!confirmDel) return;
     try {
-      const res = await api.post('/api/baocaotruc/delete/', { id });
-      if (res.data?.ok) {
-        showAlert('Đã xóa báo cáo thành công', 'success');
-        setLoading(true);
-        loadReports();
+      if (confirmDel.type === 'single') {
+        const res = await api.post('/api/baocaotruc/delete/', { id: confirmDel.id });
+        if (res.data?.ok) {
+          showAlert('Đã xóa bản ghi báo cáo thành công', 'success');
+          setConfirmDel(null);
+          setLoading(true);
+          loadReports();
+        }
+      } else if (confirmDel.type === 'range') {
+        let payload = {};
+        if (viewMode === 'month') {
+          payload = { thang: selectedMonth, nam: selectedYear };
+        } else if (viewMode === 'week') {
+          payload = { tu_ngay: data.tu_ngay, den_ngay: data.den_ngay };
+        } else {
+          payload = { tu_ngay: data.tu_ngay, den_ngay: data.den_ngay };
+        }
+        if (caTruc !== 'all') payload.ca_truc = caTruc;
+        const res = await api.post('/api/baocaotruc/delete-range/', payload);
+        if (res.data?.ok) {
+          showAlert(res.data.message || 'Đã xóa dữ liệu thành công', 'success');
+          setConfirmDel(null);
+          setLoading(true);
+          loadReports();
+        }
       }
     } catch (err) {
       showAlert('Không thể xóa: ' + (err.response?.data?.error || err.message), 'danger');
+      setConfirmDel(null);
     }
   };
 
@@ -1139,6 +1185,17 @@ function tuDongTaoFormBaoCao() {
             <i className="fas fa-file-excel" style={{ color: '#16a34a' }}></i> Excel
           </button>
 
+          {(user?.is_admin || user?.is_superuser) && data.records?.length > 0 && (
+            <button
+              className="btn btn-outline"
+              onClick={handleClearRange}
+              title="Xóa toàn bộ dữ liệu báo cáo sau khi đã xuất báo cáo"
+              style={{ borderColor: '#fca5a5', color: '#b91c1c', fontWeight: 600 }}
+            >
+              <i className="fas fa-trash-alt" style={{ color: '#dc2626' }}></i> Xóa dữ liệu ({viewMode === 'month' ? `Tháng ${selectedMonth}` : 'ngày này'})
+            </button>
+          )}
+
           <button className="btn btn-primary" onClick={() => setShowGuide(true)}>
             <i className="fab fa-google"></i> Hướng dẫn Form
           </button>
@@ -1585,7 +1642,7 @@ function tuDongTaoFormBaoCao() {
                         <button
                           className="btn btn-ghost btn-sm text-danger"
                           title="Xóa bản ghi báo cáo này"
-                          onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv)}
+                          onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
                         >
                           <i className="fas fa-trash-alt"></i>
                         </button>
@@ -1683,6 +1740,18 @@ function tuDongTaoFormBaoCao() {
           </div>
         </div>
       )}
+
+      {/* Hộp thoại xác nhận xóa ConfirmDialog (Không bị trình duyệt chặn như window.confirm) */}
+      <ConfirmDialog
+        open={Boolean(confirmDel)}
+        title={confirmDel?.title || 'Xác nhận xóa'}
+        message={confirmDel?.message || ''}
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy"
+        variant="danger"
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDel(null)}
+      />
     </div>
   );
 }
