@@ -7,6 +7,7 @@ import { useAlert } from '../../hooks/useAlert.jsx';
 import api from '../../services/api';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { removeAccents, getSortNames } from '../../utils/stringUtils';
+import { cacheInvalidateStudents } from '../../utils/cache';
 import '../../styles/admin.css';
 
 const EMPTY_FORM = { ho_ten: '', lop: '', gioi_tinh: '', ma_phong_an: '', ma_phong_ngu: '', dang_hoc: true, ghi_chu: '', ma_bt: '' };
@@ -185,6 +186,7 @@ export default function HocSinh() {
     setConfirmDel(null);
     try {
       await api.post(`/api/hocsinh/${id}/delete/`);
+      cacheInvalidateStudents();
       setData(p => p.filter(h => h.id !== id));
     } catch (err) { showAlert(err.response?.data?.error || 'Xóa thất bại'); }
   };
@@ -201,6 +203,7 @@ export default function HocSinh() {
         ma_phong_ngu: form.ma_phong_ngu || null,
         dang_hoc: form.dang_hoc, ghi_chu: form.ghi_chu,
       });
+      cacheInvalidateStudents();
       setModal(null); fetchData(true);
     } catch (err) { showAlert(err.response?.data?.error || 'Lưu thất bại'); }
     finally { setSaving(false); }
@@ -243,7 +246,10 @@ export default function HocSinh() {
       const res = await api.post('/api/hocsinh/import/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setImportResult(res.data);
       // Cập nhật bảng ngầm ngay lập tức, không đóng modal
-      if (res.data?.success > 0) fetchData(true);
+      if (res.data?.success > 0) {
+        cacheInvalidateStudents();
+        fetchData(true);
+      }
     } catch (err) {
       setImportResult({ ok: false, error: err.response?.data?.error || 'Lỗi không xác định' });
     } finally { setImporting(false); }

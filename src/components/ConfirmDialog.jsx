@@ -51,7 +51,7 @@ export default function ConfirmDialog({
     <div
       className="modal-overlay open"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel?.(); }}
-      style={{ zIndex: 2000 }}
+      style={{ zIndex: 100000 }}
     >
       <div
         className="modal-box"

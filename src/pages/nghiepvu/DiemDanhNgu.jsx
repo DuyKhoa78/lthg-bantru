@@ -6,6 +6,7 @@ import { cachedFetch } from '../../utils/cache';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import { removeAccents, formatLopList } from '../../utils/stringUtils';
+import BaoPhepModal from '../../components/BaoPhepModal';
 import '../../styles/admin.css';
 import './DiemDanh.css';
 
@@ -27,6 +28,15 @@ const STATUS = {
 };
 // Chuyển YYYY-MM-DD → DD/MM/YYYY
 const fmtDate = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const shiftDate = (baseIso, days) => {
+    if (!baseIso) return '';
+    const d = new Date(baseIso + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
 
 
 export default function DiemDanhNgu() {
@@ -61,6 +71,7 @@ export default function DiemDanhNgu() {
     const [extraHsList, setExtraHsList] = useState([]); // HS thêm tay với phòng override
 
     const [showActions, setShowActions] = useState(false);
+    const [showBaoPhepModal, setShowBaoPhepModal] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -86,13 +97,13 @@ export default function DiemDanhNgu() {
     const [namHocCauHinh, setNamHocCauHinh] = useState('2026-2027');
 
 
-    // Load phòng & học sinh (cache sessionStorage 30 phút)
+    // Load phòng & học sinh
     useEffect(() => {
         Promise.all([
-            cachedFetch('cache_phong_ngu', () => api.get('/api/phong/ngu').then(r => r.data?.phong || [])),
+            api.get('/api/phong/ngu').then(r => r.data?.phong || []),
             cachedFetch('cache_hocsinh_ngu', () => api.get('/api/hocsinh/ngu').then(r => r.data?.hocsinh || [])),
             cachedFetch('cache_cauhinh', () => api.get('/api/cauhinh/').then(r => r.data?.he_thong || null), 60 * 60 * 1000),
-        ]).then(([{ data: phong }, { data: hs }, { data: cauhinh }]) => {
+        ]).then(([phong, { data: hs }, { data: cauhinh }]) => {
             if (phong) setPhongList(phong);
             if (hs) setHsList(hs);
             if (cauhinh) {
@@ -210,6 +221,16 @@ export default function DiemDanhNgu() {
         }));
     }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom]);
 
+    const otherRoomMatches = useMemo(() => {
+        if (!searchTerm || !searchTerm.trim() || searchTerm.trim().length < 2) return [];
+        const term = removeAccents(searchTerm.toLowerCase().trim());
+        return hsList.filter(s => {
+            const ph = s.phong_ngu;
+            if (!ph || (selectedPhong && ph === selectedPhong.ma_phong)) return false;
+            return removeAccents(s.ho_ten.toLowerCase()).includes(term) || String(s.id).includes(term);
+        }).slice(0, 5);
+    }, [searchTerm, hsList, selectedPhong]);
+
     const roomStats = useMemo(() => {
         let markedCount = 0;
         const markedRooms = new Set();
@@ -257,6 +278,23 @@ export default function DiemDanhNgu() {
 
     const counts = students.reduce((acc, s) => { acc[s.trang_thai] = (acc[s.trang_thai] || 0) + 1; return acc; }, {});
 
+    // ── Hàm chia danh sách HS theo số GV điểm danh: sort theo thứ tự mã bán trú từ trên xuống, chia đều ra khi đủ số lượng ──
+    const splitByTeachers = (students, numTeachers) => {
+        if (!numTeachers || numTeachers <= 1) return [students];
+        const sorted = [...students].sort((a, b) => Number(a.id) - Number(b.id));
+        const total = sorted.length;
+        const groups = [];
+        let start = 0;
+        for (let i = 0; i < numTeachers; i++) {
+            const count = Math.floor(total / numTeachers) + (i < (total % numTeachers) ? 1 : 0);
+            if (count > 0) {
+                groups.push(sorted.slice(start, start + count));
+                start += count;
+            }
+        }
+        return groups.filter(g => g.length > 0);
+    };
+
     // ── In danh sách NGỦ 1 ngày đặc biệt – theo phòng & chia tờ theo GV ────────
     const exportOneDayPDF = async () => {
         const allowed = hsList.filter(hs => isHsAllowed(hs));
@@ -288,50 +326,6 @@ export default function DiemDanhNgu() {
         });
         
         if (Object.keys(byPhong).length === 0) return showAlert('Không có học sinh nào trong ngày này!', 'warning');
-
-        const splitByTeachers = (students, numTeachers) => {
-            if (numTeachers <= 1) return [students];
-            const byClass = {};
-            students.forEach(s => { const k = s.lop || ''; if (!byClass[k]) byClass[k] = []; byClass[k].push(s); });
-            const classes = Object.keys(byClass).sort();
-            const groups = Array.from({ length: numTeachers }, () => []);
-            const sizes = Array(numTeachers).fill(0);
-            classes.forEach(cls => {
-                const minIdx = sizes.indexOf(Math.min(...sizes));
-                byClass[cls].forEach(s => groups[minIdx].push(s));
-                sizes[minIdx] += byClass[cls].length;
-            });
-            const MAX_DIFF = 10;
-            let changed = true;
-            while (changed) {
-                changed = false;
-                for (let i = 0; i < groups.length; i++) {
-                    for (let j = 0; j < groups.length; j++) {
-                        if (i === j) continue;
-                        const diff = groups[i].length - groups[j].length;
-                        if (diff > MAX_DIFF) {
-                            const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) =>
-                                groups[i].filter(s => (s.lop || '') === a).length - groups[i].filter(s => (s.lop || '') === b).length
-                            );
-                            let moved = false;
-                            for (const cls of clsInI) {
-                                const clsStu = groups[i].filter(s => (s.lop || '') === cls);
-                                const newDiff = (groups[i].length - clsStu.length) - (groups[j].length + clsStu.length);
-                                if (Math.abs(newDiff) < Math.abs(diff)) {
-                                    clsStu.forEach(s => groups[j].push(s));
-                                    groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
-                                    sizes[i] -= clsStu.length; sizes[j] += clsStu.length;
-                                    changed = true; moved = true; break;
-                                }
-                            }
-                            if (moved) break;
-                        }
-                    }
-                    if (changed) break;
-                }
-            }
-            return groups.filter(g => g.length > 0);
-        };
 
         const today = new Date();
         const todayStr = `TP Hồ Chí Minh, ngày ${today.getDate()} tháng ${today.getMonth() + 1} năm ${today.getFullYear()}`;
@@ -513,8 +507,11 @@ ${htmlPages}
         const idx = allMons.indexOf(monStr);
         setExportSelectedWeek(idx >= 0 ? idx : 0);
         setExportT6(false);
+        if (exportRooms.length === 0 && phongList.length > 0) {
+            setExportRooms(phongList.map(p => p.ma_phong));
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showMonthExportModal, date]);
+    }, [showMonthExportModal, date, phongList]);
 
     // ── XUẤT EXCEL THEO TUẦN (NGỦ) ───────────────────────────────────
     const exportWeekExcel = async () => {
@@ -544,31 +541,62 @@ ${htmlPages}
 
         const wb = XLSX.utils.book_new();
         exportRooms.forEach(ma_phong => {
-            const roomStudents = getStudentsForRoom(ma_phong).sort((a, b) => a.id - b.id);
+            const roomStudents = getStudentsForRoom(ma_phong).sort((a, b) => Number(a.id) - Number(b.id));
             const h1 = ['STT', 'Mã\nsố BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'P.\nNGỦ', 'P.\nĂN'];
             const h2 = ['', '', '', '', '', '', ''];
             weekDays.forEach(d => { h1.push(`${d.getDate()}/${d.getMonth() + 1}`); h2.push(`T${d.getDay() === 0 ? 'CN' : d.getDay() + 1}`); });
             h1.push('Ghi\nchú'); h2.push('');
-            const aoa = [
-                ['Phân hiệu THPT Lê Thị Hồng Gấm', '', '', 'ĐIỂM DANH NGHỈ TRƯA', ...Array(NC - 4).fill('')],
-                ['', '', '', '3 KHỐI', ...Array(NC - 4).fill('')],
-                ['', '', '', `NH: ${namHocCauHinh}`, ...Array(NC - 4).fill('')],
-                [weekLabel, '', '', LUU_Y_NGU, ...Array(NC - 4).fill('')],
-                Array(NC).fill(''), h1, h2,
-            ];
-            roomStudents.forEach((s, i) => {
-                const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                const dayCells = weekDays.map(d => getSym(s.id, d));
-                aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells, '']);
-            });
-            const ws = XLSX.utils.aoa_to_sheet(aoa);
-            ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 }), { wch: 12 }];
-            ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 2, c: 2 } }, { s: { r: 0, c: 3 }, e: { r: 0, c: NC - 1 } },
-                { s: { r: 1, c: 3 }, e: { r: 1, c: NC - 1 } }, { s: { r: 2, c: 3 }, e: { r: 2, c: NC - 1 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } }, { s: { r: 3, c: 3 }, e: { r: 3, c: NC - 1 } },
-            ];
-            XLSX.utils.book_append_sheet(wb, ws, `Phong_${ma_phong}`.substring(0, 31));
+
+            const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
+            const numTeachers = phongInfo?.sl_diem_danh || 1;
+
+            if (numTeachers > 1) {
+                const chunks = splitByTeachers(roomStudents, numTeachers);
+                chunks.forEach((chunk, pageIdx) => {
+                    const offset = chunks.slice(0, pageIdx).reduce((acc, c) => acc + c.length, 0);
+                    const aoa = [
+                        ['Phân hiệu THPT Lê Thị Hồng Gấm', '', '', 'ĐIỂM DANH NGHỈ TRƯA', ...Array(NC - 4).fill('')],
+                        ['', '', '', '3 KHỐI', ...Array(NC - 4).fill('')],
+                        ['', '', '', `NH: ${namHocCauHinh}`, ...Array(NC - 4).fill('')],
+                        [`${weekLabel} (Tờ ${pageIdx + 1}/${chunks.length})`, '', '', LUU_Y_NGU, ...Array(NC - 4).fill('')],
+                        Array(NC).fill(''), h1, h2,
+                    ];
+                    chunk.forEach((s, i) => {
+                        const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                        const dayCells = weekDays.map(d => getSym(s.id, d));
+                        aoa.push([offset + i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells, '']);
+                    });
+                    const ws = XLSX.utils.aoa_to_sheet(aoa);
+                    ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 }), { wch: 12 }];
+                    ws['!merges'] = [
+                        { s: { r: 0, c: 0 }, e: { r: 2, c: 2 } }, { s: { r: 0, c: 3 }, e: { r: 0, c: NC - 1 } },
+                        { s: { r: 1, c: 3 }, e: { r: 1, c: NC - 1 } }, { s: { r: 2, c: 3 }, e: { r: 2, c: NC - 1 } },
+                        { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } }, { s: { r: 3, c: 3 }, e: { r: 3, c: NC - 1 } },
+                    ];
+                    XLSX.utils.book_append_sheet(wb, ws, `Phong_${ma_phong}_To${pageIdx + 1}`);
+                });
+            } else {
+                const aoa = [
+                    ['Phân hiệu THPT Lê Thị Hồng Gấm', '', '', 'ĐIỂM DANH NGHỈ TRƯA', ...Array(NC - 4).fill('')],
+                    ['', '', '', '3 KHỐI', ...Array(NC - 4).fill('')],
+                    ['', '', '', `NH: ${namHocCauHinh}`, ...Array(NC - 4).fill('')],
+                    [weekLabel, '', '', LUU_Y_NGU, ...Array(NC - 4).fill('')],
+                    Array(NC).fill(''), h1, h2,
+                ];
+                roomStudents.forEach((s, i) => {
+                    const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                    const dayCells = weekDays.map(d => getSym(s.id, d));
+                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells, '']);
+                });
+                const ws = XLSX.utils.aoa_to_sheet(aoa);
+                ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 }), { wch: 12 }];
+                ws['!merges'] = [
+                    { s: { r: 0, c: 0 }, e: { r: 2, c: 2 } }, { s: { r: 0, c: 3 }, e: { r: 0, c: NC - 1 } },
+                    { s: { r: 1, c: 3 }, e: { r: 1, c: NC - 1 } }, { s: { r: 2, c: 3 }, e: { r: 2, c: NC - 1 } },
+                    { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } }, { s: { r: 3, c: 3 }, e: { r: 3, c: NC - 1 } },
+                ];
+                XLSX.utils.book_append_sheet(wb, ws, `Phong_${ma_phong}`.substring(0, 31));
+            }
         });
         XLSX.writeFile(wb, `DiemDanhNgu_Tuan${exportSelectedWeek + 1}_Thang${exportMonth}_${exportYear}.xlsx`);
         setShowMonthExportModal(false);
@@ -598,65 +626,6 @@ ${htmlPages}
         const dayTH = weekDays.map((d, di) =>
             `<th class="col-day"${di === 0 ? ' style="border-left:1.5px solid #333;"' : ''}>${d.getDate()}/${p2(d.getMonth() + 1)}<br><small>${DOWS[d.getDay()]}</small></th>`
         ).join('');
-        // ── Hàm chia danh sách HS theo số GV điểm danh, ưu tiên theo lớp, lệch không quá 10 HS ──
-        const splitByTeachers = (students, numTeachers) => {
-            if (numTeachers <= 1) return [students];
-            // Gom theo lớp
-            const byClass = {};
-            students.forEach(s => {
-                const k = s.lop || '';
-                if (!byClass[k]) byClass[k] = [];
-                byClass[k].push(s);
-            });
-            const classes = Object.keys(byClass).sort();
-            // Phân bổ lớp vào các nhóm (bin-packing greedy)
-            const groups = Array.from({ length: numTeachers }, () => []);
-            const sizes = Array(numTeachers).fill(0);
-            classes.forEach(cls => {
-                // Cho vào nhóm ít HS nhất
-                const minIdx = sizes.indexOf(Math.min(...sizes));
-                byClass[cls].forEach(s => groups[minIdx].push(s));
-                sizes[minIdx] += byClass[cls].length;
-            });
-            // Cân bằng: nếu 2 nhóm lệch > 10 thì chuyển HS lẻ (không phá vỡ lớp nếu còn thừa)
-            const MAX_DIFF = 10;
-            let changed = true;
-            while (changed) {
-                changed = false;
-                for (let i = 0; i < groups.length; i++) {
-                    for (let j = 0; j < groups.length; j++) {
-                        if (i === j) continue;
-                        const diff = groups[i].length - groups[j].length;
-                        if (diff > MAX_DIFF) {
-                            // Tìm lớp trong nhóm i có thể di chuyển nguyên lớp sang j
-                            const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) => {
-                                const sa = groups[i].filter(s => (s.lop || '') === a).length;
-                                const sb = groups[i].filter(s => (s.lop || '') === b).length;
-                                return sa - sb; // Ưu tiên lớp nhỏ nhất
-                            });
-                            let moved = false;
-                            for (const cls of clsInI) {
-                                const clsStudents = groups[i].filter(s => (s.lop || '') === cls);
-                                const newDiff = (groups[i].length - clsStudents.length) - (groups[j].length + clsStudents.length);
-                                if (Math.abs(newDiff) < Math.abs(diff)) {
-                                    clsStudents.forEach(s => groups[j].push(s));
-                                    groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
-                                    sizes[i] -= clsStudents.length;
-                                    sizes[j] += clsStudents.length;
-                                    changed = true;
-                                    moved = true;
-                                    break;
-                                }
-                            }
-                            if (moved) break;
-                        }
-                    }
-                    if (changed) break;
-                }
-            }
-            return groups.filter(g => g.length > 0);
-        };
-
         const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong);
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
@@ -683,7 +652,7 @@ ${htmlPages}
                 return '';
             };
 
-            // Chia danh sách theo số GV điểm danh
+            // Chia danh sách theo số GV điểm danh (sort theo mã bán trú từ trên xuống, chia đều ra)
             const chunks = splitByTeachers(roomStudents, numTeachers);
             const totalPages = chunks.length;
 
@@ -691,7 +660,6 @@ ${htmlPages}
             const offsets = [];
             let off = 0;
             chunks.forEach(chunk => {
-                chunk.sort((a, b) => a.id - b.id);
                 offsets.push(off);
                 off += chunk.length;
             });
@@ -807,7 +775,6 @@ ${htmlPages}
                         <span>Điểm danh ngủ</span>
                     </div>
                     <h2><i className="fas fa-bed" style={{ color: '#6c5ce7', marginRight: 8 }}></i>Điểm danh Ngủ</h2>
-                    <p>Ghi nhận sĩ số học sinh ngủ theo phòng &amp; ngày. Danh sách HS do Admin phân bổ.</p>
                     {cauhinhNgay && (() => {
                         const lopArr = cauhinhNgay.lop_ap_dung;
                         const ptNgu = cauhinhNgay.phong_tam_ngu;
@@ -844,16 +811,25 @@ ${htmlPages}
                     })()}
                 </div>
                 <div className="page-header-actions">
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowBaoPhepModal(true)}
+                        style={{
+                            color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
+                            fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6
+                        }}
+                    >
+                        <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép trước
+                    </button>
                     <div className="dd-export-btn-group">
                         <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)}>
                             <i className="fas fa-print"></i> Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
                         </button>
                         <div className={`dd-export-menu ${showActions ? 'open' : ''}`} style={{ minWidth: 200 }}>
-                            {cauhinhNgay && (
-                                <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
-                                    <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> In ngày đặc biệt
-                                </button>
-                            )}
+                            <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
+                                <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> {cauhinhNgay ? 'In ngày đặc biệt' : 'In danh sách ngày (PDF)'}
+                            </button>
                             <button className="dd-export-item" onClick={() => { setShowMonthExportModal(true); setShowActions(false); }}>
                                 <i className="fas fa-file-pdf" style={{ color: '#6c5ce7', width: 20, textAlign: 'center' }}></i> In DS (Tuần)
                             </button>
@@ -891,7 +867,56 @@ ${htmlPages}
                     </div>
                     <div className="dd-date-picker">
                         <label><i className="fas fa-calendar-day" style={{ color: '#6c5ce7', marginRight: 4 }}></i> Chọn ngày điểm danh</label>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                        <div className="dd-date-input-wrapper" title="Bấm để chọn ngày trên lịch" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                            <span className="dd-date-display">{fmtDate(date)}</span>
+                            <i className="far fa-calendar-alt dd-date-icon"></i>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={e => setDate(e.target.value)}
+                                className="dd-date-native-input"
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                            <button
+                                type="button"
+                                style={{
+                                    flex: '0 0 32px', height: 28, borderRadius: 6,
+                                    border: '1px solid #cbd5e1', background: '#fff',
+                                    color: '#475569', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
+                                }}
+                                title="Ngày trước"
+                                onClick={() => setDate(shiftDate(date, -1))}
+                            >
+                                <i className="fas fa-chevron-left"></i>
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    flex: 1, height: 28, borderRadius: 6,
+                                    border: '1px solid #cbd5e1', background: '#fff',
+                                    color: '#6c5ce7', cursor: 'pointer', fontSize: '0.78rem',
+                                    fontWeight: 700
+                                }}
+                                onClick={() => setDate(todayVN())}
+                            >
+                                Hôm nay
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    flex: '0 0 32px', height: 28, borderRadius: 6,
+                                    border: '1px solid #cbd5e1', background: '#fff',
+                                    color: '#475569', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
+                                }}
+                                title="Ngày sau"
+                                onClick={() => setDate(shiftDate(date, 1))}
+                            >
+                                <i className="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
                     </div>
                     {hasSchedule && (
                         <>
@@ -953,6 +978,36 @@ ${htmlPages}
                                     </div>
                                 )}
                             </div>
+
+                            {otherRoomMatches.length > 0 && (
+                                <div style={{
+                                    background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8,
+                                    padding: '8px 14px', marginBottom: 12, fontSize: '0.88rem', color: '#5b21b6',
+                                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8
+                                }}>
+                                    <i className="fas fa-info-circle" style={{ color: '#7c3aed', fontSize: '1rem' }}></i>
+                                    <span>Tìm thấy ở phòng khác:</span>
+                                    {otherRoomMatches.map(m => (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            style={{
+                                                background: '#fff', border: '1px solid #c4b5fd', borderRadius: 6,
+                                                padding: '4px 10px', fontSize: '0.82rem', color: '#6d28d9', cursor: 'pointer',
+                                                fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                            onClick={() => {
+                                                const target = visiblePhongList.find(p => p.ma_phong === m.phong_ngu);
+                                                if (target) setSelectedPhongCode(target.ma_phong);
+                                            }}
+                                        >
+                                            <strong>{m.ho_ten}</strong> ({m.lop}) – Phòng <strong>{m.phong_ngu}</strong> <i className="fas fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
                             <div id="dd-student-area">
                                 {!selectedPhong ? (
                                     <div className="dd-empty">
@@ -1018,7 +1073,6 @@ ${htmlPages}
                     )}
                 </div>
             </div>
-            {AlertUI}
 
             {showMonthExportModal && (
                 <div className="export-modal-overlay">
@@ -1092,7 +1146,7 @@ ${htmlPages}
 
                             {/* Ghi chú chia tờ theo GV điểm danh */}
                             <div style={{ padding: '6px 10px', borderRadius: 7, background: '#f0eeff', border: '1px solid #ddd6fe', fontSize: '0.83rem', color: '#5b21b6' }}>
-                                <i className="fas fa-info-circle"></i> PDF sẽ chia tờ theo <strong>số GV điểm danh</strong> của từng phòng, ưu tiên giữ nguyên lớp và không lệch quá 10 HS.
+                                <i className="fas fa-info-circle"></i> Sẽ chia tờ theo <strong>số GV điểm danh</strong> của từng phòng, sắp xếp theo mã bán trú từ trên xuống và chia đều số lượng.
                             </div>
 
                             {/* CHỌN PHÒNG NGỦ */}
@@ -1125,6 +1179,17 @@ ${htmlPages}
                     </div>
                 </div>
             )}
+
+            <BaoPhepModal
+                open={showBaoPhepModal}
+                onClose={() => setShowBaoPhepModal(false)}
+                defaultDate={date}
+                defaultLoai="ca_ngay"
+                students={hsList}
+                onSuccess={() => fetchDiemDanh(date, true)}
+            />
+
+            {AlertUI}
         </>
     );
 }

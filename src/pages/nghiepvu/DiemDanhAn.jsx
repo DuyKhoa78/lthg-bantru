@@ -6,6 +6,7 @@ import { cachedFetch } from '../../utils/cache';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import { removeAccents, formatLopList } from '../../utils/stringUtils';
+import BaoPhepModal from '../../components/BaoPhepModal';
 import '../../styles/admin.css';
 import './DiemDanh.css';
 
@@ -28,6 +29,15 @@ const getWeekDays = (baseDate, inclT6) => {
 const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 // Chuyển YYYY-MM-DD → DD/MM/YYYY
 const fmtDate = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const shiftDate = (baseIso, days) => {
+    if (!baseIso) return '';
+    const d = new Date(baseIso + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
 
 
 export default function DiemDanhAn() {
@@ -61,6 +71,7 @@ export default function DiemDanhAn() {
     const [extraHsList, setExtraHsList] = useState([]); // HS thêm tay (hs_them_vao) với phòng override
 
     const [showActions, setShowActions] = useState(false);
+    const [showBaoPhepModal, setShowBaoPhepModal] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -86,13 +97,13 @@ export default function DiemDanhAn() {
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
     const [namHocCauHinh, setNamHocCauHinh] = useState('2026-2027');
 
-    // Load phòng & học sinh (cache sessionStorage 30 phút)
+    // Load phòng & học sinh
     useEffect(() => {
         Promise.all([
-            cachedFetch('cache_phong_an', () => api.get('/api/phong/an').then(r => r.data?.phong || [])),
+            api.get('/api/phong/an').then(r => r.data?.phong || []),
             cachedFetch('cache_hocsinh_an', () => api.get('/api/hocsinh/an').then(r => r.data?.hocsinh || [])),
             cachedFetch('cache_cauhinh', () => api.get('/api/cauhinh/').then(r => r.data?.he_thong || null), 60 * 60 * 1000),
-        ]).then(([{ data: phong }, { data: hs }, { data: cauhinh }]) => {
+        ]).then(([phong, { data: hs }, { data: cauhinh }]) => {
             if (phong) setPhongList(phong);
             if (hs) setHsList(hs);
             if (cauhinh) {
@@ -202,6 +213,16 @@ export default function DiemDanhAn() {
         }));
     }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom]);
 
+    const otherRoomMatches = useMemo(() => {
+        if (!searchTerm || !searchTerm.trim() || searchTerm.trim().length < 2) return [];
+        const term = removeAccents(searchTerm.toLowerCase().trim());
+        return hsList.filter(s => {
+            const ph = s.phong_an;
+            if (!ph || (selectedPhong && ph === selectedPhong.ma_phong)) return false;
+            return removeAccents(s.ho_ten.toLowerCase()).includes(term) || String(s.id).includes(term);
+        }).slice(0, 5);
+    }, [searchTerm, hsList, selectedPhong]);
+
     const roomStats = useMemo(() => {
         let markedCount = 0;
         const markedRooms = new Set();
@@ -238,6 +259,23 @@ export default function DiemDanhAn() {
     };
 
     const counts = students.reduce((acc, s) => { acc[s.trang_thai] = (acc[s.trang_thai] || 0) + 1; return acc; }, {});
+
+    // ── Hàm chia danh sách HS theo số GV điểm danh: sort theo thứ tự mã bán trú từ trên xuống, chia đều ra khi đủ số lượng ──
+    const splitByTeachers = (students, numTeachers) => {
+        if (!numTeachers || numTeachers <= 1) return [students];
+        const sorted = [...students].sort((a, b) => Number(a.id) - Number(b.id));
+        const total = sorted.length;
+        const groups = [];
+        let start = 0;
+        for (let i = 0; i < numTeachers; i++) {
+            const count = Math.floor(total / numTeachers) + (i < (total % numTeachers) ? 1 : 0);
+            if (count > 0) {
+                groups.push(sorted.slice(start, start + count));
+                start += count;
+            }
+        }
+        return groups.filter(g => g.length > 0);
+    };
 
     // ── In danh sách ĂN 1 ngày đặc biệt – theo phòng & chia tờ theo GV ────────
     const exportOneDayPDF = async () => {
@@ -278,51 +316,6 @@ export default function DiemDanhAn() {
             if (!byPhong[ph]) byPhong[ph] = [];
             byPhong[ph].push(s);
         });
-
-        // Thuật toán chia danh sách HS theo số GV điểm danh
-        const splitByTeachers = (students, numTeachers) => {
-            if (numTeachers <= 1) return [students];
-            const byClass = {};
-            students.forEach(s => { const k = s.lop || ''; if (!byClass[k]) byClass[k] = []; byClass[k].push(s); });
-            const classes = Object.keys(byClass).sort();
-            const groups = Array.from({ length: numTeachers }, () => []);
-            const sizes = Array(numTeachers).fill(0);
-            classes.forEach(cls => {
-                const minIdx = sizes.indexOf(Math.min(...sizes));
-                byClass[cls].forEach(s => groups[minIdx].push(s));
-                sizes[minIdx] += byClass[cls].length;
-            });
-            const MAX_DIFF = 10;
-            let changed = true;
-            while (changed) {
-                changed = false;
-                for (let i = 0; i < groups.length; i++) {
-                    for (let j = 0; j < groups.length; j++) {
-                        if (i === j) continue;
-                        const diff = groups[i].length - groups[j].length;
-                        if (diff > MAX_DIFF) {
-                            const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) =>
-                                groups[i].filter(s => (s.lop || '') === a).length - groups[i].filter(s => (s.lop || '') === b).length
-                            );
-                            let moved = false;
-                            for (const cls of clsInI) {
-                                const clsStu = groups[i].filter(s => (s.lop || '') === cls);
-                                const newDiff = (groups[i].length - clsStu.length) - (groups[j].length + clsStu.length);
-                                if (Math.abs(newDiff) < Math.abs(diff)) {
-                                    clsStu.forEach(s => groups[j].push(s));
-                                    groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
-                                    sizes[i] -= clsStu.length; sizes[j] += clsStu.length;
-                                    changed = true; moved = true; break;
-                                }
-                            }
-                            if (moved) break;
-                        }
-                    }
-                    if (changed) break;
-                }
-            }
-            return groups.filter(g => g.length > 0);
-        };
 
         const today = new Date();
         const todayStr = `TP Hồ Chí Minh, ngày ${today.getDate()} tháng ${today.getMonth() + 1} năm ${today.getFullYear()}`;
@@ -501,7 +494,11 @@ ${htmlPages}
         const idx = allMons.indexOf(monStr);
         setExportWeeksActive(idx >= 0 ? [idx] : [0]);
         setExportWeeksT6([]);
-    }, [showMonthExportModal, date]);
+        if (exportRooms.length === 0 && phongList.length > 0) {
+            setExportRooms(phongList.map(p => p.ma_phong));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showMonthExportModal, date, phongList]);
 
     // ── XUẤT EXCEL THEO THÁNG ──────────────────────────────────────────
     const exportMonthlyExcel = async () => {
@@ -656,56 +653,6 @@ ${htmlPages}
                 `<th class="col-day-an"${di === 0 ? ' style="border-left:1.5px solid #333;"' : ''}>${d.getDate()}/${p2(d.getMonth() + 1)}<br><small>${DOWS[d.getDay()]}</small></th>`
             ).join('')
         ).join('');
-
-        // ── Hàm chia danh sách HS theo số GV điểm danh, ưu tiên theo lớp, lệch không quá 10 HS ──
-        const splitByTeachers = (students, numTeachers) => {
-            if (numTeachers <= 1) return [students];
-            const byClass = {};
-            students.forEach(s => {
-                const k = s.lop || '';
-                if (!byClass[k]) byClass[k] = [];
-                byClass[k].push(s);
-            });
-            const classes = Object.keys(byClass).sort();
-            const groups = Array.from({ length: numTeachers }, () => []);
-            const sizes = Array(numTeachers).fill(0);
-            classes.forEach(cls => {
-                const minIdx = sizes.indexOf(Math.min(...sizes));
-                byClass[cls].forEach(s => groups[minIdx].push(s));
-                sizes[minIdx] += byClass[cls].length;
-            });
-            const MAX_DIFF = 10;
-            let changed = true;
-            while (changed) {
-                changed = false;
-                for (let i = 0; i < groups.length; i++) {
-                    for (let j = 0; j < groups.length; j++) {
-                        if (i === j) continue;
-                        const diff = groups[i].length - groups[j].length;
-                        if (diff > MAX_DIFF) {
-                            const clsInI = [...new Set(groups[i].map(s => s.lop || ''))].sort((a, b) => {
-                                return groups[i].filter(s => (s.lop||'')===a).length - groups[i].filter(s => (s.lop||'')===b).length;
-                            });
-                            let moved = false;
-                            for (const cls of clsInI) {
-                                const clsStu = groups[i].filter(s => (s.lop || '') === cls);
-                                const newDiff = (groups[i].length - clsStu.length) - (groups[j].length + clsStu.length);
-                                if (Math.abs(newDiff) < Math.abs(diff)) {
-                                    clsStu.forEach(s => groups[j].push(s));
-                                    groups[i] = groups[i].filter(s => (s.lop || '') !== cls);
-                                    sizes[i] -= clsStu.length;
-                                    sizes[j] += clsStu.length;
-                                    changed = true; moved = true; break;
-                                }
-                            }
-                            if (moved) break;
-                        }
-                    }
-                    if (changed) break;
-                }
-            }
-            return groups.filter(g => g.length > 0);
-        };
 
         const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = hsList.filter(s => s.phong_an === ma_phong);
@@ -875,7 +822,6 @@ ${htmlPages}
                         <span>Điểm danh ăn</span>
                     </div>
                     <h2><i className="fas fa-utensils" style={{ color: 'var(--primary)', marginRight: 8 }}></i>Điểm danh Ăn</h2>
-                    <p>Ghi nhận sĩ số học sinh ăn theo phòng &amp; ngày. Danh sách HS do Admin phân bổ.</p>
                     {cauhinhNgay && (() => {
                         const lopArr = cauhinhNgay.lop_ap_dung;
                         const ptAn = cauhinhNgay.phong_tam_an;
@@ -912,16 +858,25 @@ ${htmlPages}
                     })()}
                 </div>
                 <div className="page-header-actions">
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowBaoPhepModal(true)}
+                        style={{
+                            color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
+                            fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6
+                        }}
+                    >
+                        <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép trước
+                    </button>
                     <div className="dd-export-btn-group">
                         <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)}>
                             <i className="fas fa-print"></i> Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
                         </button>
                         <div className={`dd-export-menu ${showActions ? 'open' : ''}`} style={{ minWidth: 200 }}>
-                            {cauhinhNgay && (
-                                <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
-                                    <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> In ngày đặc biệt
-                                </button>
-                            )}
+                            <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
+                                <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> {cauhinhNgay ? 'In ngày đặc biệt' : 'In danh sách ngày (PDF)'}
+                            </button>
                             <button className="dd-export-item" onClick={() => { setShowMonthExportModal(true); setShowActions(false); }}>
                                 <i className="fas fa-file-pdf" style={{ color: '#e53e3e', width: 20, textAlign: 'center' }}></i> Xuất DS (Tháng)
                             </button>
@@ -957,7 +912,56 @@ ${htmlPages}
                     <div className="dd-room-panel-header"><i className="fas fa-utensils"></i> Phòng ăn</div>
                     <div className="dd-date-picker">
                         <label><i className="fas fa-calendar-day" style={{ color: 'var(--primary)', marginRight: 4 }}></i> Chọn ngày điểm danh</label>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                        <div className="dd-date-input-wrapper" title="Bấm để chọn ngày trên lịch" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                            <span className="dd-date-display">{fmtDate(date)}</span>
+                            <i className="far fa-calendar-alt dd-date-icon"></i>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={e => setDate(e.target.value)}
+                                className="dd-date-native-input"
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                            <button
+                                type="button"
+                                style={{
+                                    flex: '0 0 32px', height: 28, borderRadius: 6,
+                                    border: '1px solid #cbd5e1', background: '#fff',
+                                    color: '#475569', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
+                                }}
+                                title="Ngày trước"
+                                onClick={() => setDate(shiftDate(date, -1))}
+                            >
+                                <i className="fas fa-chevron-left"></i>
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    flex: 1, height: 28, borderRadius: 6,
+                                    border: '1px solid #cbd5e1', background: '#fff',
+                                    color: '#009CFF', cursor: 'pointer', fontSize: '0.78rem',
+                                    fontWeight: 700
+                                }}
+                                onClick={() => setDate(todayVN())}
+                            >
+                                Hôm nay
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    flex: '0 0 32px', height: 28, borderRadius: 6,
+                                    border: '1px solid #cbd5e1', background: '#fff',
+                                    color: '#475569', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
+                                }}
+                                title="Ngày sau"
+                                onClick={() => setDate(shiftDate(date, 1))}
+                            >
+                                <i className="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
                     </div>
                     {hasSchedule && (
                         <>
@@ -1018,6 +1022,35 @@ ${htmlPages}
                                     </div>
                                 )}
                             </div>
+
+                            {otherRoomMatches.length > 0 && (
+                                <div style={{
+                                    background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
+                                    padding: '8px 14px', marginBottom: 12, fontSize: '0.88rem', color: '#1e40af',
+                                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8
+                                }}>
+                                    <i className="fas fa-info-circle" style={{ color: '#3b82f6', fontSize: '1rem' }}></i>
+                                    <span>Tìm thấy ở phòng khác:</span>
+                                    {otherRoomMatches.map(m => (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            style={{
+                                                background: '#fff', border: '1px solid #93c5fd', borderRadius: 6,
+                                                padding: '4px 10px', fontSize: '0.82rem', color: '#1d4ed8', cursor: 'pointer',
+                                                fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                            onClick={() => {
+                                                const target = visiblePhongList.find(p => p.ma_phong === m.phong_an);
+                                                if (target) setSelectedPhong(target);
+                                            }}
+                                        >
+                                            <strong>{m.ho_ten}</strong> ({m.lop}) – Phòng <strong>{m.phong_an}</strong> <i className="fas fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
                             <div id="dd-student-area">
                                 {!selectedPhong ? (
@@ -1186,7 +1219,7 @@ ${htmlPages}
 
                             {/* Ghi chú chia tờ theo GV điểm danh */}
                             <div style={{ padding: '6px 10px', borderRadius: 7, background: '#eef2ff', border: '1px solid #c7d2fe', fontSize: '0.83rem', color: '#4338ca' }}>
-                                <i className="fas fa-info-circle"></i> PDF sẽ chia tờ theo <strong>số GV điểm danh</strong> của từng phòng, ưu tiên giữ nguyên lớp và không lệch quá 10 HS.
+                                <i className="fas fa-info-circle"></i> Sẽ chia tờ theo <strong>số GV điểm danh</strong> của từng phòng, sắp xếp theo mã bán trú từ trên xuống và chia đều số lượng.
                             </div>
 
 
@@ -1219,6 +1252,14 @@ ${htmlPages}
                     </div>
                 </div>
             )}
+            <BaoPhepModal
+                open={showBaoPhepModal}
+                onClose={() => setShowBaoPhepModal(false)}
+                defaultDate={date}
+                defaultLoai="ca_ngay"
+                students={hsList}
+                onSuccess={() => fetchDiemDanh(date, true)}
+            />
             {AlertUI}
         </>
     );

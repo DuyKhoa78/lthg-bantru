@@ -50,7 +50,7 @@ export function useAlert() {
       <div
         className="modal-overlay open"
         onClick={(e) => { if (e.target === e.currentTarget) close(); }}
-        style={{ zIndex: 9999 }}
+        style={{ zIndex: 100000 }}
       >
         <div
           className="modal-box"

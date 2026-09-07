@@ -15,11 +15,6 @@ export default function BaoCaoTrucGV() {
   // Chế độ xem: 'day' | 'week' | 'month'
   const [viewMode, setViewMode] = useState('day');
 
-  // State thời gian
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
-
   const formatYMD = (dt) => {
     const y = dt.getFullYear();
     const m = String(dt.getMonth() + 1).padStart(2, '0');
@@ -32,6 +27,11 @@ export default function BaoCaoTrucGV() {
     const [y, m, d] = str.split('-').map(Number);
     return new Date(y, m - 1, d);
   };
+
+  // State thời gian (dùng giờ địa phương Việt Nam)
+  const today = new Date();
+  const todayStr = formatYMD(today);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
 
   // Tuần (Thứ 2 đến Thứ 6)
   const getWeekRange = (refDateStr) => {
@@ -102,10 +102,11 @@ export default function BaoCaoTrucGV() {
     }
   }, [viewMode, selectedDate, weekRange, selectedMonth, selectedYear, caTruc, showAlert]);
 
-  // Tải báo cáo trong effect theo khuyến nghị của React
+  // Tải báo cáo lần đầu & tự động cập nhật khi chuyển tab hoặc mỗi 15s (tránh setState đồng bộ trong effect)
   useEffect(() => {
     let ignore = false;
-    async function fetchReports() {
+
+    const fetchCurrentReports = async () => {
       try {
         let url = `/api/baocaotruc/?mode=${viewMode}`;
 
@@ -134,11 +135,24 @@ export default function BaoCaoTrucGV() {
           setLoading(false);
         }
       }
-    }
+    };
 
-    fetchReports();
+    fetchCurrentReports();
+
+    // Tự động làm mới dữ liệu mỗi 15s để bắt kịp giáo viên nộp Google Form
+    const timer = setInterval(() => {
+      fetchCurrentReports();
+    }, 15000);
+
+    const onFocus = () => {
+      fetchCurrentReports();
+    };
+    window.addEventListener('focus', onFocus);
+
     return () => {
       ignore = true;
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
     };
   }, [viewMode, selectedDate, weekRange, selectedMonth, selectedYear, caTruc, showAlert]);
 
@@ -201,11 +215,22 @@ export default function BaoCaoTrucGV() {
     }
   };
 
-  // Format thời gian
+  // Format thời gian hiển thị đúng giờ nộp trên Google Form/Sheet (tránh bị lệch +7 tiếng)
   const formatTime = (iso) => {
     if (!iso) return '';
-    const d = new Date(iso);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    try {
+      const s = String(iso).trim();
+      // Trích xuất trực tiếp giờ:phút nguyên bản từ chuỗi thời gian do Google gửi
+      const m = s.match(/[T\s](\d{1,2}):(\d{2})/);
+      if (m) {
+        return `${String(m[1]).padStart(2, '0')}:${m[2]}`;
+      }
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    } catch {
+      return '';
+    }
   };
 
   const formatDateVN = (dateStr) => {
@@ -320,6 +345,7 @@ export default function BaoCaoTrucGV() {
       list = list.filter(r =>
         (r.ho_ten_gv || '').toLowerCase().includes(q) ||
         (r.ma_phong || '').toLowerCase().includes(q) ||
+        (r.si_so || '').toLowerCase().includes(q) ||
         (r.hs_vi_pham || '').toLowerCase().includes(q) ||
         (r.ghi_chu || '').toLowerCase().includes(q) ||
         (r.ngay || '').includes(q)
@@ -344,10 +370,10 @@ export default function BaoCaoTrucGV() {
     setWeekRange(getWeekRange(formatYMD(d)));
   };
 
-  // ── 2.1. HÀM XUẤT BIÊN BẢN BÁO CÁO VI PHẠM RIÊNG GỬI LÃNH ĐẠO / BGH (PDF A4 KHỔ ĐỨNG) ──
+  // ── 2.1. HÀM XUẤT BIÊN BẢN BÁO CÁO TỔNG HỢP CA TRỰC GỬI LÃNH ĐẠO / BGH (PDF A4 KHỔ ĐỨNG) ──
   const exportLeaderReportPdf = () => {
-    if (allParsedViolations.length === 0) {
-      showAlert('Không có trường hợp học sinh vi phạm nào trong thời gian này để xuất báo cáo!', 'info');
+    if (!data.records || data.records.length === 0) {
+      showAlert('Chưa có dữ liệu báo cáo nào trong thời gian này để xuất biên bản!', 'info');
       return;
     }
 
@@ -360,41 +386,84 @@ export default function BaoCaoTrucGV() {
       ? `Tuần từ ngày ${formatDateVN(data.tu_ngay)} đến ngày ${formatDateVN(data.den_ngay)}`
       : `Tháng ${selectedMonth} năm ${selectedYear}`;
 
+    // Luôn thống kê toàn bộ form / các phòng đã nộp báo cáo ca trực
+    const sortedRecords = [...(data.records || [])].sort((a, b) => {
+      if (a.ngay !== b.ngay) {
+        return (a.ngay || '').localeCompare(b.ngay || '');
+      }
+      if (a.ca_truc !== b.ca_truc) {
+        return (a.ca_truc || 0) - (b.ca_truc || 0);
+      }
+      return (a.ma_phong || '').localeCompare(b.ma_phong || '', undefined, { numeric: true });
+    });
+
     const tot = data.records.length;
     const viPhamRoomsCount = (data.records || []).filter(r => r.hs_vi_pham && r.hs_vi_pham.trim()).length;
     const okCount = tot - viPhamRoomsCount;
     const okPercent = tot > 0 ? Math.round((okCount / tot) * 100) : 100;
+    const totalHsVang = (data.records || []).reduce((sum, r) => sum + (Number(r.so_hs_vang) || 0), 0);
 
-    const rowsHtml = allParsedViolations.map((v, i) => `
+    // Khối phòng chưa nộp (nếu xem theo ngày)
+    let pendingRoomsHtml = '';
+    if (viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0)) {
+      pendingRoomsHtml = `
+        <div style="font-size:9pt; font-style:italic; margin-top:4px; color:#b91c1c;">
+          * Lưu ý các phòng chưa gửi báo cáo: ${data.phongChuaBaoCaoAn?.length > 0 ? `Ca Ăn (${data.phongChuaBaoCaoAn.join(', ')})` : ''} ${data.phongChuaBaoCaoNgu?.length > 0 ? `Ca Nghỉ (${data.phongChuaBaoCaoNgu.join(', ')})` : ''}
+        </div>
+      `;
+    }
+
+    const rowsHtml = sortedRecords.map((r, i) => {
+      const hasViPham = Boolean(r.hs_vi_pham && r.hs_vi_pham.trim());
+      const soVang = Number(r.so_hs_vang) || 0;
+
+      return `
       <tr>
         <td style="text-align:center;">${i + 1}</td>
-        <td style="text-align:center; font-size:9pt;">
-          <div style="font-weight:600;">${v.ngay_str}</div>
-          ${v.thoi_gian_vi_pham ? `<div style="font-size:8.5pt; font-weight:bold; color:#b91c1c; margin-top:2px;">${v.thoi_gian_vi_pham}</div>` : (v.created_at ? `<div style="font-size:8pt; color:#64748b; margin-top:2px;">(Lúc ${formatTime(v.created_at)})</div>` : '-')}
+        <td style="text-align:center; font-size:8.5pt;">
+          <div style="font-weight:600;">${formatDateVN(r.ngay)}</div>
+          ${r.created_at ? `<div style="font-size:8pt; color:#64748b; margin-top:2px;">(Lúc ${formatTime(r.created_at)})</div>` : ''}
         </td>
         <td style="text-align:center; font-size:9pt;">
-          <div>${v.ca_str}</div>
-          <div style="font-weight:bold; color:#1e3a8a;">Phòng ${v.ma_phong}</div>
+          <div>${r.ca_truc === 0 ? 'Ăn trưa' : 'Nghỉ trưa'}</div>
+          <div style="font-weight:bold; color:#1e3a8a;">Phòng ${r.ma_phong}</div>
         </td>
-        <td style="text-align:center;">
-          ${v.lop !== 'Chưa rõ lớp' ? `<span style="font-weight:bold; color:#1e40af; background:#dbeafe; padding:1px 6px; border-radius:3px; font-size:8.5pt;">${v.lop}</span>` : '<span style="color:#94a3b8; font-size:8.5pt;">—</span>'}
+        <td style="font-size:9pt;">
+          <div style="font-weight:600; color:#1e293b;">${r.ho_ten_gv || '—'}</div>
+          ${r.sdt_xac_nhan ? `<div style="font-size:8pt; color:#64748b;">${r.sdt_xac_nhan}</div>` : ''}
         </td>
-        <td>
-          <div style="font-weight:bold; color:#b91c1c; font-size:9.5pt;">${v.raw}</div>
+        <td style="text-align:center; font-size:8.5pt;">
+          <div style="font-weight:600; color:#0f172a;">Sĩ số: <strong style="font-size:9.5pt;">${r.si_so || '—'}</strong></div>
+          ${soVang > 0 
+            ? `<div style="color:#dc2626; font-weight:bold; margin-top:2px;">Vắng: ${soVang}</div>` 
+            : '<div style="color:#16a34a; font-size:8pt; margin-top:2px;">0 vắng</div>'}
+          ${r.danh_sach_vang ? `<div style="font-size:7.5pt; color:#b91c1c; font-style:italic; margin-top:1px;">(${r.danh_sach_vang})</div>` : ''}
         </td>
-        <td style="font-size:9pt; color:#1e293b;">
-          ${[v.tinh_hinh, v.ghi_chu].filter(Boolean).join(' - ') || 'Cần GVCN & Giám thị nhắc nhở'}
+        <td style="font-size:9pt; color:#334155;">
+          ${r.tinh_hinh && r.tinh_hinh.trim() ? r.tinh_hinh : 'Tốt, trật tự'}
+        </td>
+        <td style="font-size:9pt;">
+          ${hasViPham 
+            ? `<div style="font-weight:bold; color:#b91c1c;">${r.hs_vi_pham}</div>` 
+            : '<span style="color:#16a34a; font-weight:600;">✓ Không có</span>'}
+        </td>
+        <td style="font-size:8.5pt; color:#475569;">
+          ${r.ghi_chu && r.ghi_chu.trim() ? r.ghi_chu : '<span style="color:#94a3b8; font-style:italic;">—</span>'}
         </td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
+
+    const mainTitle = 'BÁO CÁO TỔNG HỢP TÌNH HÌNH TRỰC BÁN TRÚ';
+    const section2Title = 'II. BẢNG TỔNG HỢP CHI TIẾT CÁC CA TRỰC / PHÒNG BÁN TRÚ';
 
     const printHtml = `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Báo Cáo Học Sinh Vi Phạm Nề Nếp Bán Trú - Gửi Ban Giám Hiệu</title>
+  <title>${mainTitle} - Gửi Ban Giám Hiệu</title>
   <style>
-    @page { size: A4 portrait; margin: 12mm 14mm 12mm 14mm; }
+    @page { size: A4 portrait; margin: 10mm 12mm 10mm 12mm; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:"Times New Roman",Times,serif; font-size:10pt; color:#000; background:#fff; line-height:1.28; }
     .hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
@@ -407,20 +476,22 @@ export default function BaoCaoTrucGV() {
     .hdr-right .l2 { font-size:9.5pt; font-weight:bold; }
     .hdr-divider { width:120px; height:1px; background:#000; margin:2px auto 0; }
     .title-box { text-align:center; margin:10px 0 12px; }
-    .main-title { font-size:13.5pt; font-weight:bold; text-transform:uppercase; color:#000; letter-spacing:0.5px; }
-    .sub-title { font-size:10.5pt; font-style:italic; margin-top:3px; }
+    .main-title { font-size:13pt; font-weight:bold; text-transform:uppercase; color:#000; letter-spacing:0.5px; }
+    .sub-title { font-size:10pt; font-style:italic; margin-top:3px; }
     
-    table.data-table { width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:12px; font-size:9.5pt; }
-    table.data-table th, table.data-table td { border:1px solid #000; padding:5px 6px; vertical-align:middle; }
-    table.data-table th { background:#f5f5f5 !important; text-align:center; font-weight:bold; }
+    table.data-table { width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:12px; font-size:8.8pt; }
+    table.data-table th, table.data-table td { border:1px solid #000; padding:4px 5px; vertical-align:middle; }
+    table.data-table th { background:#f5f5f5 !important; text-align:center; font-weight:bold; font-size:8.8pt; }
+    table.data-table tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
     
-    .note-box { font-style:italic; font-size:9.5pt; margin-top:8px; margin-bottom:12px; color:#1e293b; }
-    .sig-section { display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid; }
+    .note-box { font-style:italic; font-size:9pt; margin-top:8px; margin-bottom:12px; color:#1e293b; line-height:1.45; }
+    .sig-section { display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid; break-inside:avoid; }
     .sig-box { width:45%; text-align:center; }
     .sig-date { font-style:italic; font-size:9.5pt; margin-bottom:4px; }
     .sig-role { font-weight:bold; font-size:10.5pt; text-transform:uppercase; }
     .sig-hint { font-style:italic; font-size:8.5pt; }
-    .sig-space { height:60px; }
+    .sig-space { height:55px; }
     .sig-name { font-weight:bold; font-size:10.5pt; }
   </style>
 </head>
@@ -439,32 +510,37 @@ export default function BaoCaoTrucGV() {
   </div>
 
   <div class="title-box">
-    <h1 class="main-title">BÁO CÁO CÁC TRƯỜNG HỢP HỌC SINH VI PHẠM NỀ NẾP BÁN TRÚ</h1>
+    <h1 class="main-title">${mainTitle}</h1>
     <div class="sub-title">Thời gian: <strong>${timeTitle}</strong> (Năm học: ${data.nam_hoc || '2026-2027'})</div>
   </div>
 
-  <div style="font-size:10pt; margin-bottom:10px; line-height:1.4;">
+  <div style="font-size:10pt; margin-bottom:10px; line-height:1.45;">
     <strong>I. TÌNH HÌNH TỔNG QUÁT:</strong>
     <div style="margin-left:15px; margin-top:3px;">
-      - Tổng số ca trực tiếp nhận: <strong>${tot} lượt</strong> (Ca Ăn trưa: ${data.stats?.caAnCount || 0} lượt, Ca Nghỉ trưa: ${data.stats?.caNguCount || 0} lượt).<br />
+      - Tổng số ca trực tiếp nhận báo cáo: <strong>${tot} lượt</strong> (Ca Ăn trưa: ${data.stats?.caAnCount || 0} lượt, Ca Nghỉ trưa: ${data.stats?.caNguCount || 0} lượt).<br />
       - Nề nếp chung: <strong>${okCount}/${tot} phòng (${okPercent}%)</strong> học sinh chấp hành tốt nội quy.<br />
-      - Số lượt học sinh ghi nhận có hành vi bất thường / vi phạm nề nếp: <strong style="color:#b91c1c;">${allParsedViolations.length} lượt</strong> (tại ${viPhamRoomsCount} phòng).
+      - Tình hình học sinh vắng trong ca trực: <strong>${totalHsVang} lượt</strong> học sinh vắng.<br />
+      - Học sinh vi phạm nề nếp / bất thường: ${viPhamRoomsCount > 0 
+        ? `<strong style="color:#b91c1c;">${viPhamRoomsCount} phòng (${allParsedViolations.length} lượt vi phạm)</strong> có ghi nhận học sinh vi phạm cần xử lý.` 
+        : `<strong style="color:#16a34a;">Không có</strong> (100% các phòng đều sinh hoạt nghiêm túc).`}
     </div>
   </div>
 
-  <div style="font-weight:bold; font-size:10pt; text-transform:uppercase; margin-bottom:5px; color:#000;">
-    II. DANH SÁCH CHI TIẾT HỌC SINH VI PHẠM CẦN XỬ LÝ
+  <div style="font-weight:bold; font-size:10pt; text-transform:uppercase; margin-bottom:6px; color:#000;">
+    ${section2Title}
   </div>
 
   <table class="data-table">
     <thead>
       <tr>
-        <th style="width:35px;">STT</th>
-        <th style="width:85px;">Thời gian</th>
+        <th style="width:30px;">STT</th>
+        <th style="width:75px;">Thời gian</th>
         <th style="width:75px;">Ca & Phòng</th>
-        <th style="width:55px;">Lớp</th>
-        <th>Học sinh vi phạm (Họ tên & Chi tiết vi phạm cụ thể)</th>
-        <th style="width:145px;">Ghi chú / Kiến nghị xử lý</th>
+        <th style="width:105px;">Giáo viên trực</th>
+        <th style="width:70px;">Sĩ số / Vắng</th>
+        <th style="width:115px;">Tình hình nề nếp</th>
+        <th>Học sinh vi phạm / Bất thường</th>
+        <th style="width:110px;">Ghi chú / Kiến nghị</th>
       </tr>
     </thead>
     <tbody>
@@ -473,16 +549,19 @@ export default function BaoCaoTrucGV() {
   </table>
 
   <div class="note-box">
-    * Ghi chú: Toàn bộ các phòng khác trong ca trực đều sinh hoạt nghiêm túc, không có học sinh vi phạm.
-    <br />** Kính đề nghị Ban Giám Thị và Giáo viên Chủ nhiệm liên hệ phụ huynh, làm việc với các học sinh có tên nêu trên để răn đe, giáo dục.
+    ${viPhamRoomsCount > 0 
+      ? `* Ghi chú: Toàn bộ các trường hợp học sinh có hành vi bất thường / vi phạm nề nếp đã được bôi đỏ đậm trong danh sách trên.
+         <br />** Kính đề nghị Ban Giám Thị và Giáo viên Chủ nhiệm liên hệ phụ huynh, làm việc với các học sinh có tên nêu trên để răn đe, giáo dục.`
+      : `* Ghi chú: Toàn bộ các phòng trong ca trực đều sinh hoạt nghiêm túc, học sinh chấp hành tốt nội quy, không có học sinh vi phạm.`}
+    ${pendingRoomsHtml}
   </div>
 
-  <div class="sig-section" style="display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid;">
-    <div class="sig-box" style="width:45%; text-align:center;">
+  <div class="sig-section">
+    <div class="sig-box">
       <div class="sig-date">${todayStrFull}</div>
       <div class="sig-role">NGƯỜI LẬP BẢNG</div>
       <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
-      <div class="sig-space" style="height:60px;"></div>
+      <div class="sig-space"></div>
       <div class="sig-name">${user?.fullname || 'Huỳnh Duy Khoa'}</div>
     </div>
   </div>
@@ -721,6 +800,8 @@ export default function BaoCaoTrucGV() {
         <td style="text-align:center; font-weight:600;">${formatDateVN(r.ngay)}</td>
         <td style="text-align:center;">${r.ca_truc === 0 ? 'Ăn trưa' : 'Nghỉ trưa'}</td>
         <td style="text-align:center; font-weight:bold;">${r.ma_phong}</td>
+        <td style="text-align:center; font-weight:600;">${r.si_so || '—'}</td>
+        <td style="font-weight:600;">${r.ho_ten_gv || ''}</td>
         <td>${r.hs_vi_pham ? `<div style="color:#b91c1c; font-weight:bold;">${r.hs_vi_pham}</div>` : 'Bình thường, trật tự'}</td>
         <td>${[r.tinh_hinh, r.ghi_chu].filter(Boolean).join(' - ') || 'Bình thường'}</td>
       </tr>
@@ -800,10 +881,12 @@ export default function BaoCaoTrucGV() {
     <thead>
       <tr>
         <th style="width:35px;">STT</th>
-        <th style="width:95px;">Ngày trực</th>
-        <th style="width:80px;">Ca trực</th>
-        <th style="width:65px;">Phòng</th>
-        <th style="width:340px;">Học sinh bất thường / Quậy phá / Sự cố</th>
+        <th style="width:90px;">Ngày trực</th>
+        <th style="width:75px;">Ca trực</th>
+        <th style="width:60px;">Phòng</th>
+        <th style="width:55px;">Sỉ số</th>
+        <th style="width:140px;">Giáo viên trực</th>
+        <th style="width:300px;">Học sinh bất thường / Quậy phá / Sự cố</th>
         <th>Tình hình nề nếp & CSVC</th>
       </tr>
     </thead>
@@ -857,6 +940,7 @@ export default function BaoCaoTrucGV() {
           'Giờ gửi',
           'Ca trực',
           'Mã phòng',
+          'Sỉ số',
           'Giáo viên trực',
           'Học sinh bất thường / Quậy phá / Sự cố',
           'Tình hình nề nếp chung',
@@ -870,6 +954,7 @@ export default function BaoCaoTrucGV() {
         formatTime(r.created_at),
         r.ca_truc === 0 ? 'Ăn trưa' : 'Nghỉ trưa',
         r.ma_phong,
+        r.si_so || '',
         r.ho_ten_gv,
         r.hs_vi_pham || 'Bình thường, trật tự',
         r.tinh_hinh || 'Bình thường',
@@ -886,6 +971,7 @@ export default function BaoCaoTrucGV() {
         { wch: 10 }, // Giờ gửi
         { wch: 12 }, // Ca trực
         { wch: 12 }, // Mã phòng
+        { wch: 10 }, // Sỉ số
         { wch: 26 }, // Giáo viên trực
         { wch: 45 }, // Học sinh bất thường
         { wch: 25 }, // Tình hình nề nếp
@@ -974,7 +1060,7 @@ export default function BaoCaoTrucGV() {
   // Code mẫu Apps Script
   const sampleScript = `/**
  * GOOGLE APPS SCRIPT - BÁO CÁO CA TRỰC THPT LÊ THI HỒNG GẤM
- * Hỗ trợ Form chia 2 phần (Trực ăn & Trực ngủ) hoặc Google Sheets 12 cột.
+ * Hỗ trợ Form chia 2 phần (Trực ăn & Trực ngủ) hoặc Google Sheets 13 cột chuẩn.
  * Dán code này vào Google Form hoặc Google Sheets -> Tiện ích mở rộng -> Apps Script
  */
 const WEBHOOK_URL = "${window.location.origin.includes('localhost') ? 'https://lthg-bantru.vercel.app' : window.location.origin}/api/webhook/google-form-baocao";
@@ -986,11 +1072,12 @@ const WEBHOOK_SECRET = "bantru-lthg-secret-key-2025";
 function onFormSubmit(e) {
   try {
     const timestamp = e.response.getTimestamp();
-    let thoi_gian_nop = Utilities.formatDate(timestamp, "Asia/Ho_Chi_Minh", "yyyy-MM-dd'T'HH:mm:ss");
+    let thoi_gian_nop = Utilities.formatDate(timestamp, "Asia/Ho_Chi_Minh", "yyyy-MM-dd'T'HH:mm:ss") + "+07:00";
 
     const itemResponses = e.response.getItemResponses();
     let ca_truc = "Trực ăn";
     let ma_phong = "", ho_ten_gv = "";
+    let si_so = "";
     let hs_vi_pham = "";
     let tinh_hinh = "Tốt", ghi_chu = "";
 
@@ -1007,6 +1094,8 @@ function onFormSubmit(e) {
         else if (title.includes("ngủ") || title.includes("nghi")) ca_truc = "Trực ngủ";
       } else if (title.includes("giáo viên") || title.includes("họ và tên") || title.includes("họ tên") || title.includes("tên gv")) {
         ho_ten_gv = answer;
+      } else if (title.includes("sỉ số") || title.includes("sĩ số") || title.includes("số lượng") || title.includes("số hs")) {
+        si_so = answer;
       } else if (title.includes("vi phạm") || title.includes("bất thường") || title.includes("quậy") || title.includes("mất trật tự") || title.includes("sự cố")) {
         hs_vi_pham = answer;
       } else if (title.includes("tình hình") || title.includes("nề nếp") || title.includes("nền nếp") || title.includes("trật tự")) {
@@ -1022,6 +1111,7 @@ function onFormSubmit(e) {
       ca_truc: ca_truc,
       ma_phong: ma_phong,
       ho_ten_gv: ho_ten_gv,
+      si_so: si_so,
       hs_vi_pham: hs_vi_pham,
       tinh_hinh: tinh_hinh,
       ghi_chu: ghi_chu,
@@ -1046,7 +1136,10 @@ function onFormSubmit(e) {
 function onSheetSubmit(e) {
   try {
     const row = e.values || [];
-    // 0:Dấu thời gian | 1:Ca trực | 2:Họ tên GV | 3:Phòng ăn | 4:Tình hình | 5:Vi phạm | 6:Ghi chú | 7:Họ tên | 8:Phòng ngủ | 9:Tình hình | 10:Vi phạm | 11:Ghi chú
+    // Thứ tự 13 cột theo Google Sheets mới:
+    // 0: Dấu thời gian | 1: Ca trực 
+    // Ca ăn: 2: Họ và tên giáo viên | 3: Phòng ăn | 4: Tình hình chung | 5: Sỉ số | 6: Ghi chú/Góp ý
+    // Ca ngủ: 7: Họ và tên | 8: Phòng ngủ | 9: Sỉ số | 10: Tình hình chung | 11: Ghi nhận HS vi phạm nề nếp (Nếu có) | 12: Ghi chú/Góp ý
     const timestamp = row[0] || new Date();
     const ca_truc_raw = row[1] || "";
     const isCaNgu = String(ca_truc_raw).toLowerCase().includes("ngủ") || String(ca_truc_raw).toLowerCase().includes("nghi") || (Boolean(row[8]) && !row[3]);
@@ -1057,9 +1150,10 @@ function onSheetSubmit(e) {
       ca_truc: isCaNgu ? "Trực ngủ" : "Trực ăn",
       ho_ten_gv: isCaNgu ? (row[7] || "") : (row[2] || ""),
       ma_phong: isCaNgu ? (row[8] || "") : (row[3] || ""),
-      tinh_hinh: isCaNgu ? (row[9] || "Tốt") : (row[4] || "Tốt"),
-      hs_vi_pham: isCaNgu ? (row[10] || "") : (row[5] || ""),
-      ghi_chu: isCaNgu ? (row[11] || "") : (row[6] || ""),
+      si_so: isCaNgu ? (row[9] || "") : (row[5] || ""),
+      tinh_hinh: isCaNgu ? (row[10] || "Tốt") : (row[4] || "Tốt"),
+      hs_vi_pham: isCaNgu ? (row[11] || "") : "",
+      ghi_chu: isCaNgu ? (row[12] || "") : (row[6] || ""),
       nguon: "google_sheet"
     };
 
@@ -1101,15 +1195,16 @@ function tuDongTaoFormBaoCao() {
   form.addListItem().setTitle("Họ và tên giáo viên").setChoiceValues(teachers).setRequired(true);
   form.addListItem().setTitle("Phòng ăn").setChoiceValues(roomsAn).setRequired(true);
   form.addMultipleChoiceItem().setTitle("Tình hình chung").setChoiceValues(["Tốt", "Bình Thường", "Còn ồn ào, nhắc nhở", "Khác"]).showOtherOption(true);
-  form.addParagraphTextItem().setTitle("Ghi nhận HS vi phạm nền nếp").setHelpText("Ghi rõ Họ tên HS, Lớp, thời gian vi phạm nếu có (VD: Nguyễn Văn A ăn rất chậm). Nếu không có để trống.");
+  form.addTextItem().setTitle("Sỉ số");
   form.addParagraphTextItem().setTitle("Ghi chú/Góp ý");
 
   // PHẦN 2: Ca Trực ngủ
   const pageNgu = form.addPageBreakItem().setTitle("PHẦN 2: BÁO CÁO CA TRỰC NGHỈ TRƯA");
   form.addListItem().setTitle("Họ và tên").setChoiceValues(teachers).setRequired(true);
   form.addListItem().setTitle("Phòng ngủ").setChoiceValues(roomsNgu).setRequired(true);
+  form.addTextItem().setTitle("Sỉ số");
   form.addMultipleChoiceItem().setTitle("Tình hình chung").setChoiceValues(["Tốt", "Bình Thường", "Còn ồn ào, nhắc nhở", "Khác"]).showOtherOption(true);
-  form.addParagraphTextItem().setTitle("Ghi nhận HS vi phạm nề nếp").setHelpText("Ghi rõ Họ tên HS, Lớp, thời gian vi phạm nếu có. Nếu không có để trống.");
+  form.addParagraphTextItem().setTitle("Ghi nhận HS vi phạm nề nếp (Nếu có)").setHelpText("Ghi rõ Họ tên HS, Lớp, thời gian vi phạm nếu có. Nếu không có để trống.");
   form.addParagraphTextItem().setTitle("Ghi chú/Góp ý");
 
   // ĐIỀU HƯỚNG TRANG ĐẦU: Ca trực
@@ -1137,137 +1232,129 @@ function tuDongTaoFormBaoCao() {
 
       {/* Header */}
       <div className="bctruc-header">
-        <div>
-          <div className="bctruc-title">
-            <i className="fas fa-clipboard-check" style={{ color: '#009CFF' }}></i>
-            Báo cáo ca trực Giáo viên (Ngày / Tuần / Tháng)
+        <div className="bctruc-title-group">
+          <div className="bctruc-title-icon">
+            <i className="fas fa-clipboard-check"></i>
           </div>
-          <div className="bctruc-subtitle">
-            Dữ liệu nhận tự động từ Google Form theo thời gian thực (Google gánh tải 100% miễn phí)
+          <div className="bctruc-title-text">
+            <h1 className="bctruc-title">
+              Báo cáo ca trực Giáo viên
+              <span className="bctruc-live-badge">
+                <span className="bctruc-live-dot"></span>
+                Tự động từ Google Form
+              </span>
+            </h1>
+            <div className="bctruc-subtitle">
+              Theo dõi tiến độ nộp báo cáo, nề nếp phòng ăn &amp; phòng ngủ theo thời gian thực
+            </div>
           </div>
         </div>
 
         {/* CÁC NÚT HÀNH ĐỘNG TỔNG HỢP & XUẤT */}
         <div className="bctruc-actions">
           <button
-            className="btn btn-danger"
+            className="bctruc-btn bctruc-btn-danger"
             onClick={exportLeaderReportPdf}
             title="Xuất biên bản báo cáo gửi Ban Giám Hiệu (Khổ giấy đứng A4)"
-            style={{ fontWeight: 700 }}
           >
-            <i className="fas fa-file-invoice"></i> Biên bản gửi BGH (Khổ đứng)
+            <i className="fas fa-file-invoice"></i>
+            <span>Biên bản BGH</span>
           </button>
 
           <button
-            className="btn btn-warning"
+            className="bctruc-btn bctruc-btn-warning"
             onClick={exportGvcnReportPdf}
             title="Xuất danh sách học sinh vi phạm phân theo từng Lớp gửi Giáo viên Chủ nhiệm (Khổ giấy đứng A4)"
-            style={{ fontWeight: 700, color: '#1e293b' }}
           >
-            <i className="fas fa-chalkboard-teacher"></i> Báo cáo gửi GVCN theo Lớp (PDF)
+            <i className="fas fa-chalkboard-teacher"></i>
+            <span>Báo cáo GVCN (Lớp)</span>
           </button>
 
           <button
-            className="btn btn-outline"
+            className="bctruc-btn bctruc-btn-outline"
             onClick={exportDailyReportPdf}
             title="Xuất biên bản báo cáo trực bán trú đầy đủ tất cả các phòng theo chuẩn văn bản A4"
-            style={{ fontWeight: 600, borderColor: '#cbd5e1', color: '#334155' }}
           >
-            <i className="fas fa-print"></i> In toàn bộ ca trực
+            <i className="fas fa-print"></i>
+            <span>In ca trực</span>
           </button>
 
           <button
-            className="btn btn-outline"
+            className="bctruc-btn bctruc-btn-excel"
             onClick={exportExcelDaily}
             title="Tải bảng tính Excel chi tiết báo cáo"
-            style={{ borderColor: '#cbd5e1', color: '#334155' }}
           >
-            <i className="fas fa-file-excel" style={{ color: '#16a34a' }}></i> Excel
+            <i className="fas fa-file-excel"></i>
+            <span>Xuất Excel</span>
+          </button>
+
+          <button
+            className="bctruc-btn bctruc-btn-primary"
+            onClick={() => setShowGuide(true)}
+            title="Xem hướng dẫn tích hợp Google Form tự động"
+          >
+            <i className="fab fa-google"></i>
+            <span>Hướng dẫn Form</span>
           </button>
 
           {(user?.is_admin || user?.is_superuser) && data.records?.length > 0 && (
             <button
-              className="btn btn-outline"
+              className="bctruc-btn bctruc-btn-danger-ghost"
               onClick={handleClearRange}
               title="Xóa toàn bộ dữ liệu báo cáo sau khi đã xuất báo cáo"
-              style={{ borderColor: '#fca5a5', color: '#b91c1c', fontWeight: 600 }}
             >
-              <i className="fas fa-trash-alt" style={{ color: '#dc2626' }}></i> Xóa dữ liệu ({viewMode === 'month' ? `Tháng ${selectedMonth}` : 'ngày này'})
+              <i className="fas fa-trash-alt"></i>
+              <span>Xóa dữ liệu</span>
             </button>
           )}
-
-          <button className="btn btn-primary" onClick={() => setShowGuide(true)}>
-            <i className="fab fa-google"></i> Hướng dẫn Form
-          </button>
         </div>
       </div>
 
       {/* ── BỘ ĐIỀU HƯỚNG THỜI GIAN: NGÀY / TUẦN / THÁNG ── */}
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '12px',
-        padding: '14px 18px',
-        marginBottom: '20px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        border: '1px solid #f1f5f9',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '14px',
-      }}>
+      <div className="bctruc-toolbar">
         {/* Switch Chế độ: Ngày / Tuần / Tháng */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b', marginRight: 4 }}>
-            Xem theo:
-          </span>
-          <div className="btn-group" style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' }}>
-            <button
-              className={`btn btn-sm ${viewMode === 'day' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('day')}
-              style={{ fontWeight: 600, borderRadius: 0, padding: '6px 14px' }}
-            >
-              <i className="fas fa-calendar-day"></i> Ngày
-            </button>
-            <button
-              className={`btn btn-sm ${viewMode === 'week' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('week')}
-              style={{ fontWeight: 600, borderRadius: 0, padding: '6px 14px' }}
-            >
-              <i className="fas fa-calendar-week"></i> Tuần
-            </button>
-            <button
-              className={`btn btn-sm ${viewMode === 'month' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('month')}
-              style={{ fontWeight: 600, borderRadius: 0, padding: '6px 14px' }}
-            >
-              <i className="fas fa-calendar-alt"></i> Tháng
-            </button>
-          </div>
+        <div className="bctruc-view-switch">
+          <button
+            className={`bctruc-view-btn ${viewMode === 'day' ? 'active' : ''}`}
+            onClick={() => setViewMode('day')}
+          >
+            <i className="fas fa-calendar-day"></i> Ngày
+          </button>
+          <button
+            className={`bctruc-view-btn ${viewMode === 'week' ? 'active' : ''}`}
+            onClick={() => setViewMode('week')}
+          >
+            <i className="fas fa-calendar-week"></i> Tuần
+          </button>
+          <button
+            className={`bctruc-view-btn ${viewMode === 'month' ? 'active' : ''}`}
+            onClick={() => setViewMode('month')}
+          >
+            <i className="fas fa-calendar-alt"></i> Tháng
+          </button>
         </div>
 
         {/* Bộ chọn chi tiết theo từng chế độ */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className="bctruc-toolbar-controls">
           {/* CHẾ ĐỘ NGÀY */}
           {viewMode === 'day' && (
             <>
-              <button className="btn btn-sm btn-outline" onClick={() => changeDateBy(-1)} title="Ngày trước">
+              <button className="bctruc-nav-arrow" onClick={() => changeDateBy(-1)} title="Ngày trước">
                 <i className="fas fa-chevron-left"></i>
               </button>
               <input
                 type="date"
-                className="form-control form-control-sm"
-                style={{ width: 150, fontWeight: 600 }}
+                className="bctruc-date-input"
+                style={{ width: 145 }}
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
               />
-              <button className="btn btn-sm btn-outline" onClick={() => changeDateBy(1)} title="Ngày sau">
+              <button className="bctruc-nav-arrow" onClick={() => changeDateBy(1)} title="Ngày sau">
                 <i className="fas fa-chevron-right"></i>
               </button>
               <button
-                className="btn btn-sm btn-ghost"
+                className="bctruc-quick-btn"
                 onClick={() => setSelectedDate(todayStr)}
-                style={{ fontSize: '0.82rem', color: '#009CFF', fontWeight: 600 }}
               >
                 Hôm nay
               </button>
@@ -1277,28 +1364,19 @@ function tuDongTaoFormBaoCao() {
           {/* CHẾ ĐỘ TUẦN */}
           {viewMode === 'week' && (
             <>
-              <button className="btn btn-sm btn-outline" onClick={() => changeWeekBy(-1)} title="Tuần trước">
+              <button className="bctruc-nav-arrow" onClick={() => changeWeekBy(-1)} title="Tuần trước">
                 <i className="fas fa-chevron-left"></i>
               </button>
-              <div style={{
-                background: '#f8fafc',
-                padding: '5px 12px',
-                borderRadius: 6,
-                border: '1px solid #e2e8f0',
-                fontSize: '0.88rem',
-                fontWeight: 600,
-                color: '#1e3a8a',
-              }}>
-                <i className="far fa-calendar-check" style={{ marginRight: 6 }}></i>
-                Tuần: {formatDateVN(weekRange.start)} ➔ {formatDateVN(weekRange.end)}
+              <div className="bctruc-week-pill">
+                <i className="far fa-calendar-check"></i>
+                <span>{formatDateVN(weekRange.start)} ➔ {formatDateVN(weekRange.end)}</span>
               </div>
-              <button className="btn btn-sm btn-outline" onClick={() => changeWeekBy(1)} title="Tuần sau">
+              <button className="bctruc-nav-arrow" onClick={() => changeWeekBy(1)} title="Tuần sau">
                 <i className="fas fa-chevron-right"></i>
               </button>
               <button
-                className="btn btn-sm btn-ghost"
+                className="bctruc-quick-btn"
                 onClick={() => setWeekRange(getWeekRange(todayStr))}
-                style={{ fontSize: '0.82rem', color: '#009CFF', fontWeight: 600 }}
               >
                 Tuần này
               </button>
@@ -1309,8 +1387,8 @@ function tuDongTaoFormBaoCao() {
           {viewMode === 'month' && (
             <>
               <select
-                className="form-select form-select-sm"
-                style={{ width: 110, fontWeight: 600 }}
+                className="bctruc-select"
+                style={{ width: 115 }}
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
               >
@@ -1320,8 +1398,8 @@ function tuDongTaoFormBaoCao() {
               </select>
 
               <select
-                className="form-select form-select-sm"
-                style={{ width: 95, fontWeight: 600 }}
+                className="bctruc-select"
+                style={{ width: 95 }}
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
               >
@@ -1331,22 +1409,23 @@ function tuDongTaoFormBaoCao() {
               </select>
 
               <button
-                className="btn btn-sm btn-ghost"
+                className="bctruc-quick-btn"
                 onClick={() => {
                   setSelectedMonth(today.getMonth() + 1);
                   setSelectedYear(today.getFullYear());
                 }}
-                style={{ fontSize: '0.82rem', color: '#009CFF', fontWeight: 600 }}
               >
                 Tháng này
               </button>
             </>
           )}
 
+          <div className="bctruc-toolbar-divider"></div>
+
           {/* Lọc Ca trực */}
           <select
-            className="form-select form-select-sm"
-            style={{ width: 135 }}
+            className="bctruc-select"
+            style={{ width: 140 }}
             value={caTruc}
             onChange={(e) => setCaTruc(e.target.value)}
           >
@@ -1355,69 +1434,136 @@ function tuDongTaoFormBaoCao() {
             <option value="1">Ca Nghỉ trưa</option>
           </select>
 
-          <button className="btn btn-sm btn-outline-primary" onClick={() => loadReports()} disabled={loading} title="Làm mới">
+          <button
+            className="bctruc-refresh-btn"
+            onClick={() => loadReports()}
+            disabled={loading}
+            title="Làm mới dữ liệu"
+          >
             <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
           </button>
         </div>
       </div>
 
-      {/* Stat Cards */}
+      {/* 5 Hero Stat Cards */}
       <div className="bctruc-stats-grid">
-        <div className="bctruc-stat-card">
-          <div className="bctruc-stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
-            <i className="fas fa-file-signature"></i>
+        <div className="bctruc-stat-card theme-blue">
+          <div className="bctruc-stat-top">
+            <div className="bctruc-stat-icon">
+              <i className="fas fa-file-signature"></i>
+            </div>
+            <div className="bctruc-stat-meta">
+              <div className="bctruc-stat-label">Báo cáo nhận được</div>
+              <div className="bctruc-stat-value">
+                {data.stats?.total || 0}
+                <span className="bctruc-stat-value-unit">lượt</span>
+              </div>
+            </div>
           </div>
-          <div className="bctruc-stat-info">
-            <h4>Báo cáo nhận được</h4>
-            <div className="stat-val">{data.stats?.total || 0} lượt</div>
+          <div className="bctruc-stat-footer">
+            <span className="bctruc-stat-badge blue">
+              <i className="fas fa-check-circle"></i> Đã đồng bộ
+            </span>
           </div>
         </div>
 
-        <div className="bctruc-stat-card">
-          <div className="bctruc-stat-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
-            <i className="fas fa-utensils"></i>
-          </div>
-          <div className="bctruc-stat-info">
-            <h4>Ca Ăn trưa</h4>
-            <div className="stat-val">
-              {data.stats?.caAnCount || 0} {viewMode === 'day' ? `/ ${data.stats?.totalPhongAn || 0}` : 'lượt'}
+        <div className="bctruc-stat-card theme-amber">
+          <div className="bctruc-stat-top">
+            <div className="bctruc-stat-icon">
+              <i className="fas fa-utensils"></i>
             </div>
+            <div className="bctruc-stat-meta">
+              <div className="bctruc-stat-label">Ca Ăn trưa</div>
+              <div className="bctruc-stat-value">
+                {data.stats?.caAnCount || 0}
+                {viewMode === 'day' && data.stats?.totalPhongAn ? (
+                  <span className="bctruc-stat-value-unit">/ {data.stats.totalPhongAn}</span>
+                ) : (
+                  <span className="bctruc-stat-value-unit">lượt</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="bctruc-stat-footer">
+            <span className="bctruc-stat-badge amber">
+              <i className="fas fa-clock"></i> Khung 11h - 12h
+            </span>
           </div>
         </div>
 
-        <div className="bctruc-stat-card">
-          <div className="bctruc-stat-icon" style={{ background: '#ede9fe', color: '#7c3aed' }}>
-            <i className="fas fa-bed"></i>
-          </div>
-          <div className="bctruc-stat-info">
-            <h4>Ca Nghỉ trưa</h4>
-            <div className="stat-val">
-              {data.stats?.caNguCount || 0} {viewMode === 'day' ? `/ ${data.stats?.totalPhongNgu || 0}` : 'lượt'}
+        <div className="bctruc-stat-card theme-purple">
+          <div className="bctruc-stat-top">
+            <div className="bctruc-stat-icon">
+              <i className="fas fa-bed"></i>
             </div>
+            <div className="bctruc-stat-meta">
+              <div className="bctruc-stat-label">Ca Nghỉ trưa</div>
+              <div className="bctruc-stat-value">
+                {data.stats?.caNguCount || 0}
+                {viewMode === 'day' && data.stats?.totalPhongNgu ? (
+                  <span className="bctruc-stat-value-unit">/ {data.stats.totalPhongNgu}</span>
+                ) : (
+                  <span className="bctruc-stat-value-unit">lượt</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="bctruc-stat-footer">
+            <span className="bctruc-stat-badge purple">
+              <i className="fas fa-moon"></i> Khung 12h - 13h30
+            </span>
           </div>
         </div>
 
-        <div className="bctruc-stat-card" style={{ cursor: 'pointer' }} onClick={() => setFilterType('vi_pham')} title="Bấm để lọc riêng danh sách vi phạm gửi BGH">
-          <div className="bctruc-stat-icon" style={{ background: (data.stats?.coViPhamCount || 0) > 0 ? '#fee2e2' : '#f0fdf4', color: (data.stats?.coViPhamCount || 0) > 0 ? '#dc2626' : '#16a34a' }}>
-            <i className={`fas ${(data.stats?.coViPhamCount || 0) > 0 ? 'fa-bullhorn' : 'fa-check-circle'}`}></i>
-          </div>
-          <div className="bctruc-stat-info">
-            <h4 style={{ color: (data.stats?.coViPhamCount || 0) > 0 ? '#b91c1c' : '#64748b' }}>HS Bất thường / Vi phạm</h4>
-            <div className="stat-val" style={{ color: (data.stats?.coViPhamCount || 0) > 0 ? '#dc2626' : '#16a34a' }}>
-              {data.stats?.coViPhamCount || 0} phòng ghi nhận
+        <div
+          className="bctruc-stat-card theme-red"
+          onClick={() => setFilterType(filterType === 'vi_pham' ? 'all' : 'vi_pham')}
+          title="Bấm để lọc danh sách học sinh vi phạm gửi BGH"
+        >
+          <div className="bctruc-stat-top">
+            <div className="bctruc-stat-icon">
+              <i className={`fas ${(data.stats?.coViPhamCount || 0) > 0 ? 'fa-bullhorn' : 'fa-check-circle'}`}></i>
             </div>
+            <div className="bctruc-stat-meta">
+              <div className="bctruc-stat-label">HS Vi phạm / Bất thường</div>
+              <div className="bctruc-stat-value" style={{ color: (data.stats?.coViPhamCount || 0) > 0 ? '#dc2626' : '#16a34a' }}>
+                {data.stats?.coViPhamCount || 0}
+                <span className="bctruc-stat-value-unit" style={{ color: (data.stats?.coViPhamCount || 0) > 0 ? '#dc2626' : '#16a34a' }}>
+                  phòng
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="bctruc-stat-footer">
+            {(data.stats?.coViPhamCount || 0) > 0 ? (
+              <span className="bctruc-stat-badge red">
+                <i className="fas fa-exclamation-triangle"></i> Cần xử lý • Xem ngay ➔
+              </span>
+            ) : (
+              <span className="bctruc-stat-badge green">
+                <i className="fas fa-check"></i> Không có vi phạm
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="bctruc-stat-card">
-          <div className="bctruc-stat-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
-            <i className="fas fa-shield-alt"></i>
-          </div>
-          <div className="bctruc-stat-info">
-            <h4>Phòng nề nếp tốt</h4>
-            <div className="stat-val" style={{ color: '#16a34a' }}>
-              {Math.max(0, (data.records?.length || 0) - (data.stats?.coViPhamCount || 0))} phòng ổn định
+        <div className="bctruc-stat-card theme-green">
+          <div className="bctruc-stat-top">
+            <div className="bctruc-stat-icon">
+              <i className="fas fa-shield-alt"></i>
             </div>
+            <div className="bctruc-stat-meta">
+              <div className="bctruc-stat-label">Phòng nề nếp tốt</div>
+              <div className="bctruc-stat-value" style={{ color: '#16a34a' }}>
+                {Math.max(0, (data.records?.length || 0) - (data.stats?.coViPhamCount || 0))}
+                <span className="bctruc-stat-value-unit" style={{ color: '#16a34a' }}>phòng</span>
+              </div>
+            </div>
+          </div>
+          <div className="bctruc-stat-footer">
+            <span className="bctruc-stat-badge green">
+              <i className="fas fa-smile"></i> Chấp hành tốt
+            </span>
           </div>
         </div>
       </div>
@@ -1425,26 +1571,38 @@ function tuDongTaoFormBaoCao() {
       {/* Cảnh báo phòng chưa gửi (chỉ khi xem theo ngày) */}
       {viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0) && (
         <div className="bctruc-pending-banner">
-          <i className="fas fa-exclamation-triangle" style={{ fontSize: '1.3rem', marginTop: 2, color: '#f59e0b' }}></i>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+          <div className="bctruc-pending-icon">
+            <i className="fas fa-exclamation-triangle"></i>
+          </div>
+          <div className="bctruc-pending-content">
+            <div className="bctruc-pending-title">
               Tiến độ nộp báo cáo ngày {formatDateVN(selectedDate)}: Chưa đủ 100% các phòng
             </div>
-            {data.phongChuaBaoCaoAn?.length > 0 && (
-              <div style={{ marginTop: 4 }}>
-                • <strong>Ca Ăn chưa nộp ({data.phongChuaBaoCaoAn.length} phòng):</strong> <span style={{ color: '#b91c1c', fontWeight: 700 }}>{data.phongChuaBaoCaoAn.join(', ')}</span>
-              </div>
-            )}
-            {data.phongChuaBaoCaoNgu?.length > 0 && (
-              <div style={{ marginTop: 2 }}>
-                • <strong>Ca Ngủ chưa nộp ({data.phongChuaBaoCaoNgu.length} phòng):</strong> <span style={{ color: '#b91c1c', fontWeight: 700 }}>{data.phongChuaBaoCaoNgu.join(', ')}</span>
-              </div>
-            )}
+            <div className="bctruc-pending-rooms-wrap">
+              {data.phongChuaBaoCaoAn?.length > 0 && (
+                <div className="bctruc-pending-group">
+                  <span className="bctruc-pending-group-label">Ca Ăn ({data.phongChuaBaoCaoAn.length} phòng):</span>
+                  <div className="bctruc-pending-tags">
+                    {data.phongChuaBaoCaoAn.map(p => (
+                      <span key={p} className="bctruc-pending-tag">{p}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data.phongChuaBaoCaoNgu?.length > 0 && (
+                <div className="bctruc-pending-group">
+                  <span className="bctruc-pending-group-label">Ca Ngủ ({data.phongChuaBaoCaoNgu.length} phòng):</span>
+                  <div className="bctruc-pending-tags">
+                    {data.phongChuaBaoCaoNgu.map(p => (
+                      <span key={p} className="bctruc-pending-tag">{p}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-
 
       {/* Danh sách báo cáo chi tiết */}
       <div className="bctruc-card">
@@ -1458,33 +1616,40 @@ function tuDongTaoFormBaoCao() {
 
           {/* Filter tabs & Search */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="btn-group" style={{ display: 'flex', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+            <div className="bctruc-view-switch" style={{ padding: 2 }}>
               <button
-                className={`btn btn-sm ${filterType === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+                className={`bctruc-view-btn ${filterType === 'all' ? 'active' : ''}`}
                 onClick={() => setFilterType('all')}
-                style={{ borderRadius: 0, fontWeight: 600 }}
+                style={{ fontSize: '0.8rem', padding: '5px 12px' }}
               >
                 Tất cả ({data.records?.length || 0})
               </button>
               <button
-                className={`btn btn-sm ${filterType === 'vi_pham' ? 'btn-danger' : 'btn-ghost'}`}
+                className={`bctruc-view-btn ${filterType === 'vi_pham' ? 'active' : ''}`}
                 onClick={() => setFilterType('vi_pham')}
-                style={{ borderRadius: 0, fontWeight: 700 }}
+                style={{
+                  fontSize: '0.8rem',
+                  padding: '5px 12px',
+                  color: filterType === 'vi_pham' ? '#dc2626' : '#b91c1c',
+                  fontWeight: 700
+                }}
                 title="Lọc riêng các phòng có học sinh vi phạm để báo cáo Ban Giám Hiệu"
               >
                 <i className="fas fa-bullhorn" style={{ marginRight: 4 }}></i>
-                Báo cáo Lãnh đạo: Chỉ HS vi phạm ({data.stats?.coViPhamCount || 0})
+                Chỉ HS vi phạm ({data.stats?.coViPhamCount || 0})
               </button>
             </div>
 
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              style={{ width: 220 }}
-              placeholder="Tìm ngày, GV, phòng, HS..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <div className="bctruc-search-box">
+              <i className="fas fa-search bctruc-search-icon"></i>
+              <input
+                type="text"
+                className="bctruc-search-input"
+                placeholder="Tìm ngày, GV, phòng, HS..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
@@ -1511,11 +1676,11 @@ function tuDongTaoFormBaoCao() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-sm btn-danger" onClick={exportLeaderReportPdf} style={{ fontWeight: 700 }}>
-                <i className="fas fa-file-pdf"></i> In biên bản gửi BGH (Khổ đứng)
+              <button className="bctruc-btn bctruc-btn-danger" onClick={exportLeaderReportPdf} style={{ height: 34, fontSize: '0.82rem' }}>
+                <i className="fas fa-file-pdf"></i> In biên bản BGH (Khổ đứng)
               </button>
-              <button className="btn btn-sm btn-warning" onClick={exportGvcnReportPdf} style={{ fontWeight: 700, color: '#1e293b' }}>
-                <i className="fas fa-chalkboard-teacher"></i> In danh sách gửi GVCN (theo Lớp)
+              <button className="bctruc-btn bctruc-btn-warning" onClick={exportGvcnReportPdf} style={{ height: 34, fontSize: '0.82rem' }}>
+                <i className="fas fa-chalkboard-teacher"></i> In danh sách gửi GVCN
               </button>
             </div>
           </div>
@@ -1546,7 +1711,9 @@ function tuDongTaoFormBaoCao() {
                   <th style={{ width: 70 }}>Giờ gửi</th>
                   <th style={{ width: 95 }}>Ca trực</th>
                   <th style={{ width: 75 }}>Phòng</th>
-                  <th style={{ minWidth: 280 }}>
+                  <th style={{ width: 70, textAlign: 'center' }}>Sỉ số</th>
+                  <th style={{ minWidth: 150 }}>Giáo viên trực</th>
+                  <th style={{ minWidth: 260 }}>
                     <span style={{ color: '#dc2626', fontWeight: 700 }}>
                       <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }}></i>
                       Học sinh bất thường / Quậy phá / Sự cố
@@ -1582,6 +1749,27 @@ function tuDongTaoFormBaoCao() {
                     </td>
                     <td>
                       <span className="bctruc-phong-pill">{r.ma_phong}</span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {r.si_so ? (
+                        <span style={{
+                          background: '#f1f5f9',
+                          color: '#0f172a',
+                          fontWeight: 700,
+                          fontSize: '0.84rem',
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          border: '1px solid #cbd5e1',
+                          display: 'inline-block'
+                        }}>
+                          {r.si_so}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 600, color: '#1e293b' }}>
+                      {r.ho_ten_gv}
                     </td>
                     <td>
                       {r.hs_vi_pham ? (
@@ -1689,7 +1877,7 @@ function tuDongTaoFormBaoCao() {
                   gap: 8
                 }}>
                   <i className="fas fa-check-circle" style={{ color: '#16a34a' }}></i>
-                  <span><strong>Đã hỗ trợ 100% Form 2 phần & Sheet 12 cột:</strong> Hệ thống tự động nhận diện cả 2 nhánh (Trực ăn & Trực ngủ), tự động trích xuất Phòng ăn / Phòng ngủ, Họ tên GV, Tình hình chung, HS vi phạm và Dấu thời gian.</span>
+                  <span><strong>Đã hỗ trợ 100% Form 2 phần & Sheet 13 cột chuẩn:</strong> Hệ thống tự động nhận diện cả 2 nhánh (Trực ăn & Trực ngủ), tự động trích xuất Phòng ăn / Phòng ngủ, Họ tên GV, Sỉ số, Tình hình chung, HS vi phạm và Dấu thời gian.</span>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 12 }}>
@@ -1699,13 +1887,13 @@ function tuDongTaoFormBaoCao() {
                   <div style={{ paddingLeft: 12, borderLeft: '3px solid #0284c7', marginBottom: 8, marginTop: 6 }}>
                     <strong style={{ color: '#0369a1' }}>Phần 1 - Trực ăn:</strong>
                     <div style={{ fontSize: '0.84rem', color: '#334155', marginTop: 2 }}>
-                      1. Họ và tên giáo viên &nbsp;|&nbsp; 2. Phòng ăn &nbsp;|&nbsp; 3. Tình hình chung &nbsp;|&nbsp; 4. Ghi nhận HS vi phạm nền nếp &nbsp;|&nbsp; 5. Ghi chú/Góp ý
+                      1. Họ và tên giáo viên &nbsp;|&nbsp; 2. Phòng ăn &nbsp;|&nbsp; 3. Tình hình chung &nbsp;|&nbsp; 4. Sỉ số &nbsp;|&nbsp; 5. Ghi chú/Góp ý
                     </div>
                   </div>
                   <div style={{ paddingLeft: 12, borderLeft: '3px solid #8b5cf6' }}>
                     <strong style={{ color: '#6d28d9' }}>Phần 2 - Trực ngủ:</strong>
                     <div style={{ fontSize: '0.84rem', color: '#334155', marginTop: 2 }}>
-                      1. Họ và tên &nbsp;|&nbsp; 2. Phòng ngủ &nbsp;|&nbsp; 3. Tình hình chung &nbsp;|&nbsp; 4. Ghi nhận HS vi phạm nề nếp &nbsp;|&nbsp; 5. Ghi chú/Góp ý
+                      1. Họ và tên &nbsp;|&nbsp; 2. Phòng ngủ &nbsp;|&nbsp; 3. Sỉ số &nbsp;|&nbsp; 4. Tình hình chung &nbsp;|&nbsp; 5. Ghi nhận HS vi phạm nề nếp (Nếu có) &nbsp;|&nbsp; 6. Ghi chú/Góp ý
                     </div>
                   </div>
                 </div>
