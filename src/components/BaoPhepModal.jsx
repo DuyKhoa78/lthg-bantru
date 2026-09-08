@@ -70,11 +70,11 @@ export default function BaoPhepModal({
     useEffect(() => {
         if (!open) return;
         if (allStudents.length === 0 && students && students.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setAllStudents(students);
         }
         if (allStudents.length > 0) return;
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoadingStudents(true);
         api.get('/api/hocsinh/all')
             .then(res => {
@@ -485,7 +485,7 @@ export default function BaoPhepModal({
                                     {dateMode === 'single' ? (
                                         <div>
                                             <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: 4 }}>Chọn ngày xin nghỉ:</span>
-                                            <div className="dd-date-input-wrapper" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                                            <div className="dd-date-input-wrapper" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch { /* unsupported */ } } }}>
                                                 <span className="dd-date-display">{fmtDate(startDate)}</span>
                                                 <i className="far fa-calendar-alt dd-date-icon"></i>
                                                 <input
@@ -500,7 +500,7 @@ export default function BaoPhepModal({
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                             <div>
                                                 <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: 4 }}>Từ ngày:</span>
-                                                <div className="dd-date-input-wrapper" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                                                <div className="dd-date-input-wrapper" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch { /* unsupported */ } } }}>
                                                     <span className="dd-date-display" style={{ fontSize: '0.85rem' }}>{fmtDate(startDate)}</span>
                                                     <i className="far fa-calendar-alt dd-date-icon" style={{ fontSize: '0.85rem' }}></i>
                                                     <input
@@ -513,7 +513,7 @@ export default function BaoPhepModal({
                                             </div>
                                             <div>
                                                 <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: 4 }}>Đến ngày:</span>
-                                                <div className="dd-date-input-wrapper" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                                                <div className="dd-date-input-wrapper" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch { /* unsupported */ } } }}>
                                                     <span className="dd-date-display" style={{ fontSize: '0.85rem' }}>{fmtDate(endDate)}</span>
                                                     <i className="far fa-calendar-alt dd-date-icon" style={{ fontSize: '0.85rem' }}></i>
                                                     <input
@@ -641,7 +641,7 @@ export default function BaoPhepModal({
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#475569', margin: 0 }}>Xem ngày:</label>
-                                    <div className="dd-date-input-wrapper" style={{ width: 160 }} onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                                    <div className="dd-date-input-wrapper" style={{ width: 160 }} onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch { /* unsupported */ } } }}>
                                         <span className="dd-date-display" style={{ fontSize: '0.88rem' }}>{fmtDate(listDate)}</span>
                                         <i className="far fa-calendar-alt dd-date-icon" style={{ fontSize: '0.88rem' }}></i>
                                         <input

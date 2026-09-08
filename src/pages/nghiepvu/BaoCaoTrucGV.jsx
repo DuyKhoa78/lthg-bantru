@@ -219,18 +219,12 @@ export default function BaoCaoTrucGV() {
   const formatTime = (iso) => {
     if (!iso) return '';
     try {
-      const s = String(iso).trim();
-      // Trích xuất trực tiếp giờ:phút nguyên bản từ chuỗi thời gian do Google gửi
-      const m = s.match(/[T\s](\d{1,2}):(\d{2})/);
-      if (m) {
-        return `${String(m[1]).padStart(2, '0')}:${m[2]}`;
-      }
       const d = new Date(iso);
       if (isNaN(d.getTime())) return '';
-      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-    } catch {
-      return '';
-    }
+      // Hiển thị giờ theo múi giờ Việt Nam (UTC+7)
+      return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
+    } catch { /* ignore */ }
+    return '';
   };
 
   const formatDateVN = (dateStr) => {
@@ -1288,14 +1282,7 @@ function tuDongTaoFormBaoCao() {
             <span>Xuất Excel</span>
           </button>
 
-          <button
-            className="bctruc-btn bctruc-btn-primary"
-            onClick={() => setShowGuide(true)}
-            title="Xem hướng dẫn tích hợp Google Form tự động"
-          >
-            <i className="fab fa-google"></i>
-            <span>Hướng dẫn Form</span>
-          </button>
+
 
           {(user?.is_admin || user?.is_superuser) && data.records?.length > 0 && (
             <button

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
@@ -113,26 +113,38 @@ export default function DiemDanhAn() {
         }).catch(console.error);
     }, []);
 
-    const fetchDiemDanh = useCallback((d, silent = false) => {
+    // Abort controller ref để hủy request cũ khi có request mới (tránh race condition)
+    const fetchAbortRef = useRef(null);
+
+    const fetchDiemDanh = useCallback(async (d, silent = false) => {
+        // Hủy request cũ nếu đang chạy
+        if (fetchAbortRef.current) fetchAbortRef.current.abort();
+        const controller = new AbortController();
+        fetchAbortRef.current = controller;
+
         if (!silent) setLoading(true);
-        api.get(`/api/diemdanh/?ngay=${d}&loai=an`)
-            .then(res => {
-                if (res.data?.ok) {
-                    const map = {};
-                    res.data.records.forEach(r => { if (r.diem_danh_an !== null) map[r.ma_hs_id] = r.diem_danh_an; });
-                    setDiemDanhDb(map);
-                    setHasSchedule(res.data.has_schedule === true);
-                    // Lấy cấu hình ngày đặc biệt từ response (có hs_them_vao)
-                    const cfg = res.data.cauhinh_ngay || null;
-                    setCauhinhNgay(cfg);
-                    // Tạo danh sách HS thêm tay với phòng override
-                    if (cfg?.hs_them_vao && cfg.hs_them_vao.length > 0) {
-                        setExtraHsList(cfg.hs_them_vao); // [{id, phong_an, phong_ngu, ho_ten, lop, ...}]
-                    } else {
-                        setExtraHsList([]);
-                    }
+        try {
+            const res = await api.get(`/api/diemdanh/?ngay=${d}&loai=an`, { signal: controller.signal });
+            if (res.data?.ok) {
+                const map = {};
+                res.data.records.forEach(r => { if (r.diem_danh_an !== null) map[r.ma_hs_id] = r.diem_danh_an; });
+                setDiemDanhDb(map);
+                setHasSchedule(res.data.has_schedule === true);
+                // Lấy cấu hình ngày đặc biệt từ response (có hs_them_vao)
+                const cfg = res.data.cauhinh_ngay || null;
+                setCauhinhNgay(cfg);
+                // Tạo danh sách HS thêm tay với phòng override
+                if (cfg?.hs_them_vao && cfg.hs_them_vao.length > 0) {
+                    setExtraHsList(cfg.hs_them_vao); // [{id, phong_an, phong_ngu, ho_ten, lop, ...}]
+                } else {
+                    setExtraHsList([]);
                 }
-            }).catch(console.error).finally(() => setLoading(false));
+            }
+        } catch (err) {
+            if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') console.error(err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     // Helper: kiểm tra HS có được phép tham gia ngày đặc biệt không
@@ -249,10 +261,19 @@ export default function DiemDanhAn() {
         try {
             const records = students.map(s => ({ ma_hs: s.id, ngay: date, status: INV_STATUS_MAP[s.trang_thai] }));
             await api.post('/api/diemdanh/save/', { loai: 'an', records });
-            setSaved(true);
-            fetchDiemDanh(date, true);
+
+            // Optimistic update: cập nhật diemDanhDb ngay lập tức để UI hiển thị ✓ mà không chờ fetch
+            setDiemDanhDb(prev => {
+                const next = { ...prev };
+                records.forEach(r => { next[r.ma_hs] = r.status; });
+                return next;
+            });
             setOverrides({});
+            setSaved(true);
             setTimeout(() => setSaved(false), 3000);
+
+            // Fetch lại từ DB để đồng bộ dữ liệu chính xác (silent, không block UI)
+            await fetchDiemDanh(date, true);
         } catch (err) {
             showAlert(err.response?.data?.error || 'Lỗi khi lưu điểm danh');
         } finally { setSaving(false); }
@@ -912,7 +933,7 @@ ${htmlPages}
                     <div className="dd-room-panel-header"><i className="fas fa-utensils"></i> Phòng ăn</div>
                     <div className="dd-date-picker">
                         <label><i className="fas fa-calendar-day" style={{ color: 'var(--primary)', marginRight: 4 }}></i> Chọn ngày điểm danh</label>
-                        <div className="dd-date-input-wrapper" title="Bấm để chọn ngày trên lịch" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                        <div className="dd-date-input-wrapper" title="Bấm để chọn ngày trên lịch" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch { /* unsupported */ } } }}>
                             <span className="dd-date-display">{fmtDate(date)}</span>
                             <i className="far fa-calendar-alt dd-date-icon"></i>
                             <input

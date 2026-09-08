@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
@@ -113,27 +113,37 @@ export default function DiemDanhNgu() {
         }).catch(console.error);
     }, []);
 
+    // Abort controller ref để hủy request cũ khi có request mới (tránh race condition)
+    const fetchAbortRef = useRef(null);
+
     // Fetch lịch sử điểm danh theo ngày
-    const fetchDiemDanh = useCallback((d, silent = false) => {
+    const fetchDiemDanh = useCallback(async (d, silent = false) => {
+        // Hủy request cũ nếu đang chạy
+        if (fetchAbortRef.current) fetchAbortRef.current.abort();
+        const controller = new AbortController();
+        fetchAbortRef.current = controller;
+
         if (!silent) setLoading(true);
-        api.get(`/api/diemdanh/?ngay=${d}&loai=ngu`)
-            .then(res => {
-                if (res.data?.ok) {
-                    const map = {};
-                    res.data.records.forEach(r => {
-                        // diem_danh_ngu: 0(comat), 1(vang), 2(phep)
-                        if (r.diem_danh_ngu !== null) map[r.ma_hs_id] = r.diem_danh_ngu;
-                    });
-                    setDiemDanhDb(map);
-                    setHasSchedule(res.data.has_schedule === true);
-                    // Cấu hình ngày đặc biệt
-                    const cfg = res.data.cauhinh_ngay || null;
-                    setCauhinhNgay(cfg);
-                    setExtraHsList(cfg?.hs_them_vao?.length > 0 ? cfg.hs_them_vao : []);
-                }
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        try {
+            const res = await api.get(`/api/diemdanh/?ngay=${d}&loai=ngu`, { signal: controller.signal });
+            if (res.data?.ok) {
+                const map = {};
+                res.data.records.forEach(r => {
+                    // diem_danh_ngu: 0(comat), 1(vang), 2(phep)
+                    if (r.diem_danh_ngu !== null) map[r.ma_hs_id] = r.diem_danh_ngu;
+                });
+                setDiemDanhDb(map);
+                setHasSchedule(res.data.has_schedule === true);
+                // Cấu hình ngày đặc biệt
+                const cfg = res.data.cauhinh_ngay || null;
+                setCauhinhNgay(cfg);
+                setExtraHsList(cfg?.hs_them_vao?.length > 0 ? cfg.hs_them_vao : []);
+            }
+        } catch (err) {
+            if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') console.error(err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     useEffect(() => {
@@ -265,10 +275,19 @@ export default function DiemDanhNgu() {
                 status: INV_STATUS_MAP[s.trang_thai],
             }));
             await api.post('/api/diemdanh/save/', { loai: 'ngu', records });
-            setSaved(true);
-            fetchDiemDanh(date, true); // reload from DB
+
+            // Optimistic update: cập nhật diemDanhDb ngay lập tức để UI hiển thị ✓ mà không chờ fetch
+            setDiemDanhDb(prev => {
+                const next = { ...prev };
+                records.forEach(r => { next[r.ma_hs] = r.status; });
+                return next;
+            });
             setOverrides({});
+            setSaved(true);
             setTimeout(() => setSaved(false), 3000);
+
+            // Fetch lại từ DB để đồng bộ dữ liệu chính xác (silent, không block UI)
+            await fetchDiemDanh(date, true); // reload from DB
         } catch (err) {
             showAlert(err.response?.data?.error || 'Lỗi khi lưu điểm danh');
         } finally {
@@ -867,7 +886,7 @@ ${htmlPages}
                     </div>
                     <div className="dd-date-picker">
                         <label><i className="fas fa-calendar-day" style={{ color: '#6c5ce7', marginRight: 4 }}></i> Chọn ngày điểm danh</label>
-                        <div className="dd-date-input-wrapper" title="Bấm để chọn ngày trên lịch" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch {} } }}>
+                        <div className="dd-date-input-wrapper" title="Bấm để chọn ngày trên lịch" onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="date"]'); if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch { /* unsupported */ } } }}>
                             <span className="dd-date-display">{fmtDate(date)}</span>
                             <i className="far fa-calendar-alt dd-date-icon"></i>
                             <input
