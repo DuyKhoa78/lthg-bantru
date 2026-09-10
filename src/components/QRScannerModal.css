@@ -70,6 +70,25 @@
     background: rgba(255, 255, 255, 0.35);
 }
 
+.zalo-header-right-btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zalo-zoom-btn {
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.zalo-zoom-btn.on {
+    background: #0284c7;
+    border-color: #38bdf8;
+    color: #fff;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+}
+
 .zalo-torch-btn.on {
     background: #f59e0b;
     border-color: #f59e0b;

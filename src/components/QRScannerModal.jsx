@@ -109,6 +109,8 @@ export default function QRScannerModal({
     const [toastNotice, setToastNotice] = useState(null); // Floating Zalo-style banner
     const [torchOn, setTorchOn] = useState(false);
     const [hasTorch, setHasTorch] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [hasZoom, setHasZoom] = useState(false);
 
     // Lưu trữ props mới nhất vào Ref để camera callback luôn thấy dữ liệu mới mà KHÔNG cần restart camera
     const propsRef = useRef({
@@ -281,26 +283,43 @@ export default function QRScannerModal({
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCameraError(null);
         setToastNotice(null);
+        setZoomLevel(1);
 
         const qrCodeId = 'zalo-qr-viewport';
 
         try {
-            // Dùng ZXing thuần túy để tương thích 100% tất cả thiết bị di động (kể cả iPhone Safari)
             qrScanner = new Html5Qrcode(qrCodeId, {
                 formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
                 verbose: false,
             });
             html5QrCodeRef.current = qrScanner;
 
+            // Ràng buộc camera: Lấy nét tự động liên tục (continuous autofocus) và độ phân giải sắc nét
+            const cameraConstraints = {
+                facingMode: { ideal: 'environment' },
+                width: { min: 720, ideal: 1280, max: 1920 },
+                height: { min: 720, ideal: 720, max: 1080 },
+                advanced: [
+                    { focusMode: 'continuous' },
+                    { exposureMode: 'continuous' },
+                    { whiteBalanceMode: 'continuous' }
+                ]
+            };
+
+            // Vùng Focus giải mã: Tập trung chính xác vào ô vuông ở giữa màn hình
             const config = {
-                fps: 10,
-                // Không giới hạn qrbox pixel cố định để thuật toán quét toàn bộ khung hình camera cực nhạy
+                fps: 15,
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const size = Math.min(300, Math.max(220, Math.floor(minEdge * 0.75)));
+                    return { width: size, height: size };
+                },
                 aspectRatio: undefined,
                 disableFlip: false,
             };
 
             qrScanner.start(
-                { facingMode: 'environment' },
+                cameraConstraints,
                 config,
                 (decodedText) => {
                     if (isMounted) handleScan(decodedText);
@@ -311,19 +330,41 @@ export default function QRScannerModal({
             ).then(() => {
                 if (isMounted) {
                     setScannerActive(true);
+
+                    // Kiểm tra khả năng Bật Flash & Thu Phóng (Zoom)
                     try {
                         const track = qrScanner.getRunningTrackCameraCapabilities();
                         if (track && track.torchFeature && track.torchFeature().isSupported()) {
                             setHasTorch(true);
                         }
-                    } catch {
-                        // Không hỗ trợ torch
-                    }
+                    } catch {}
+
+                    try {
+                        const caps = qrScanner.getRunningTrackCapabilities ? qrScanner.getRunningTrackCapabilities() : null;
+                        if (caps && caps.zoom) {
+                            setHasZoom(true);
+                        }
+                    } catch {}
                 }
             }).catch(err => {
-                console.error('Camera start error:', err);
-                if (isMounted) {
-                    setCameraError('Không thể mở camera. Vui lòng cho phép quyền truy cập máy ảnh trong cài đặt trình duyệt.');
+                console.warn('Camera initial start with advanced constraints failed, retrying simple:', err);
+                // Thử lại với ràng buộc camera cơ bản nếu điện thoại không hỗ trợ advanced focusMode
+                if (isMounted && qrScanner) {
+                    qrScanner.start(
+                        { facingMode: 'environment' },
+                        config,
+                        (decodedText) => {
+                            if (isMounted) handleScan(decodedText);
+                        },
+                        () => {}
+                    ).then(() => {
+                        if (isMounted) setScannerActive(true);
+                    }).catch(finalErr => {
+                        console.error('Final camera start error:', finalErr);
+                        if (isMounted) {
+                            setCameraError('Không thể mở camera. Vui lòng kiểm tra quyền truy cập máy ảnh trong cài đặt trình duyệt.');
+                        }
+                    });
                 }
             });
         } catch (e) {
@@ -360,6 +401,30 @@ export default function QRScannerModal({
         }
     };
 
+    // Phóng to 2x / 1x (Hỗ trợ lấy nét mã QR nhỏ từ khoảng cách xa)
+    const toggleZoom = async () => {
+        if (!html5QrCodeRef.current) return;
+        const nextZoom = zoomLevel >= 2 ? 1 : 2;
+        try {
+            await html5QrCodeRef.current.applyVideoConstraints({
+                advanced: [{ zoom: nextZoom }]
+            });
+            setZoomLevel(nextZoom);
+        } catch (e) {
+            console.warn('Zoom error:', e);
+        }
+    };
+
+    // Chạm vào màn hình để kích hoạt lại lấy nét (Tap to focus)
+    const handleTapToFocus = async () => {
+        if (!html5QrCodeRef.current) return;
+        try {
+            await html5QrCodeRef.current.applyVideoConstraints({
+                advanced: [{ focusMode: 'continuous' }]
+            });
+        } catch {}
+    };
+
     if (!isOpen) return null;
 
     const presentCount = scannedIds.size;
@@ -367,7 +432,7 @@ export default function QRScannerModal({
     const percent = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
     return (
-        <div className="zalo-scanner-fullscreen">
+        <div className="zalo-scanner-fullscreen" onClick={handleTapToFocus}>
             {/* 1. Camera Viewport */}
             <div id="zalo-qr-viewport" ref={scannerRef}></div>
 
@@ -380,17 +445,28 @@ export default function QRScannerModal({
                     <span className="zalo-room-pill">📍 {currentRoomName || 'Phòng trực'}</span>
                     <span className="zalo-header-title">Quét mã QR bán trú</span>
                 </div>
-                {hasTorch ? (
-                    <button
-                        className={`zalo-btn-icon zalo-torch-btn ${torchOn ? 'on' : ''}`}
-                        onClick={toggleTorch}
-                        title="Bật/Tắt flash"
-                    >
-                        {torchOn ? '🔦' : '⚡'}
-                    </button>
-                ) : (
-                    <div style={{ width: 40 }} />
-                )}
+                <div className="zalo-header-right-btns">
+                    {hasZoom && (
+                        <button
+                            className={`zalo-btn-icon zalo-zoom-btn ${zoomLevel > 1 ? 'on' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); toggleZoom(); }}
+                            title="Phóng to 2x"
+                        >
+                            {zoomLevel > 1 ? '2x' : '1x'}
+                        </button>
+                    )}
+                    {hasTorch ? (
+                        <button
+                            className={`zalo-btn-icon zalo-torch-btn ${torchOn ? 'on' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); toggleTorch(); }}
+                            title="Bật/Tắt flash"
+                        >
+                            {torchOn ? '🔦' : '⚡'}
+                        </button>
+                    ) : (
+                        <div style={{ width: 40 }} />
+                    )}
+                </div>
             </div>
 
             {/* 3. Floating Notification Dropdown (Zalo style - Không ngắt quãng camera) */}
@@ -419,7 +495,7 @@ export default function QRScannerModal({
                     </div>
 
                     <p className="zalo-guide-hint">
-                        Đặt mã QR thẻ bán trú vào giữa khung hình
+                        Đưa mã QR vào khung viền (khoảng cách 15 – 25cm)
                     </p>
                 </div>
             )}
@@ -436,7 +512,7 @@ export default function QRScannerModal({
             )}
 
             {/* 5. Bottom Status Bar */}
-            <div className="zalo-bottom-bar">
+            <div className="zalo-bottom-bar" onClick={(e) => e.stopPropagation()}>
                 <div className="zalo-progress-info">
                     <div className="zalo-count-text">
                         Có mặt: <strong>{presentCount} / {totalCount}</strong> em ({percent}%)
