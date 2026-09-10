@@ -337,14 +337,18 @@ export default function QRScannerModal({
                         if (track && track.torchFeature && track.torchFeature().isSupported()) {
                             setHasTorch(true);
                         }
-                    } catch {}
+                    } catch (err) {
+                        console.debug('Torch feature check:', err);
+                    }
 
                     try {
                         const caps = qrScanner.getRunningTrackCapabilities ? qrScanner.getRunningTrackCapabilities() : null;
                         if (caps && caps.zoom) {
                             setHasZoom(true);
                         }
-                    } catch {}
+                    } catch (err) {
+                        console.debug('Zoom capability check:', err);
+                    }
                 }
             }).catch(err => {
                 console.warn('Camera initial start with advanced constraints failed, retrying simple:', err);
@@ -422,7 +426,9 @@ export default function QRScannerModal({
             await html5QrCodeRef.current.applyVideoConstraints({
                 advanced: [{ focusMode: 'continuous' }]
             });
-        } catch {}
+        } catch (err) {
+            console.debug('Tap to focus error:', err);
+        }
     };
 
     if (!isOpen) return null;
