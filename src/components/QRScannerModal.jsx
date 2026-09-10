@@ -54,6 +54,20 @@ function playChime(type = 'success') {
 
             osc.start();
             osc.stop(ctx.currentTime + 0.29);
+        } else if (type === 'confirm') {
+            // Double-ding confirmation
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, ctx.currentTime);
+            osc1.frequency.setValueAtTime(1320, ctx.currentTime + 0.06);
+            osc1.frequency.setValueAtTime(1760, ctx.currentTime + 0.12);
+            gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.26);
         }
     } catch (e) {
         console.warn('Audio error:', e);
@@ -92,6 +106,33 @@ function parseStudentId(decodedText) {
     return { rawText: text, idCandidate: text };
 }
 
+/**
+ * Tìm học sinh theo ID/mã quét
+ */
+function findStudentByCandidate(students, candidateStr, rawText) {
+    let found = students.find(s => {
+        const sId = String(s.id);
+        const sCardId = `26${String(s.id).padStart(3, '0')}`;
+        return (
+            sId === candidateStr ||
+            sCardId === candidateStr ||
+            (s.ma_hs && String(s.ma_hs) === candidateStr) ||
+            (s.raw_id && String(s.raw_id) === candidateStr)
+        );
+    });
+
+    if (!found && candidateStr.startsWith('26') && candidateStr.length > 2) {
+        const stripped = String(parseInt(candidateStr.slice(2), 10));
+        found = students.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
+    }
+
+    if (!found && rawText) {
+        found = students.find(s => rawText.includes(String(s.id)));
+    }
+
+    return found;
+}
+
 export default function QRScannerModal({
     isOpen,
     onClose,
@@ -106,11 +147,20 @@ export default function QRScannerModal({
     const [scannerActive, setScannerActive] = useState(false);
     const [cameraError, setCameraError] = useState(null);
     const [boxFlash, setBoxFlash] = useState(null); // 'success' | 'warning'
-    const [toastNotice, setToastNotice] = useState(null); // Floating Zalo-style banner
     const [torchOn, setTorchOn] = useState(false);
     const [hasTorch, setHasTorch] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(1);
     const [hasZoom, setHasZoom] = useState(false);
+
+    // === TRẠNG THÁI XÁC NHẬN (Zalo-style) ===
+    // pendingStudent: HS đang chờ GV xác nhận (camera vẫn chạy, quét tạm dừng)
+    const [pendingStudent, setPendingStudent] = useState(null);
+    // pendingType: 'new' | 'already' | 'wrong_room' | 'invalid'
+    const [pendingType, setPendingType] = useState(null);
+    // pendingExtra: thông tin phụ (vd: phòng thật khi sai phòng, rawText khi invalid)
+    const [pendingExtra, setPendingExtra] = useState(null);
+    // Thông báo nhỏ tạm thời (sau khi xác nhận thành công)
+    const [miniToast, setMiniToast] = useState(null);
 
     // Lưu trữ props mới nhất vào Ref để camera callback luôn thấy dữ liệu mới mà KHÔNG cần restart camera
     const propsRef = useRef({
@@ -131,10 +181,38 @@ export default function QRScannerModal({
     });
 
     const lastScannedTimeRef = useRef({});
+    const isPendingRef = useRef(false);
 
-    // Quét liên tục như Zalo: Nhận diện và chốt tức thì, không bao giờ dừng camera cho đến khi bấm tắt
+    // Tạm dừng giải mã QR (camera vẫn hiển thị hình ảnh sống)
+    const pauseScanning = useCallback(() => {
+        isPendingRef.current = true;
+        try {
+            const scanner = html5QrCodeRef.current;
+            if (scanner && scanner.getState && scanner.getState() === 2) {
+                scanner.pause(false); // pause scanning but keep video running
+            }
+        } catch (e) {
+            console.debug('Pause scanning:', e);
+        }
+    }, []);
+
+    // Tiếp tục giải mã QR
+    const resumeScanning = useCallback(() => {
+        isPendingRef.current = false;
+        try {
+            const scanner = html5QrCodeRef.current;
+            if (scanner && scanner.getState && scanner.getState() === 3) {
+                scanner.resume();
+            }
+        } catch (e) {
+            console.debug('Resume scanning:', e);
+        }
+    }, []);
+
+    // === QUÉT & HIỆN THỊ THÔNG TIN (KHÔNG TỰ ĐỘNG CHỐT) ===
     const handleScan = useCallback((decodedText) => {
         if (!decodedText) return;
+        if (isPendingRef.current) return; // Đang hiện thẻ xác nhận, bỏ qua
         const now = Date.now();
         console.log('[QR SCAN DECODED]:', decodedText);
 
@@ -143,120 +221,97 @@ export default function QRScannerModal({
 
         const candidateStr = parsed.idCandidate;
 
-        // Tránh quét lặp lại cùng 1 thẻ trong vòng 1.5 giây
-        if (lastScannedTimeRef.current[candidateStr] && (now - lastScannedTimeRef.current[candidateStr] < 1500)) {
+        // Tránh quét lặp lại cùng 1 thẻ trong vòng 2 giây
+        if (lastScannedTimeRef.current[candidateStr] && (now - lastScannedTimeRef.current[candidateStr] < 2000)) {
             return;
         }
+        lastScannedTimeRef.current[candidateStr] = now;
 
         const {
             roomStudents: curRoomStudents,
             allStudents: curAllStudents,
             scannedIds: curScannedIds,
-            onConfirmStudent: curOnConfirm,
             currentRoomName: curRoomName
         } = propsRef.current;
 
-        // 1. Tìm học sinh trong phòng hiện tại
-        let matched = curRoomStudents.find(s => {
-            const sId = String(s.id);
-            const sCardId = `26${String(s.id).padStart(3, '0')}`;
-            return (
-                sId === candidateStr ||
-                sCardId === candidateStr ||
-                (s.ma_hs && String(s.ma_hs) === candidateStr) ||
-                (s.raw_id && String(s.raw_id) === candidateStr)
-            );
-        });
-
-        // Nếu candidateStr dạng "26015" -> stripped là "15", so sánh với s.id
-        if (!matched && candidateStr.startsWith('26') && candidateStr.length > 2) {
-            const stripped = String(parseInt(candidateStr.slice(2), 10));
-            matched = curRoomStudents.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
-        }
-
-        // Thử tìm theo rawText chứa id
-        if (!matched) {
-            matched = curRoomStudents.find(s => parsed.rawText.includes(String(s.id)));
-        }
+        // 1. Tìm trong phòng hiện tại
+        const matched = findStudentByCandidate(curRoomStudents, candidateStr, parsed.rawText);
 
         if (matched) {
-            lastScannedTimeRef.current[candidateStr] = now;
             playChime('success');
             if (navigator.vibrate) navigator.vibrate([40, 30, 50]);
-
-            // Nháy sáng xanh khung quét
             setBoxFlash('success');
-            setTimeout(() => setBoxFlash(null), 450);
+            setTimeout(() => setBoxFlash(null), 600);
 
-            // Kiểm tra nếu đã có mặt
             if (curScannedIds.has(matched.id)) {
-                setToastNotice({
-                    type: 'info',
-                    name: matched.ho_ten,
-                    detail: `Lớp ${matched.lop} — Đã điểm danh trước đó`,
-                    avatar: matched.gioi_tinh === 'Nữ' || matched.gioi_tinh === 1 ? '👧' : '👦',
-                });
-                setTimeout(() => setToastNotice(null), 2000);
-                return;
+                // Đã điểm danh trước đó
+                setPendingStudent(matched);
+                setPendingType('already');
+                setPendingExtra(null);
+                pauseScanning();
+            } else {
+                // Hiển thị thông tin, chờ GV xác nhận
+                setPendingStudent(matched);
+                setPendingType('new');
+                setPendingExtra(null);
+                pauseScanning();
             }
-
-            // Tự động chốt CÓ MẶT ngay lập tức!
-            curOnConfirm(matched);
-            setToastNotice({
-                type: 'success',
-                name: matched.ho_ten,
-                detail: `Lớp ${matched.lop} • ID #${matched.id} — ĐÃ CÓ MẶT`,
-                avatar: matched.gioi_tinh === 'Nữ' || matched.gioi_tinh === 1 ? '👧' : '👦',
-            });
-            setTimeout(() => setToastNotice(null), 2500);
             return;
         }
 
-        // 2. Tìm học sinh thuộc phòng khác (Báo sai phòng)
-        let otherStudent = curAllStudents.find(s => {
-            const sId = String(s.id);
-            const sCardId = `26${String(s.id).padStart(3, '0')}`;
-            return (
-                sId === candidateStr ||
-                sCardId === candidateStr ||
-                (s.ma_hs && String(s.ma_hs) === candidateStr) ||
-                (s.raw_id && String(s.raw_id) === candidateStr)
-            );
-        });
-        if (!otherStudent && candidateStr.startsWith('26') && candidateStr.length > 2) {
-            const stripped = String(parseInt(candidateStr.slice(2), 10));
-            otherStudent = curAllStudents.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
-        }
-        if (!otherStudent) {
-            otherStudent = curAllStudents.find(s => parsed.rawText.includes(String(s.id)));
-        }
+        // 2. Tìm trong tất cả HS (sai phòng)
+        const otherStudent = findStudentByCandidate(curAllStudents, candidateStr, parsed.rawText);
 
-        lastScannedTimeRef.current[candidateStr] = now;
         playChime('warning');
         if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
-
-        // Nháy đỏ khung quét
         setBoxFlash('warning');
-        setTimeout(() => setBoxFlash(null), 500);
+        setTimeout(() => setBoxFlash(null), 600);
 
         if (otherStudent) {
             const actualRoom = otherStudent.phong_an || otherStudent.phong_ngu || 'Chưa phân phòng';
-            setToastNotice({
-                type: 'warning',
-                name: `SAI PHÒNG: ${otherStudent.ho_ten} (Lớp ${otherStudent.lop})`,
-                detail: `Thuộc ${actualRoom} • Không thuộc ${curRoomName}`,
-                avatar: '⛔',
-            });
+            setPendingStudent(otherStudent);
+            setPendingType('wrong_room');
+            setPendingExtra({ actualRoom, curRoomName });
+            pauseScanning();
         } else {
-            setToastNotice({
-                type: 'error',
-                name: 'MÃ THẺ KHÔNG HỢP LỆ',
-                detail: `Không có dữ liệu HS với mã: ${parsed.rawText}`,
-                avatar: '❓',
-            });
+            setPendingStudent(null);
+            setPendingType('invalid');
+            setPendingExtra({ rawText: parsed.rawText });
+            pauseScanning();
         }
-        setTimeout(() => setToastNotice(null), 3000);
-    }, []);
+    }, [pauseScanning]);
+
+    // === XÁC NHẬN CÓ MẶT (GV bấm nút) ===
+    const handleConfirm = useCallback(() => {
+        if (!pendingStudent || pendingType !== 'new') return;
+        const { onConfirmStudent: curOnConfirm } = propsRef.current;
+
+        playChime('confirm');
+        if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+
+        curOnConfirm(pendingStudent);
+
+        // Hiện mini toast xác nhận thành công ngắn gọn
+        setMiniToast({
+            name: pendingStudent.ho_ten,
+            lop: pendingStudent.lop,
+        });
+        setTimeout(() => setMiniToast(null), 2000);
+
+        // Đóng thẻ xác nhận & tiếp tục quét
+        setPendingStudent(null);
+        setPendingType(null);
+        setPendingExtra(null);
+        resumeScanning();
+    }, [pendingStudent, pendingType, resumeScanning]);
+
+    // === BỎ QUA (dismiss thẻ xác nhận & quét tiếp) ===
+    const handleDismiss = useCallback(() => {
+        setPendingStudent(null);
+        setPendingType(null);
+        setPendingExtra(null);
+        resumeScanning();
+    }, [resumeScanning]);
 
     // Khởi động Camera duy nhất 1 lần khi mở modal
     useEffect(() => {
@@ -282,8 +337,12 @@ export default function QRScannerModal({
 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCameraError(null);
-        setToastNotice(null);
+        setMiniToast(null);
+        setPendingStudent(null);
+        setPendingType(null);
+        setPendingExtra(null);
         setZoomLevel(1);
+        isPendingRef.current = false;
 
         const qrCodeId = 'zalo-qr-viewport';
 
@@ -296,15 +355,13 @@ export default function QRScannerModal({
             });
             html5QrCodeRef.current = qrScanner;
 
-            // Quét toàn bộ khung hình để bắt mã QR siêu nhạy tại bất kỳ góc nào,
-            // không giới hạn qrbox cố định để tránh lỗi tràn kích thước (bounds error) trên màn hình nhỏ
+            // Quét toàn bộ khung hình để bắt mã QR siêu nhạy
             const config = {
                 fps: 15,
                 aspectRatio: undefined,
                 disableFlip: false,
             };
 
-            // Ràng buộc camera: Bắt buộc đúng 1 thuộc tính facingMode để không bị lỗi OverconstrainedError
             qrScanner.start(
                 { facingMode: 'environment' },
                 config,
@@ -318,7 +375,7 @@ export default function QRScannerModal({
                 if (!isMounted) return;
                 setScannerActive(true);
 
-                // Sau khi camera đã chạy, xin bật lấy nét tự động liên tục (autofocus)
+                // Bật lấy nét tự động liên tục
                 try {
                     await qrScanner.applyVideoConstraints({
                         advanced: [
@@ -331,7 +388,7 @@ export default function QRScannerModal({
                     console.debug('Autofocus constraint not supported:', e);
                 }
 
-                // Kiểm tra khả năng Bật Flash & Thu Phóng (Zoom)
+                // Kiểm tra khả năng Flash & Zoom
                 try {
                     const trackCaps = qrScanner.getRunningTrackCameraCapabilities ? qrScanner.getRunningTrackCameraCapabilities() : null;
                     if (trackCaps && trackCaps.torchFeature && trackCaps.torchFeature().isSupported()) {
@@ -360,10 +417,10 @@ export default function QRScannerModal({
 
         return () => {
             isMounted = false;
+            isPendingRef.current = false;
             if (qrScanner) {
                 try {
                     const state = qrScanner.getState ? qrScanner.getState() : null;
-                    // Nếu đang scanning (state 2) hoặc paused (state 3)
                     if (qrScanner.isScanning || state === 2 || state === 3) {
                         qrScanner.stop().then(() => {
                             try { qrScanner.clear(); } catch (e) { console.debug('QR clear on stop:', e); }
@@ -398,7 +455,7 @@ export default function QRScannerModal({
         }
     };
 
-    // Phóng to 2x / 1x (Hỗ trợ lấy nét mã QR nhỏ từ khoảng cách xa)
+    // Phóng to 2x / 1x
     const toggleZoom = async () => {
         if (!html5QrCodeRef.current) return;
         const nextZoom = zoomLevel >= 2 ? 1 : 2;
@@ -417,7 +474,7 @@ export default function QRScannerModal({
         }
     };
 
-    // Chạm vào màn hình để kích hoạt lại lấy nét (Tap to focus)
+    // Chạm vào màn hình để kích hoạt lại lấy nét
     const handleTapToFocus = async () => {
         if (!html5QrCodeRef.current) return;
         try {
@@ -435,8 +492,15 @@ export default function QRScannerModal({
     const totalCount = roomStudents.length;
     const percent = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
+    // Xác định nội dung thẻ xác nhận
+    const hasPending = pendingType !== null;
+    const genderAvatar = (student) => {
+        if (!student) return '👤';
+        return student.gioi_tinh === 'Nữ' || student.gioi_tinh === 1 ? '👧' : '👦';
+    };
+
     return (
-        <div className="zalo-scanner-fullscreen" onClick={handleTapToFocus}>
+        <div className="zalo-scanner-fullscreen" onClick={hasPending ? undefined : handleTapToFocus}>
             {/* 1. Camera Viewport */}
             <div id="zalo-qr-viewport" ref={scannerRef}></div>
 
@@ -473,34 +537,137 @@ export default function QRScannerModal({
                 </div>
             </div>
 
-            {/* 3. Floating Notification Dropdown (Zalo style - Không ngắt quãng camera) */}
-            {toastNotice && (
-                <div className={`zalo-scan-toast ${toastNotice.type}`}>
-                    <div className="zalo-toast-avatar">{toastNotice.avatar}</div>
+            {/* 3. Mini toast nhỏ (sau khi xác nhận thành công) */}
+            {miniToast && (
+                <div className="zalo-scan-toast success">
+                    <div className="zalo-toast-avatar">✅</div>
                     <div className="zalo-toast-text">
-                        <strong className="zalo-toast-name">{toastNotice.name}</strong>
-                        <span className="zalo-toast-sub">{toastNotice.detail}</span>
+                        <strong className="zalo-toast-name">{miniToast.name}</strong>
+                        <span className="zalo-toast-sub">Lớp {miniToast.lop} — ĐÃ XÁC NHẬN CÓ MẶT</span>
                     </div>
                 </div>
             )}
 
-            {/* 4. Center Scanner Reticle (Khung quét chính giữa màn hình như Zalo) */}
-            {scannerActive && (
+            {/* 4. Center Scanner Reticle (ẩn khi đang hiện thẻ xác nhận) */}
+            {scannerActive && !hasPending && (
                 <div className="zalo-center-container">
                     <div className={`zalo-reticle-box ${boxFlash || ''}`}>
-                        {/* 4 Corner brackets */}
                         <div className="zalo-corner tl"></div>
                         <div className="zalo-corner tr"></div>
                         <div className="zalo-corner bl"></div>
                         <div className="zalo-corner br"></div>
-
-                        {/* Tia laser quét chạy mượt mà lên xuống */}
                         <div className="zalo-laser-line"></div>
                     </div>
 
                     <p className="zalo-guide-hint">
                         Đưa mã QR vào khung viền (khoảng cách 15 – 25cm)
                     </p>
+                </div>
+            )}
+
+            {/* ========== 5. THẺ XÁC NHẬN HỌC SINH (Zalo-style bottom sheet) ========== */}
+            {hasPending && (
+                <div className="zalo-confirm-overlay" onClick={(e) => e.stopPropagation()}>
+                    <div className={`zalo-confirm-card ${pendingType}`}>
+
+                        {/* --- HS thuộc phòng, chưa điểm danh (cần xác nhận) --- */}
+                        {pendingType === 'new' && pendingStudent && (
+                            <>
+                                <div className="zalo-confirm-header">
+                                    <div className="zalo-confirm-avatar-lg">{genderAvatar(pendingStudent)}</div>
+                                    <div className="zalo-confirm-info">
+                                        <h3 className="zalo-confirm-name">{pendingStudent.ho_ten}</h3>
+                                        <div className="zalo-confirm-tags">
+                                            <span className="zalo-tag lop">Lớp {pendingStudent.lop}</span>
+                                            <span className="zalo-tag id">ID #{pendingStudent.id}</span>
+                                            {pendingStudent.gioi_tinh !== null && pendingStudent.gioi_tinh !== undefined && (
+                                                <span className="zalo-tag gender">
+                                                    {pendingStudent.gioi_tinh === 'Nữ' || pendingStudent.gioi_tinh === 1 ? 'Nữ' : 'Nam'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="zalo-confirm-actions">
+                                    <button className="zalo-confirm-btn primary" onClick={handleConfirm}>
+                                        ✓ Xác nhận có mặt
+                                    </button>
+                                    <button className="zalo-confirm-btn secondary" onClick={handleDismiss}>
+                                        Bỏ qua
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* --- HS đã điểm danh trước đó --- */}
+                        {pendingType === 'already' && pendingStudent && (
+                            <>
+                                <div className="zalo-confirm-header">
+                                    <div className="zalo-confirm-avatar-lg">🔄</div>
+                                    <div className="zalo-confirm-info">
+                                        <h3 className="zalo-confirm-name">{pendingStudent.ho_ten}</h3>
+                                        <div className="zalo-confirm-tags">
+                                            <span className="zalo-tag lop">Lớp {pendingStudent.lop}</span>
+                                            <span className="zalo-tag id">ID #{pendingStudent.id}</span>
+                                        </div>
+                                        <p className="zalo-confirm-note already">Đã điểm danh trước đó</p>
+                                    </div>
+                                </div>
+                                <div className="zalo-confirm-actions">
+                                    <button className="zalo-confirm-btn secondary" onClick={handleDismiss}>
+                                        Đã biết — Quét tiếp
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* --- Sai phòng --- */}
+                        {pendingType === 'wrong_room' && pendingStudent && (
+                            <>
+                                <div className="zalo-confirm-header">
+                                    <div className="zalo-confirm-avatar-lg">⛔</div>
+                                    <div className="zalo-confirm-info">
+                                        <h3 className="zalo-confirm-name">{pendingStudent.ho_ten}</h3>
+                                        <div className="zalo-confirm-tags">
+                                            <span className="zalo-tag lop">Lớp {pendingStudent.lop}</span>
+                                            <span className="zalo-tag id">ID #{pendingStudent.id}</span>
+                                        </div>
+                                        <p className="zalo-confirm-note wrong">
+                                            SAI PHÒNG — Thuộc {pendingExtra?.actualRoom}
+                                        </p>
+                                        <p className="zalo-confirm-note wrong-sub">
+                                            Không thuộc {pendingExtra?.curRoomName}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="zalo-confirm-actions">
+                                    <button className="zalo-confirm-btn secondary" onClick={handleDismiss}>
+                                        Đã biết — Quét tiếp
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* --- Mã không hợp lệ --- */}
+                        {pendingType === 'invalid' && (
+                            <>
+                                <div className="zalo-confirm-header">
+                                    <div className="zalo-confirm-avatar-lg">❓</div>
+                                    <div className="zalo-confirm-info">
+                                        <h3 className="zalo-confirm-name">Mã thẻ không hợp lệ</h3>
+                                        <p className="zalo-confirm-note invalid">
+                                            Không tìm thấy học sinh với mã: {pendingExtra?.rawText}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="zalo-confirm-actions">
+                                    <button className="zalo-confirm-btn secondary" onClick={handleDismiss}>
+                                        Quét lại
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -515,7 +682,7 @@ export default function QRScannerModal({
                 </div>
             )}
 
-            {/* 5. Bottom Status Bar */}
+            {/* 6. Bottom Status Bar */}
             <div className="zalo-bottom-bar" onClick={(e) => e.stopPropagation()}>
                 <div className="zalo-progress-info">
                     <div className="zalo-count-text">

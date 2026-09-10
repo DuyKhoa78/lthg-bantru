@@ -421,3 +421,210 @@
     font-size: 2.4rem;
     margin-bottom: 8px;
 }
+
+/* ================================================================== */
+/* 6. CONFIRM CARD (Thẻ xác nhận HS – Zalo-style bottom sheet)        */
+/* ================================================================== */
+
+.zalo-confirm-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.35);
+    animation: zaloFadeIn 0.18s ease-out;
+}
+
+@keyframes zaloFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.zalo-confirm-card {
+    position: relative;
+    margin: 0 12px 0;
+    padding: 20px 20px max(20px, env(safe-area-inset-bottom, 20px));
+    border-radius: 20px 20px 0 0;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: zaloSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes zaloSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.zalo-confirm-card.new {
+    background: rgba(21, 128, 61, 0.92);
+    border-top: 2px solid #4ade80;
+}
+
+.zalo-confirm-card.already {
+    background: rgba(30, 64, 175, 0.92);
+    border-top: 2px solid #60a5fa;
+}
+
+.zalo-confirm-card.wrong_room {
+    background: rgba(180, 83, 9, 0.92);
+    border-top: 2px solid #fbbf24;
+}
+
+.zalo-confirm-card.invalid {
+    background: rgba(185, 28, 28, 0.92);
+    border-top: 2px solid #f87171;
+}
+
+/* Header: Avatar + Info */
+.zalo-confirm-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.zalo-confirm-avatar-lg {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.zalo-confirm-info {
+    flex: 1;
+    min-width: 0;
+    color: #fff;
+}
+
+.zalo-confirm-name {
+    margin: 0 0 6px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+/* Tags row */
+.zalo-confirm-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.zalo-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.zalo-tag.lop {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.zalo-tag.id {
+    background: rgba(0, 0, 0, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.zalo-tag.gender {
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Notes */
+.zalo-confirm-note {
+    margin: 6px 0 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.zalo-confirm-note.already {
+    color: #bfdbfe;
+}
+
+.zalo-confirm-note.wrong {
+    color: #fef08a;
+    font-weight: 800;
+}
+
+.zalo-confirm-note.wrong-sub {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.zalo-confirm-note.invalid {
+    color: #fecaca;
+    word-break: break-all;
+}
+
+/* Action buttons */
+.zalo-confirm-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.zalo-confirm-btn {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    border-radius: 14px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+    letter-spacing: 0.01em;
+}
+
+.zalo-confirm-btn:active {
+    transform: scale(0.97);
+}
+
+.zalo-confirm-btn.primary {
+    background: #fff;
+    color: #15803d;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.zalo-confirm-btn.primary:active {
+    background: #dcfce7;
+}
+
+.zalo-confirm-btn.secondary {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(6px);
+}
+
+.zalo-confirm-btn.secondary:active {
+    background: rgba(255, 255, 255, 0.3);
+}
