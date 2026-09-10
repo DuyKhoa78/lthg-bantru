@@ -76,6 +76,36 @@
     color: #ef4444;
 }
 
+.qr-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qr-mode-badge {
+    padding: 5px 12px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.qr-mode-badge.auto-on {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
+}
+
+.qr-mode-badge.manual {
+    background: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
 /* Viewport Area */
 .qr-viewport-wrapper {
     flex: 1;
@@ -90,12 +120,17 @@
 #qr-reader-viewport {
     width: 100% !important;
     height: 100% !important;
+    border: none !important;
 }
 
 #qr-reader-viewport video {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform;
 }
 
 /* Reticle & Laser Scan Line */
@@ -114,10 +149,11 @@
     width: 250px;
     height: 250px;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 16px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
     overflow: hidden;
+    transform: translateZ(0);
 }
 
 .qr-corner {
@@ -160,16 +196,19 @@
     position: absolute;
     left: 0;
     right: 0;
+    top: 0;
     height: 3px;
     background: linear-gradient(90deg, transparent, #38bdf8, #818cf8, transparent);
     box-shadow: 0 0 12px #38bdf8;
-    animation: qrScanMove 2.2s infinite ease-in-out;
+    transform: translateY(12px) translateZ(0);
+    will-change: transform;
+    animation: qrScanMoveGPU 2s infinite ease-in-out;
 }
 
-@keyframes qrScanMove {
-    0% { top: 6%; opacity: 0.2; }
-    50% { top: 90%; opacity: 1; }
-    100% { top: 6%; opacity: 0.2; }
+@keyframes qrScanMoveGPU {
+    0% { transform: translateY(12px) translateZ(0); opacity: 0.25; }
+    50% { transform: translateY(228px) translateZ(0); opacity: 1; }
+    100% { transform: translateY(12px) translateZ(0); opacity: 0.25; }
 }
 
 .qr-scan-instruction {

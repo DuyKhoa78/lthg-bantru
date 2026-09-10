@@ -341,6 +341,8 @@ export default function DiemDanhAn() {
             }));
     }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom, isGiaoVien]);
 
+    const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
+
     // Trạng thái chốt phòng hiện tại
     const currentPhongStatus = useMemo(() => {
         if (!selectedPhong) return null;
@@ -1666,7 +1668,7 @@ ${htmlPages}
                 allStudents={hsList}
                 currentRoomName={selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : ''}
                 onConfirmStudent={handleConfirmStudent}
-                scannedIds={new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id))}
+                scannedIds={scannedIds}
             />
 
             {/* Modal Xác nhận Chốt điểm danh lên Tổng khi còn học sinh chưa quét */}

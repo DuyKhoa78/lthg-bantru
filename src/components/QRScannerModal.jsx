@@ -1,34 +1,42 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import './QRScannerModal.css';
 
 /**
- * Sound synthesis helper using Web Audio API
- * Generates clear, offline-friendly chimes without requiring external MP3 assets
+ * Shared AudioContext singleton across scans
+ * Prevents mobile browser audio engine re-init freezes
  */
+let sharedAudioCtx = null;
+
 function playChime(type = 'success') {
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+            sharedAudioCtx = new AudioContextClass();
+        }
+        if (sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume();
+        }
+        const ctx = sharedAudioCtx;
 
         if (type === 'success') {
-            // Happy two-tone beep (high C -> E)
+            // High-pitched pleasant dual-tone chime
             const osc1 = ctx.createOscillator();
             const gain = ctx.createGain();
 
             osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-            osc1.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+            osc1.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+            osc1.frequency.setValueAtTime(880, ctx.currentTime + 0.07); // A5
 
-            gain.gain.setValueAtTime(0.25, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + 0.25);
 
             osc1.connect(gain);
             gain.connect(ctx.destination);
 
             osc1.start();
-            osc1.stop(ctx.currentTime + 0.3);
+            osc1.stop(ctx.currentTime + 0.26);
         } else if (type === 'warning') {
             // Low buzz warning
             const osc = ctx.createOscillator();
@@ -36,16 +44,16 @@ function playChime(type = 'success') {
 
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(220, ctx.currentTime);
-            osc.frequency.setValueAtTime(180, ctx.currentTime + 0.12);
+            osc.frequency.setValueAtTime(160, ctx.currentTime + 0.1);
 
-            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+            gain.gain.setValueAtTime(0.25, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
 
             osc.connect(gain);
             gain.connect(ctx.destination);
 
             osc.start();
-            osc.stop(ctx.currentTime + 0.36);
+            osc.stop(ctx.currentTime + 0.31);
         }
     } catch (e) {
         console.warn('Audio chime error:', e);
@@ -54,21 +62,15 @@ function playChime(type = 'success') {
 
 /**
  * Parses raw scanned QR string
- * Supported formats:
- * - "MSBT: 26015" -> ID: 15 (or 26015 matching)
- * - "MSBT: 15" -> ID: 15
- * - "26015" -> ID: 15 or 26015
- * - JSON { id: ... }
  */
 function parseStudentId(decodedText) {
     if (!decodedText) return null;
     const text = String(decodedText).trim();
 
-    // Regex format: MSBT: \d+
+    // Format: MSBT: \d+
     const msbtMatch = text.match(/MSBT:\s*(\d+)/i);
     if (msbtMatch) {
-        const fullNum = msbtMatch[1];
-        return { rawText: text, idCandidate: fullNum };
+        return { rawText: text, idCandidate: msbtMatch[1] };
     }
 
     // Pure number format
@@ -92,173 +94,233 @@ function parseStudentId(decodedText) {
 export default function QRScannerModal({
     isOpen,
     onClose,
-    roomStudents = [], // Array of students assigned to current room
-    allStudents = [], // Array of all students in school to detect wrong room
+    roomStudents = [],
+    allStudents = [],
     currentRoomName = '',
-    onConfirmStudent, // (student) => void
-    scannedIds = new Set(), // Set of student IDs already marked Có mặt
+    onConfirmStudent,
+    scannedIds = new Set(),
 }) {
     const scannerRef = useRef(null);
     const html5QrCodeRef = useRef(null);
     const [scannerActive, setScannerActive] = useState(false);
     const [cameraError, setCameraError] = useState(null);
-    const [scannedCandidate, setScannedCandidate] = useState(null); // Student found in current room
-    const [wrongRoomAlert, setWrongRoomAlert] = useState(null); // { student, actualRoom }
-    const [recentSuccess, setRecentSuccess] = useState(null); // Last successfully confirmed student
+    const [scannedCandidate, setScannedCandidate] = useState(null);
+    const [wrongRoomAlert, setWrongRoomAlert] = useState(null);
+    const [recentSuccess, setRecentSuccess] = useState(null);
     const [torchOn, setTorchOn] = useState(false);
     const [hasTorch, setHasTorch] = useState(false);
+    // Chế độ quét liên tục siêu tốc (Auto confirm không cần bấm nút)
+    const [autoMode, setAutoMode] = useState(true);
 
-    // Stop and cleanup camera scanner
-    const stopScanner = useCallback(async () => {
-        if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-            try {
-                await html5QrCodeRef.current.stop();
-            } catch (err) {
-                console.warn('Error stopping QR scanner:', err);
-            }
-        }
-        setScannerActive(false);
-    }, []);
+    // Lưu trữ props mới nhất vào Ref để camera callback luôn thấy dữ liệu mới mà KHÔNG cần restart camera
+    const propsRef = useRef({
+        roomStudents,
+        allStudents,
+        currentRoomName,
+        onConfirmStudent,
+        scannedIds,
+        autoMode,
+    });
+    useEffect(() => {
+        propsRef.current = {
+            roomStudents,
+            allStudents,
+            currentRoomName,
+            onConfirmStudent,
+            scannedIds,
+            autoMode,
+        };
+    });
 
-    // Process a decoded QR text
-    const handleScanSuccess = useCallback((decodedText) => {
-        if (!decodedText || scannedCandidate || wrongRoomAlert) return;
+    const lastScannedTimeRef = useRef({});
+    const isPausedRef = useRef(false);
 
+    // Xử lý mã QR giải mã được
+    const handleScan = useCallback((decodedText) => {
+        if (!decodedText || isPausedRef.current) return;
+        const now = Date.now();
         const parsed = parseStudentId(decodedText);
         if (!parsed || !parsed.idCandidate) return;
 
         const candidateStr = parsed.idCandidate;
-        // Search in current room's students (try exact id or id without prefix '26')
-        let matchedStudent = roomStudents.find(s => {
+
+        // Tránh quét lặp lại liên tục cùng 1 mã trong vòng 1.5 giây
+        if (lastScannedTimeRef.current[candidateStr] && (now - lastScannedTimeRef.current[candidateStr] < 1500)) {
+            return;
+        }
+
+        const {
+            roomStudents: curRoomStudents,
+            allStudents: curAllStudents,
+            scannedIds: curScannedIds,
+            autoMode: curAutoMode,
+            onConfirmStudent: curOnConfirm,
+            currentRoomName: curRoomName
+        } = propsRef.current;
+
+        // Tìm trong phòng hiện tại
+        let matched = curRoomStudents.find(s => {
             const sId = String(s.id);
             const sCardId = `26${String(s.id).padStart(3, '0')}`;
             return sId === candidateStr || sCardId === candidateStr || String(s.ma_hs) === candidateStr;
         });
-
-        // Also check if candidateStr is like "26015" and s.id is 15
-        if (!matchedStudent && candidateStr.startsWith('26') && candidateStr.length > 2) {
+        if (!matched && candidateStr.startsWith('26') && candidateStr.length > 2) {
             const stripped = String(parseInt(candidateStr.slice(2), 10));
-            matchedStudent = roomStudents.find(s => String(s.id) === stripped);
+            matched = curRoomStudents.find(s => String(s.id) === stripped);
         }
 
-        if (matchedStudent) {
-            // Student is in this room!
+        if (matched) {
+            lastScannedTimeRef.current[candidateStr] = now;
             playChime('success');
-            if (navigator.vibrate) navigator.vibrate([40, 40, 80]);
+            if (navigator.vibrate) navigator.vibrate([45, 30, 60]);
 
-            // If already scanned Có mặt
-            if (scannedIds.has(matchedStudent.id)) {
-                setRecentSuccess({
-                    student: matchedStudent,
-                    alreadyDone: true,
-                });
-                setTimeout(() => setRecentSuccess(null), 2500);
+            // Nếu học sinh đã có mặt từ trước
+            if (curScannedIds.has(matched.id)) {
+                setRecentSuccess({ student: matched, alreadyDone: true });
+                setTimeout(() => setRecentSuccess(null), 2000);
                 return;
             }
 
-            // Pause scanning while confirming student card
-            setScannedCandidate(matchedStudent);
-        } else {
-            // Student not in this room -> check if student is in another room
-            let otherStudent = allStudents.find(s => {
-                const sId = String(s.id);
-                const sCardId = `26${String(s.id).padStart(3, '0')}`;
-                return sId === candidateStr || sCardId === candidateStr || String(s.ma_hs) === candidateStr;
-            });
-            if (!otherStudent && candidateStr.startsWith('26') && candidateStr.length > 2) {
-                const stripped = String(parseInt(candidateStr.slice(2), 10));
-                otherStudent = allStudents.find(s => String(s.id) === stripped);
-            }
-
-            playChime('warning');
-            if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
-
-            if (otherStudent) {
-                const actualRoom = otherStudent.phong_an || otherStudent.phong_ngu || 'Chưa phân phòng';
-                setWrongRoomAlert({
-                    student: otherStudent,
-                    actualRoom,
-                    reason: 'wrong_room'
-                });
+            if (curAutoMode) {
+                // Quét siêu tốc: Tự động đánh dấu Có mặt ngay lập tức, camera chạy mượt 60fps không ngắt quãng
+                curOnConfirm(matched);
+                setRecentSuccess({ student: matched, alreadyDone: false });
+                setTimeout(() => setRecentSuccess(null), 2200);
             } else {
-                setWrongRoomAlert({
-                    rawText: parsed.rawText,
-                    reason: 'not_found'
-                });
+                // Chế độ thủ công: Tạm dừng và hiện popup xác nhận
+                isPausedRef.current = true;
+                setScannedCandidate(matched);
             }
+            return;
         }
-    }, [roomStudents, allStudents, scannedCandidate, wrongRoomAlert, scannedIds]);
 
-    // Start scanner when modal is opened
+        // Kiểm tra học sinh có ở phòng khác không
+        let otherStudent = curAllStudents.find(s => {
+            const sId = String(s.id);
+            const sCardId = `26${String(s.id).padStart(3, '0')}`;
+            return sId === candidateStr || sCardId === candidateStr || String(s.ma_hs) === candidateStr;
+        });
+        if (!otherStudent && candidateStr.startsWith('26') && candidateStr.length > 2) {
+            const stripped = String(parseInt(candidateStr.slice(2), 10));
+            otherStudent = curAllStudents.find(s => String(s.id) === stripped);
+        }
+
+        lastScannedTimeRef.current[candidateStr] = now;
+        playChime('warning');
+        if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+
+        isPausedRef.current = true;
+        if (otherStudent) {
+            const actualRoom = otherStudent.phong_an || otherStudent.phong_ngu || 'Chưa phân phòng';
+            setWrongRoomAlert({ student: otherStudent, actualRoom, reason: 'wrong_room', currentRoomName: curRoomName });
+        } else {
+            setWrongRoomAlert({ rawText: parsed.rawText, reason: 'not_found' });
+        }
+    }, []);
+
+    // Khởi động Camera duy nhất 1 lần khi modal mở
     useEffect(() => {
         let isMounted = true;
+        let qrScanner = null;
 
-        if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setCameraError(null);
-            setScannedCandidate(null);
-            setWrongRoomAlert(null);
+        if (!isOpen) return;
 
-            const qrCodeId = 'qr-reader-viewport';
-            const qrScanner = new Html5Qrcode(qrCodeId);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCameraError(null);
+        setScannedCandidate(null);
+        setWrongRoomAlert(null);
+        isPausedRef.current = false;
+
+        const qrCodeId = 'qr-reader-viewport';
+
+        try {
+            // Tối ưu hóa: Chỉ dò định dạng QR Code, dùng phần cứng BarcodeDetector của trình duyệt di động
+            qrScanner = new Html5Qrcode(qrCodeId, {
+                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                verbose: false,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true,
+                },
+            });
             html5QrCodeRef.current = qrScanner;
 
             const config = {
-                fps: 15,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
+                fps: 10, // 10 lần quét/giây là tối ưu, video camera chạy native 30-60fps không bị nghẽn CPU
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const size = Math.max(180, Math.floor(minEdge * 0.7));
+                    return { width: size, height: size };
+                },
             };
 
-            // Request environment (rear) camera
             qrScanner.start(
                 { facingMode: 'environment' },
                 config,
                 (decodedText) => {
-                    if (isMounted) handleScanSuccess(decodedText);
+                    if (isMounted) handleScan(decodedText);
                 },
                 () => {
-                    // QR decode frame miss, ignore
+                    // Frame không có mã QR, bỏ qua không làm gì để giữ video mượt
                 }
             ).then(() => {
                 if (isMounted) {
                     setScannerActive(true);
-                    // Check if flashlight / torch is supported
                     try {
                         const track = qrScanner.getRunningTrackCameraCapabilities();
                         if (track && track.torchFeature && track.torchFeature().isSupported()) {
                             setHasTorch(true);
                         }
                     } catch {
-                        // Torch capability check not supported
+                        // Trình duyệt không hỗ trợ toggle flash
                     }
                 }
             }).catch(err => {
                 console.error('Camera start error:', err);
                 if (isMounted) {
-                    setCameraError('Không thể mở camera. Vui lòng cho phép quyền truy cập camera trong trình duyệt và thử lại.');
+                    setCameraError('Không thể mở camera. Vui lòng cho phép quyền truy cập camera trong cài đặt trình duyệt.');
                 }
             });
+        } catch (e) {
+            console.error('QR Scanner init error:', e);
         }
 
         return () => {
             isMounted = false;
-            stopScanner();
+            if (qrScanner) {
+                try {
+                    if (qrScanner.isScanning) {
+                        qrScanner.stop().catch(err => console.warn('QR stop warning:', err));
+                    }
+                    qrScanner.clear();
+                } catch (err) {
+                    console.warn('QR cleanup error:', err);
+                }
+            }
+            setScannerActive(false);
         };
-    }, [isOpen, handleScanSuccess, stopScanner]);
+    }, [isOpen, handleScan]); // Chỉ chạy khi mở/đóng Modal, KHÔNG bị reset khi trạng thái học sinh thay đổi!
 
-    // Handle Teacher Confirm
-    const handleConfirm = () => {
+    // Xác nhận học sinh trong chế độ thủ công
+    const handleConfirmManual = () => {
         if (!scannedCandidate) return;
-        onConfirmStudent(scannedCandidate);
-        setRecentSuccess({
-            student: scannedCandidate,
-            alreadyDone: false,
-        });
+        propsRef.current.onConfirmStudent(scannedCandidate);
+        setRecentSuccess({ student: scannedCandidate, alreadyDone: false });
         setScannedCandidate(null);
+        isPausedRef.current = false;
         setTimeout(() => setRecentSuccess(null), 2500);
     };
 
-    // Toggle Torch
+    const handleDismissCandidate = () => {
+        setScannedCandidate(null);
+        isPausedRef.current = false;
+    };
+
+    const handleDismissWrongRoom = () => {
+        setWrongRoomAlert(null);
+        isPausedRef.current = false;
+    };
+
+    // Bật tắt Flashlight
     const toggleTorch = async () => {
         if (!html5QrCodeRef.current || !hasTorch) return;
         try {
@@ -283,16 +345,25 @@ export default function QRScannerModal({
                         <span className="qr-room-badge">📍 {currentRoomName || 'Phòng trực'}</span>
                         <h3>Quét thẻ điểm danh QR</h3>
                     </div>
-                    <button className="qr-close-btn" onClick={onClose} title="Đóng camera">
-                        ✕
-                    </button>
+                    <div className="qr-header-actions">
+                        <button
+                            className={`qr-mode-badge ${autoMode ? 'auto-on' : 'manual'}`}
+                            onClick={() => setAutoMode(prev => !prev)}
+                            title="Chạm để chuyển chế độ Quét tự động / Xác nhận thủ công"
+                        >
+                            {autoMode ? '⚡ Tự động: BẬT' : '✋ Xác nhận tay'}
+                        </button>
+                        <button className="qr-close-btn" onClick={onClose} title="Đóng camera">
+                            ✕
+                        </button>
+                    </div>
                 </div>
 
                 {/* Camera Viewport Area */}
                 <div className="qr-viewport-wrapper">
                     <div id="qr-reader-viewport" ref={scannerRef}></div>
 
-                    {/* Laser scanning line overlay */}
+                    {/* Laser scanning frame overlay - GPU hardware accelerated */}
                     {scannerActive && !scannedCandidate && !wrongRoomAlert && (
                         <div className="qr-scanner-overlay">
                             <div className="qr-target-box">
@@ -303,7 +374,7 @@ export default function QRScannerModal({
                                 <div className="qr-scan-line"></div>
                             </div>
                             <p className="qr-scan-instruction">
-                                Hướng camera về mã QR trên thẻ bán trú của học sinh
+                                {autoMode ? '⚡ Đưa mã QR vào khung — Máy sẽ tự động nhận diện' : 'Hướng camera vào mã QR trên thẻ bán trú'}
                             </p>
                         </div>
                     )}
@@ -319,24 +390,24 @@ export default function QRScannerModal({
                         </div>
                     )}
 
-                    {/* Recent Success Toast */}
+                    {/* Thông báo kết quả quét siêu nhanh */}
                     {recentSuccess && (
                         <div className={`qr-toast-notice ${recentSuccess.alreadyDone ? 'info' : 'success'}`}>
                             <span className="qr-toast-icon">
                                 {recentSuccess.alreadyDone ? 'ℹ️' : '✅'}
                             </span>
                             <div>
-                                <strong>{recentSuccess.student.ho_ten}</strong>
+                                <strong>{recentSuccess.student.ho_ten} (Lớp {recentSuccess.student.lop})</strong>
                                 <span className="qr-toast-sub">
                                     {recentSuccess.alreadyDone
-                                        ? ' (Đã điểm danh trước đó)'
-                                        : ' - Đã xác nhận CÓ MẶT'}
+                                        ? ' — Đã điểm danh trước đó'
+                                        : ' — ĐÃ ĐIỂM DANH CÓ MẶT'}
                                 </span>
                             </div>
                         </div>
                     )}
 
-                    {/* Student Info Confirmation Card */}
+                    {/* Xác nhận học sinh (khi tắt tự động) */}
                     {scannedCandidate && (
                         <div className="qr-confirm-card-overlay">
                             <div className="qr-confirm-card">
@@ -366,13 +437,13 @@ export default function QRScannerModal({
                                 <div className="qr-card-actions">
                                     <button
                                         className="btn btn-outline-secondary btn-cancel-scan"
-                                        onClick={() => setScannedCandidate(null)}
+                                        onClick={handleDismissCandidate}
                                     >
-                                        Quét lại
+                                        Bỏ qua
                                     </button>
                                     <button
                                         className="btn btn-success btn-confirm-presence"
-                                        onClick={handleConfirm}
+                                        onClick={handleConfirmManual}
                                         autoFocus
                                     >
                                         ✓ Xác nhận Có mặt
@@ -382,7 +453,7 @@ export default function QRScannerModal({
                         </div>
                     )}
 
-                    {/* Wrong Room / Not Found Alert Modal */}
+                    {/* Cảnh báo sai phòng */}
                     {wrongRoomAlert && (
                         <div className="qr-confirm-card-overlay">
                             <div className="qr-confirm-card qr-card-warning">
@@ -391,7 +462,7 @@ export default function QRScannerModal({
                                     <div className="qr-student-title">
                                         {wrongRoomAlert.reason === 'wrong_room' ? (
                                             <>
-                                                <h4>SAI PHÒNG QUẢN LÝ!</h4>
+                                                <h4>HỌC SINH SAI PHÒNG!</h4>
                                                 <span className="qr-badge-warning">{wrongRoomAlert.student.ho_ten} (Lớp {wrongRoomAlert.student.lop})</span>
                                             </>
                                         ) : (
@@ -404,15 +475,15 @@ export default function QRScannerModal({
                                     {wrongRoomAlert.reason === 'wrong_room' ? (
                                         <>
                                             <p className="qr-warning-desc">
-                                                Học sinh này được phân công tại phòng <strong>{wrongRoomAlert.actualRoom}</strong>, không thuộc <strong>{currentRoomName}</strong>.
+                                                Em này được xếp tại phòng <strong>{wrongRoomAlert.actualRoom}</strong>, không phải <strong>{currentRoomName}</strong>.
                                             </p>
                                             <p className="qr-warning-sub">
-                                                Vui lòng nhắc học sinh về đúng phòng trực được phân công.
+                                                Vui lòng hướng dẫn học sinh di chuyển về đúng phòng của mình.
                                             </p>
                                         </>
                                     ) : (
                                         <p className="qr-warning-desc">
-                                            Không tìm thấy dữ liệu học sinh bán trú cho mã: <code>{wrongRoomAlert.rawText}</code>
+                                            Không tìm thấy dữ liệu học sinh với mã: <code>{wrongRoomAlert.rawText}</code>
                                         </p>
                                     )}
                                 </div>
@@ -420,9 +491,9 @@ export default function QRScannerModal({
                                 <div className="qr-card-actions">
                                     <button
                                         className="btn btn-primary w-100"
-                                        onClick={() => setWrongRoomAlert(null)}
+                                        onClick={handleDismissWrongRoom}
                                     >
-                                        Tiếp tục quét học sinh khác
+                                        Tiếp tục quét
                                     </button>
                                 </div>
                             </div>
@@ -438,14 +509,14 @@ export default function QRScannerModal({
                             onClick={toggleTorch}
                             title="Bật/Tắt đèn flash"
                         >
-                            🔦 {torchOn ? 'Tắt đèn' : 'Bật đèn'}
+                            🔦 {torchOn ? 'Tắt flash' : 'Bật flash'}
                         </button>
                     )}
                     <div className="qr-scan-counter">
-                        Đã quét Có mặt: <strong>{scannedIds.size} / {roomStudents.length}</strong> em
+                        Đã có mặt: <strong>{scannedIds.size} / {roomStudents.length}</strong>
                     </div>
                     <button className="btn btn-secondary btn-sm" onClick={onClose}>
-                        Hoàn tất quét
+                        Xong
                     </button>
                 </div>
             </div>
