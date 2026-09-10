@@ -4,6 +4,10 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/api/:path*/",
+      "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/api/:path*/"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/api/:path*"
     },
