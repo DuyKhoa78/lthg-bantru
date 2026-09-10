@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // ─── Base URL ─────────────────────────────────────────────────────────────────
-const BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:4000');
+// Dùng relative URL '' để mọi request /api đi qua Vite proxy (cả localhost & điện thoại qua LAN/tunnel)
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: BASE_URL,

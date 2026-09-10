@@ -266,6 +266,8 @@
   overflow: hidden;
   box-sizing: border-box;
   font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-h-head {
@@ -278,6 +280,7 @@
   gap: 8px;
   position: relative;
   border-bottom: 2.5px solid var(--gold-accent, #38bdf8);
+  flex-shrink: 0;
 }
 .head-logo-img {
   height: 38px;
@@ -290,32 +293,39 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  gap: 4.5px;
 }
 .title-sub {
-  font-size: 7.2px;
+  font-size: 7.3px;
   font-weight: 700;
   color: #cbd5e1;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1.2;
 }
 .title-school {
   font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 9.8px;
+  font-size: 10px;
   font-weight: 900;
   color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  line-height: 1.2;
 }
 .year-tag {
-  font-size: 6.8px;
-  font-weight: 800;
-  background: rgba(0, 0, 0, 0.3);
-  border: 0.8px solid var(--gold-accent, #38bdf8);
+  font-size: 8.5px;
+  font-weight: 900;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--gold-accent, #38bdf8);
   color: var(--gold-text, #bae6fd);
-  padding: 2px 5px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 5px;
   white-space: nowrap;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Watermark */
@@ -342,26 +352,35 @@
 /* Main title */
 .card-main-title {
   font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 900;
   color: var(--primary-blue, #1e3a8a);
   text-transform: uppercase;
   letter-spacing: 2px;
   text-align: center;
-  padding: 9px 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding-top: 8px;
+  box-sizing: border-box;
+  line-height: 1;
+  margin: 0;
+  flex-shrink: 0;
   position: relative;
   z-index: 1;
 }
 
 /* Content */
 .card-h-content {
+  flex: 1;
   display: flex;
   padding: 0 10px 8px 10px;
   gap: 10px;
-  height: 154px;
   align-items: center;
   position: relative;
   z-index: 1;
+  min-height: 0;
 }
 .avatar-frame {
   width: 82px;
@@ -384,12 +403,12 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  gap: 6px;
   min-width: 0;
 }
 .student-name-block {
   border-bottom: 1px dashed #cbd5e1;
-  margin-top: -4px;
+  margin-top: -3px;
   margin-bottom: 2px;
   padding-bottom: 4px;
   display: flex;
@@ -425,13 +444,14 @@
 }
 .meta-row-clean {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
-  font-size: 9.2px;
+  font-size: 9.5px;
 }
 .meta-lbl {
   color: #64748b;
   font-weight: 600;
+  font-size: 9.5px;
 }
 .meta-val {
   color: #1e293b;
@@ -440,16 +460,34 @@
 .meta-val.blue {
   color: var(--primary-blue, #1e3a8a);
 }
+.meta-val-lop {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--primary-blue, #1e3a8a);
+  line-height: 1;
+}
 .meta-sep {
   color: #cbd5e1;
-  margin: 0 2px;
+  margin: 0 3px;
+  font-size: 9px;
+  align-self: center;
+}
+.meta-row-id {
+  margin-top: 2px;
+}
+.meta-lbl-id {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
 }
 .meta-id-highlight {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 900;
   color: #ef4444;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  line-height: 1;
 }
 
 .room-badges-compact {

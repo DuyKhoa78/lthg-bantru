@@ -114,22 +114,17 @@ function CardFront({ student, namHoc }) {
             </div>
           </div>
 
-          <div className="meta-row-clean">
+          <div className="meta-row-clean meta-row-lop">
             <span className="meta-lbl">Lớp:</span>
-            <span className="meta-val blue">{student.lop}</span>
+            <span className="meta-val-lop">{student.lop}</span>
             <span className="meta-sep">•</span>
             <span className="meta-lbl">Giới tính:</span>
             <span className="meta-val">{student.gt === 0 ? 'Nam' : 'Nữ'}</span>
           </div>
 
-          <div className="meta-row-clean">
-            <span className="meta-lbl">Mã số:</span>
+          <div className="meta-row-clean meta-row-id">
+            <span className="meta-lbl meta-lbl-id">Mã số:</span>
             <span className="meta-id-highlight">{cardId}</span>
-          </div>
-
-          <div className="room-badges-compact">
-            <span className="room-tag-sm pill-orange"><i className="fas fa-utensils"></i> Ăn: <b>{student.an || 'Chưa xếp'}</b></span>
-            <span className="room-tag-sm pill-green"><i className="fas fa-bed"></i> Ngủ: <b>{student.ngu || 'Chưa xếp'}</b></span>
           </div>
         </div>
 
@@ -156,11 +151,10 @@ function CardBack({ student }) {
         <i className="fas fa-shield-alt"></i> QUY ĐỊNH SỬ DỤNG THẺ BÁN TRÚ
       </div>
       <ol className="rules-list">
-        <li>Thẻ được cấp cho học sinh tham gia bán trú tại Trường và có giá trị đến khi học sinh hoàn thành năm học.</li>
+        <li>Thẻ được cấp một lần cho học sinh tham gia bán trú tại Trường và có giá trị đến khi học sinh hoàn thành năm học.</li>
         <li>Học sinh phải luôn đeo thẻ khi ở khu vực phòng ăn và phòng ngủ bán trú.</li>
-        <li>Học sinh phải bảo quản, giữ gìn thẻ trong suốt thời gian sử dụng. Trường hợp mất thẻ hoặc thẻ hư hỏng phải báo ngay cho Cô Châu y tế.</li>
+        <li>Học sinh phải bảo quản, giữ gìn thẻ trong suốt thời gian sử dụng.</li>
         <li>Không cho mượn hoặc sử dụng thẻ của người khác.</li>
-        <li>Không tự ý tẩy xóa, chỉnh sửa thông tin hoặc làm thay đổi hình dạng của thẻ.</li>
         <li>Thẻ chỉ có giá trị sử dụng trong phạm vi hoạt động bán trú của nhà trường.</li>
       </ol>
     </div>
@@ -200,7 +194,10 @@ export default function InTheBanTru() {
   const [individualSearch, setIndividualSearch]   = useState('');
   const [individualLopFilter, setIndividualLopFilter] = useState('all');
 
-  // Tải danh sách học sinh từ backend
+  // Ref lưu id học sinh từ URL lúc mở trang (tránh re-trigger effect khi searchParams thay đổi)
+  const initialQueryIdRef = useRef(searchParams.get('id') || searchParams.get('hs'));
+
+  // Tải danh sách học sinh từ backend khi mount
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
@@ -215,7 +212,7 @@ export default function InTheBanTru() {
           setNamHoc(res.data.nam_hoc || '2026-2027');
 
           // Nếu có param id từ URL, chọn học sinh đó
-          const queryId = searchParams.get('id') || searchParams.get('hs');
+          const queryId = initialQueryIdRef.current;
           if (queryId) {
             const found = sortedList.find(s => s.id === queryId || String(s.raw_id) === queryId);
             if (found) {
@@ -237,24 +234,27 @@ export default function InTheBanTru() {
   // Danh sách học sinh theo lớp đã chọn (Tab In theo lớp) - Luôn sort mã bán trú tăng dần
   const classStudents = useMemo(() => {
     if (!students || students.length === 0) return [];
-    let list = students;
-    if (selectedLop === 'all') list = students;
-    else if (selectedLop === 'khoi_10') list = students.filter(s => s.lop.startsWith('10'));
-    else if (selectedLop === 'khoi_11') list = students.filter(s => s.lop.startsWith('11'));
-    else if (selectedLop === 'khoi_12') list = students.filter(s => s.lop.startsWith('12'));
-    else list = students.filter(s => s.lop === selectedLop);
-    return [...list].sort((a, b) => Number(a.raw_id ?? a.id) - Number(b.raw_id ?? b.id));
+    let filteredStudents;
+    if (selectedLop === 'all') {
+      filteredStudents = students;
+    } else if (selectedLop.startsWith('khoi_')) {
+      const prefix = selectedLop.replace('khoi_', '');
+      filteredStudents = students.filter(s => s.lop?.startsWith(prefix));
+    } else {
+      filteredStudents = students.filter(s => s.lop === selectedLop);
+    }
+    return [...filteredStudents].sort((a, b) => Number(a.raw_id ?? a.id) - Number(b.raw_id ?? b.id));
   }, [students, selectedLop]);
 
   // Danh sách học sinh lọc tìm kiếm (Tab In cá nhân) - Luôn sort mã bán trú tăng dần
   const filteredIndividualStudents = useMemo(() => {
-    let list = students;
+    let result = students;
     if (individualLopFilter !== 'all') {
-      list = list.filter(s => s.lop === individualLopFilter);
+      result = result.filter(s => s.lop === individualLopFilter);
     }
     if (individualSearch.trim()) {
       const q = removeAccents(individualSearch.trim().toLowerCase());
-      list = list.filter(s => {
+      result = result.filter(s => {
         const nameNoTone = removeAccents((s.name || '').toLowerCase());
         const idStr = String(s.id || '').toLowerCase();
         const rawIdStr = String(s.raw_id || '').toLowerCase();
@@ -262,7 +262,7 @@ export default function InTheBanTru() {
         return nameNoTone.includes(q) || idStr.includes(q) || rawIdStr.includes(q) || lopStr.includes(q);
       });
     }
-    return [...list].sort((a, b) => Number(a.raw_id ?? a.id) - Number(b.raw_id ?? b.id));
+    return [...result].sort((a, b) => Number(a.raw_id ?? a.id) - Number(b.raw_id ?? b.id));
   }, [students, individualLopFilter, individualSearch]);
 
   // Học sinh đang được chọn (Tab In cá nhân)
@@ -276,10 +276,10 @@ export default function InTheBanTru() {
 
   // Chia nhóm 8 thẻ / tờ A4
   const sheetChunks = useMemo(() => {
-    const list = activeTab === 'canhan' ? (currentIndividualStudent ? [currentIndividualStudent] : []) : classStudents;
+    const targetStudents = activeTab === 'canhan' ? (currentIndividualStudent ? [currentIndividualStudent] : []) : classStudents;
     const chunks = [];
-    for (let i = 0; i < list.length; i += 8) {
-      chunks.push(list.slice(i, i + 8));
+    for (let i = 0; i < targetStudents.length; i += 8) {
+      chunks.push(targetStudents.slice(i, i + 8));
     }
     return chunks;
   }, [activeTab, currentIndividualStudent, classStudents]);

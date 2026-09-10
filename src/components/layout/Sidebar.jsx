@@ -6,15 +6,16 @@ const menuItems = [
   { to: '/', icon: 'fas fa-th-large', label: 'Dashboard', roles: 'all' },
 
   // ─── Điểm danh ───
-  { label: 'ĐIỂM DANH', type: 'label', permission: 'can_diem_danh' },
-  { to: '/diemdanh-an',  icon: 'fas fa-utensils', label: 'Điểm danh ăn',  permission: 'can_diem_danh' },
-  { to: '/diemdanh-ngu', icon: 'fas fa-bed',      label: 'Điểm danh ngủ', permission: 'can_diem_danh' },
+  { label: 'ĐIỂM DANH', type: 'label', customRoleCheck: (u) => u.can_diem_danh || u.is_quan_ly },
+  { to: '/diemdanh-an',    icon: 'fas fa-utensils', label: 'Điểm danh ăn',            permission: 'can_diem_danh' },
+  { to: '/diemdanh-ngu',   icon: 'fas fa-bed',      label: 'Điểm danh ngủ',           permission: 'can_diem_danh' },
+  { to: '/giam-sat-chot',  icon: 'fas fa-tasks',    label: 'Thống kê điểm danh',      customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_quan_ly || u.is_hoc_vu },
 
   // ─── Lịch trực & Báo cáo ───
   { label: 'LỊCH TRỰC & BÁO CÁO', type: 'label', roles: 'authenticated' },
   { to: '/lich-truc',     icon: 'fas fa-calendar-alt',    label: 'Lịch trực GV',         roles: 'authenticated' },
-  { to: '/bao-cao-truc',  icon: 'fas fa-clipboard-check', label: 'Báo cáo trực GV',      roles: 'authenticated' },
-  { to: '/bao-cao',       icon: 'fas fa-chart-bar',       label: 'Thống kê & Báo cáo',   roles: 'authenticated' },
+  { to: '/bao-cao-truc',  icon: 'fab fa-google',          label: 'Báo cáo Google Form',  customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_quan_ly || u.position?.toLowerCase().includes('giám đốc') },
+  { to: '/bao-cao',       icon: 'fas fa-chart-bar',       label: 'Thống kê & Báo cáo',   customRoleCheck: (u) => !u.is_giao_vien && u.role !== 'giao_vien' && (u.is_admin || u.is_superuser || u.is_quan_ly || u.is_ke_toan || u.is_hoc_vu) },
 
   // ─── Quản lý danh mục (Admin + Quản lý + Kế toán xem) ───
   { label: 'QUẢN LÝ DANH MỤC', type: 'label', customRoleCheck: (u) => u.can_quan_ly_danh_muc || u.is_ke_toan },

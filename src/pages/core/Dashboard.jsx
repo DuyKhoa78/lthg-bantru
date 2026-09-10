@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+import GvDashboard from './GvDashboard';
 import './Dashboard.css';
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -67,6 +69,7 @@ function GradeCard({ khoi, info }) {
 
 /* ── Main Component ──────────────────────────────────── */
 export default function Dashboard() {
+    const { user } = useAuth();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -111,6 +114,10 @@ export default function Dashboard() {
     }, []);
 
     const stat = data?.stat || {};
+
+    if (user?.role === 'giao_vien') {
+        return <GvDashboard />;
+    }
 
     /* ── Loading ── */
     if (loading) return (

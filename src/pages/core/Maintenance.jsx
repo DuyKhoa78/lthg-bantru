@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
@@ -12,7 +12,7 @@ export default function Maintenance({ status, onRetry }) {
     nam_hoc: '2026-2027',
   });
 
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     setChecking(true);
     try {
       const res = await api.get('/api/public/system-status/');
@@ -29,13 +29,13 @@ export default function Maintenance({ status, onRetry }) {
     } finally {
       setTimeout(() => setChecking(false), 500);
     }
-  };
+  }, [onRetry]);
 
   useEffect(() => {
     // Tự động kiểm tra trạng thái mỗi 30 giây
     const timer = setInterval(checkStatus, 30000);
     return () => clearInterval(timer);
-  }, []);
+  }, [checkStatus]);
 
   return (
     <div style={{

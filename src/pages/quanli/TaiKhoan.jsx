@@ -9,15 +9,16 @@ import '../../styles/admin.css';
 import './TaiKhoan.css';
 
 const ROLES = [
-  { value: 'admin',   label: 'Quản trị viên', badge: 'badge-danger',  icon: 'fa-shield-alt' },
-  { value: 'quan_ly', label: 'Quản lý',        badge: 'badge-warning', icon: 'fa-user-tie' },
-  { value: 'hoc_vu',  label: 'Học vụ',         badge: 'badge-info',   icon: 'fa-chalkboard-teacher' },
-  { value: 'ke_toan', label: 'Kế toán',        badge: 'badge-success', icon: 'fa-calculator' },
+  { value: 'admin',     label: 'Quản trị viên', badge: 'badge-danger',  icon: 'fa-shield-alt' },
+  { value: 'quan_ly',   label: 'Quản lý',        badge: 'badge-warning', icon: 'fa-user-tie' },
+  { value: 'hoc_vu',    label: 'Học vụ',         badge: 'badge-info',    icon: 'fa-user-clock' },
+  { value: 'giao_vien', label: 'Giáo viên',      badge: 'badge-purple',  icon: 'fa-chalkboard-teacher' },
+  { value: 'ke_toan',   label: 'Kế toán',        badge: 'badge-success', icon: 'fa-calculator' },
 ];
 
 const ROLE_MAP = Object.fromEntries(ROLES.map(r => [r.value, r]));
 
-const EMPTY_FORM = { username: '', fullname: '', position: '', role: 'hoc_vu', is_active: true, password: '' };
+const EMPTY_FORM = { username: '', fullname: '', position: '', role: 'giao_vien', is_active: true, password: '', giao_vien_id: null };
 
 function RoleBadge({ role }) {
   const r = ROLE_MAP[role];
@@ -50,6 +51,7 @@ export default function TaiKhoan() {
   const [confirmDel, setConfirmDel] = useState(null); // { id, name }
   const [resetPw, setResetPw]     = useState('');
   const [showResetPw, setShowResetPw] = useState(false);
+  const [gvList, setGvList]           = useState([]);
 
   const isAdmin = currentUser?.is_admin || currentUser?.is_superuser;
 
@@ -64,6 +66,9 @@ export default function TaiKhoan() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
+    api.get('/api/giaovien/?limit=500')
+      .then(res => { if (res.data?.ok) setGvList(res.data.giaovien || []); })
+      .catch(console.error);
   }, []);
 
   const filtered = useMemo(() => {
@@ -92,12 +97,6 @@ export default function TaiKhoan() {
     return result;
   }, [data, search, filterRole, filterStatus]);
 
-  const stats = {
-    total:  data.length,
-    active: data.filter(u => u.is_active).length,
-    byRole: Object.fromEntries(ROLES.map(r => [r.value, data.filter(u => u.role === r.value).length])),
-  };
-
   const isSuperUser = Boolean(currentUser?.is_superuser);
 
   // ── Mở modal ──────────────────────────────────────────────────────
@@ -106,7 +105,15 @@ export default function TaiKhoan() {
     if (u.is_superuser && !isSuperUser) {
       return showAlert('Bạn không có quyền chỉnh sửa tài khoản Super Admin!', 'warning');
     }
-    setForm({ username: u.username, fullname: u.fullname || '', position: u.position || '', role: u.role, is_active: u.is_active, password: '' });
+    setForm({
+      username: u.username,
+      fullname: u.fullname || '',
+      position: u.position || '',
+      role: u.role,
+      is_active: u.is_active,
+      password: '',
+      giao_vien_id: u.giao_vien_id || null,
+    });
     setModal({ edit: u });
   };
   const openReset = (u) => {
@@ -130,6 +137,7 @@ export default function TaiKhoan() {
       const payload = { ...form };
       if (modal !== 'add') delete payload.password;
       if (modal !== 'add') payload.id = modal.edit.id;
+      if (payload.role !== 'giao_vien') payload.giao_vien_id = null;
 
       await api.post('/api/taikhoan/save/', payload);
       setModal(null);
@@ -221,24 +229,6 @@ export default function TaiKhoan() {
         </div>
       </div>
 
-      {/* ── Stat cards ── */}
-      <div className="stat-cards-row">
-        <div className="stat-card blue">
-          <div className="stat-card-icon"><i className="fas fa-users"></i></div>
-          <div className="stat-card-info"><p>Tổng tài khoản</p><h3>{stats.total}</h3></div>
-        </div>
-        <div className="stat-card green">
-          <div className="stat-card-icon"><i className="fas fa-user-check"></i></div>
-          <div className="stat-card-info"><p>Đang hoạt động</p><h3>{stats.active}</h3></div>
-        </div>
-        {ROLES.map(r => (
-          <div key={r.value} className="stat-card purple">
-            <div className="stat-card-icon"><i className={`fas ${r.icon}`}></i></div>
-            <div className="stat-card-info"><p>{r.label}</p><h3>{stats.byRole[r.value] || 0}</h3></div>
-          </div>
-        ))}
-      </div>
-
       {/* ── Filter bar ── */}
       <div className="filter-bar">
         <label><i className="fas fa-filter"></i></label>
@@ -290,6 +280,11 @@ export default function TaiKhoan() {
 
               <div className="tk-card-role">
                 <RoleBadge role={u.role} />
+                {u.giao_vien?.ho_ten && (
+                  <span className="badge badge-gray" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Hồ sơ giáo viên liên kết">
+                    <i className="fas fa-link" style={{ color: '#009CFF' }}></i> {u.giao_vien.ho_ten}
+                  </span>
+                )}
                 {u.email && <span className="tk-email"><i className="fas fa-envelope"></i> {u.email}</span>}
               </div>
 
@@ -402,6 +397,39 @@ export default function TaiKhoan() {
                   {modal?.edit?.is_superuser && <small style={{ color: '#94a3b8' }}>Super Admin luôn có vai trò Quản trị viên</small>}
                 </div>
               </div>
+
+              {form.role === 'giao_vien' && (
+                <div className="form-group" style={{ marginBottom: 14 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="fas fa-chalkboard-teacher" style={{ color: '#8b5cf6' }}></i>
+                    Hồ sơ Giáo viên liên kết
+                  </label>
+                  <select
+                    className="form-control"
+                    value={form.giao_vien_id || ''}
+                    onChange={e => {
+                      const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                      const gv = gvList.find(x => x.id === val);
+                      setForm(prev => ({
+                        ...prev,
+                        giao_vien_id: val,
+                        fullname: prev.fullname || gv?.ho_ten || '',
+                        position: prev.position || 'Giáo viên',
+                      }));
+                    }}
+                  >
+                    <option value="">-- Chọn giáo viên từ danh mục (tuỳ chọn) --</option>
+                    {gvList.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.ho_ten} {g.to_bo_mon ? `(${g.to_bo_mon})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <small style={{ color: '#64748b', marginTop: 4, display: 'block', fontSize: '0.8rem' }}>
+                    Tài khoản giáo viên cần liên kết với hồ sơ GV để tự động đồng bộ ca trực và điểm danh đúng phòng được phân công.
+                  </small>
+                </div>
+              )}
 
               {modal === 'add' && (
                 <div className="form-group">

@@ -300,14 +300,14 @@ export default function BaoCao() {
 
                     const noteParts = [];
                     if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        const [, vm, vd] = s.ngay_vao.split('-');
                         noteParts.push(`Vào ${vd}/${vm}`);
                     }
                     if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     } else if (s.ngay_rut) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     }
                     const noteStr = noteParts.join(', ');
@@ -457,14 +457,14 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 
                     const noteParts = [];
                     if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        const [, vm, vd] = s.ngay_vao.split('-');
                         noteParts.push(`Vào ${vd}/${vm}`);
                     }
                     if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     } else if (s.ngay_rut) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     }
                     const noteStr = noteParts.join(', ');
@@ -563,14 +563,14 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 
                     const noteParts = [];
                     if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        const [, vm, vd] = s.ngay_vao.split('-');
                         noteParts.push(`Vào ${vd}/${vm}`);
                     }
                     if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     } else if (s.ngay_rut) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     }
                     const noteStr = noteParts.join(', ');
@@ -721,14 +721,14 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 
                     const noteParts = [];
                     if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        const [, vm, vd] = s.ngay_vao.split('-');
                         noteParts.push(`Vào ${vd}/${vm}`);
                     }
                     if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     } else if (s.ngay_rut) {
-                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        const [, rm, rd] = s.ngay_rut.split('-');
                         noteParts.push(`Rút ${rd}/${rm}`);
                     }
                     const noteStr = noteParts.join(', ');
@@ -1532,6 +1532,17 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'GV');
         XLSX.writeFile(wb, `baocao-gv-${tuNgayGV}-to-${denNgayGV}.xlsx`);
     };
+
+    if (user?.role === 'giao_vien' || user?.is_giao_vien) {
+        return (
+            <div style={{ padding: '60px', textAlign: 'center' }}>
+                <i className="fas fa-lock" style={{ fontSize: '3rem', color: '#ef4444', marginBottom: 16, display: 'block' }}></i>
+                <h2 style={{ color: '#1a202c', marginBottom: 8 }}>Không có quyền truy cập</h2>
+                <p style={{ color: '#64748b' }}>Giáo viên trực không có quyền xem thống kê & báo cáo.</p>
+                <Link to="/" className="btn btn-primary" style={{ marginTop: 16 }}>Về Dashboard</Link>
+            </div>
+        );
+    }
 
     return (
         <>

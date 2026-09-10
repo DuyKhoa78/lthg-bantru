@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Navigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert';
@@ -1240,6 +1241,12 @@ function tuDongTaoFormBaoCao() {
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2500);
   };
+
+  // Chỉ Admin và Giám đốc (quản lý) mới được xem Báo cáo Google Form
+  const isAllowedUser = user && (user.is_admin || user.is_superuser || user.is_quan_ly || user.position?.toLowerCase().includes('giám đốc'));
+  if (user && !isAllowedUser) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="bctruc-container">

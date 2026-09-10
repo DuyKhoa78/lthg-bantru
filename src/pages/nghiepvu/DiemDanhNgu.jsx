@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import { removeAccents, formatLopList } from '../../utils/stringUtils';
 import BaoPhepModal from '../../components/BaoPhepModal';
+import QRScannerModal from '../../components/QRScannerModal';
 import '../../styles/admin.css';
 import './DiemDanh.css';
 
@@ -18,13 +19,15 @@ const STATUS_MAP = {
 const INV_STATUS_MAP = {
     'comat': 0,
     'vang': 1,
-    'phep': 2
+    'phep': 2,
+    'chua_diem_danh': 1,
 };
 
 const STATUS = {
     comat: { label: 'Có mặt', bg: '#f0fdf4', border: '#bbf7d0', dot: '#22c55e' },
     vang: { label: 'Vắng', bg: '#fef2f2', border: '#fecaca', dot: '#ef4444' },
     phep: { label: 'Có phép', bg: '#fffbeb', border: '#fde68a', dot: '#f59e0b' },
+    chua_diem_danh: { label: 'Chưa quét', bg: '#f8fafc', border: '#e2e8f0', dot: '#94a3b8' },
 };
 // Chuyển YYYY-MM-DD → DD/MM/YYYY
 const fmtDate = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
@@ -41,6 +44,8 @@ const shiftDate = (baseIso, days) => {
 
 export default function DiemDanhNgu() {
     const { user } = useAuth();
+    const isGiaoVien = user?.role === 'giao_vien';
+
     // Lấy ngày hôm nay theo giờ máy (máy đặt đúng múi giờ Việt Nam)
     const todayVN = () => {
         const d = new Date();
@@ -49,13 +54,41 @@ export default function DiemDanhNgu() {
     const { showAlert, AlertUI } = useAlert();
     const [date, setDate] = useState(todayVN);
 
-    // Kiểm tra khung giờ điểm danh: Admin bất kỳ lúc nào, Học vụ từ 11h00 đến 14h00
+    // Live clock cho ca trực
+    const [currentTime, setCurrentTime] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Khung giờ trực ca ngủ: 11h30 (690) -> 12h00 (720)
+    const shiftTiming = useMemo(() => {
+        const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
+        const start = 690;
+        const end = 720;
+        let state;
+        let remainingMins = 0;
+        if (mins < start) {
+            state = 'sap_den';
+        } else if (mins <= end) {
+            state = 'dang_dien_ra';
+            remainingMins = end - mins;
+        } else {
+            state = 'da_qua_gio';
+        }
+        return { state, remainingMins, startLabel: '11:30', endLabel: '12:00' };
+    }, [currentTime]);
+
+    // Kiểm tra khung giờ điểm danh
     const isAllowedTime = useCallback(() => {
         if (user?.is_admin || user?.is_superuser) return true;
-        const now = new Date();
-        const mins = now.getHours() * 60 + now.getMinutes();
-        return mins >= 660 && mins <= 840; // 11:00 (660) -> 14:00 (840)
-    }, [user]);
+        const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
+        if (isGiaoVien) {
+            return mins >= 690 && mins <= 720; // 11:30 - 12:00
+        }
+        return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
+    }, [user, isGiaoVien, currentTime]);
+
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
     const [diemDanhDb, setDiemDanhDb] = useState({}); // { [hsId]: 0|1|2 }
@@ -70,8 +103,42 @@ export default function DiemDanhNgu() {
     const [cauhinhNgay, setCauhinhNgay] = useState(null); // cấu hình ngày đặc biệt
     const [extraHsList, setExtraHsList] = useState([]); // HS thêm tay với phòng override
 
+    // QR & Data Resilience States
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [showChotConfirmModal, setShowChotConfirmModal] = useState(false);
+    const [chotting, setChotting] = useState(false);
+    const [draftRestoredMsg, setDraftRestoredMsg] = useState(null);
+    const [lastLocalSaveTime, setLastLocalSaveTime] = useState(null);
+    const [lastSyncedTime, setLastSyncedTime] = useState(null);
+    const [assignedRoomCodes, setAssignedRoomCodes] = useState(null);
+    const [phongStatuses, setPhongStatuses] = useState([]);
+
     const [showActions, setShowActions] = useState(false);
     const [showBaoPhepModal, setShowBaoPhepModal] = useState(false);
+    const [applyingSchedule, setApplyingSchedule] = useState(false);
+
+    const canManageDuty = Boolean(user?.is_admin || user?.is_superuser || user?.is_quan_ly);
+
+    const handleQuickApplySchedule = async () => {
+        setApplyingSchedule(true);
+        try {
+            const res = await api.post('/api/lichtruc/apply-day-bu/', {
+                targetDate: date,
+                sourceThu: 0,
+                force: true,
+            });
+            if (res.data?.ok) {
+                showAlert('Đã nạp lịch trực thành công! Có thể tiến hành điểm danh.', 'success');
+                fetchDiemDanh(date);
+            } else {
+                showAlert(res.data?.error || 'Nạp lịch thất bại', 'danger');
+            }
+        } catch (err) {
+            showAlert(err.response?.data?.error || 'Lỗi khi nạp lịch trực', 'danger');
+        } finally {
+            setApplyingSchedule(false);
+        }
+    };
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -124,6 +191,8 @@ export default function DiemDanhNgu() {
         fetchAbortRef.current = controller;
 
         if (!silent) setLoading(true);
+        setOverrides({});
+        setSaved(false);
         try {
             const res = await api.get(`/api/diemdanh/?ngay=${d}&loai=ngu`, { signal: controller.signal });
             if (res.data?.ok) {
@@ -138,6 +207,8 @@ export default function DiemDanhNgu() {
                 const cfg = res.data.cauhinh_ngay || null;
                 setCauhinhNgay(cfg);
                 setExtraHsList(cfg?.hs_them_vao?.length > 0 ? cfg.hs_them_vao : []);
+                if (res.data.phong_statuses) setPhongStatuses(res.data.phong_statuses);
+                if (res.data.assigned_rooms !== undefined) setAssignedRoomCodes(res.data.assigned_rooms);
             }
         } catch (err) {
             if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') console.error(err);
@@ -147,10 +218,7 @@ export default function DiemDanhNgu() {
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDiemDanh(date);
-        setOverrides({});
-        setSaved(false);
     }, [date, fetchDiemDanh]);
 
     // Helper: kiểm tra HS có được phép tham gia ngày đặc biệt không
@@ -206,24 +274,67 @@ export default function DiemDanhNgu() {
     }, [hsList, extraHsList, phongTamNgu, cauhinhNgay, isHsAllowed, phongList, date]);
 
     const visiblePhongList = useMemo(() => {
-        if (!cauhinhNgay) return phongList;
-        const overrideCodes = extraHsList.filter(x => x.phong_ngu).map(x => x.phong_ngu);
-        const groupCodes = cauhinhNgay.lop_phong_ngu ? Object.values(cauhinhNgay.lop_phong_ngu) : [];
-        const allCodes = [...new Set([phongTamNgu, ...overrideCodes, ...groupCodes])].filter(Boolean);
-        
-        if (allCodes.length > 0) {
-            const result = allCodes.map(code => phongList.find(p => p.ma_phong === code)).filter(Boolean);
-            if (result.length > 0) return result;
+        let list = phongList;
+        if (cauhinhNgay) {
+            const overrideCodes = extraHsList.filter(x => x.phong_ngu).map(x => x.phong_ngu);
+            const groupCodes = cauhinhNgay.lop_phong_ngu ? Object.values(cauhinhNgay.lop_phong_ngu) : [];
+            const allCodes = [...new Set([phongTamNgu, ...overrideCodes, ...groupCodes])].filter(Boolean);
+            
+            if (allCodes.length > 0) {
+                const result = allCodes.map(code => phongList.find(p => p.ma_phong === code)).filter(Boolean);
+                if (result.length > 0) list = result;
+            } else {
+                const filtered = phongList.filter(p => getStudentsForRoom(p.ma_phong).length > 0);
+                list = filtered.length > 0 ? filtered : phongList;
+            }
         }
-        const filtered = phongList.filter(p => getStudentsForRoom(p.ma_phong).length > 0);
-        return filtered.length > 0 ? filtered : phongList;
-    }, [phongList, phongTamNgu, cauhinhNgay, extraHsList, getStudentsForRoom]);
+        // Đối với Giáo viên: Khóa chỉ hiển thị phòng được phân công trực
+        if (isGiaoVien && Array.isArray(assignedRoomCodes)) {
+            list = list.filter(p => assignedRoomCodes.includes(p.ma_phong));
+        }
+        return list;
+    }, [phongList, phongTamNgu, cauhinhNgay, extraHsList, getStudentsForRoom, isGiaoVien, assignedRoomCodes]);
 
-    // Derive selectedPhong từ visiblePhongList và selectedPhongCode (tránh lưu object, lưu code chuỗi thôi)
+    // Derive selectedPhong từ visiblePhongList và selectedPhongCode
     const selectedPhong = useMemo(() => {
         if (visiblePhongList.length === 0) return null;
         return visiblePhongList.find(p => p.ma_phong === selectedPhongCode) || visiblePhongList[0];
     }, [visiblePhongList, selectedPhongCode]);
+
+    // Tự động phục hồi bản nháp (LocalStorage + Server Draft) khi đổi phòng hoặc đổi ngày
+    useEffect(() => {
+        if (!selectedPhong) return;
+        const localKey = `bantru_draft_${date}_ngu_${selectedPhong.ma_phong}`;
+        let localItems = [];
+        try {
+            const cached = localStorage.getItem(localKey);
+            if (cached) localItems = JSON.parse(cached);
+        } catch (e) {
+            console.warn('Local storage draft read error:', e);
+        }
+
+        api.get(`/api/diemdanh/draft/?ngay=${date}&loai_truc=1&ma_phong_id=${selectedPhong.ma_phong}`)
+            .then(r => {
+                const serverItems = r.data?.draft?.danh_sach_hs || [];
+                const merged = {};
+                serverItems.forEach(s => { merged[s.id] = s; });
+                localItems.forEach(s => { merged[s.id] = s; }); // local có ưu tiên ghi đè nếu mới hơn
+                const list = Object.values(merged);
+                if (list.length > 0) {
+                    const newOverrides = {};
+                    list.forEach(s => {
+                        if (s.status === 0) newOverrides[s.id] = 'comat';
+                    });
+                    setOverrides(prev => ({ ...prev, ...newOverrides }));
+                    const validScannedCount = list.filter(x => x.status === 0).length;
+                    if (validScannedCount > 0) {
+                        setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp (${validScannedCount} học sinh đã quét)`);
+                        setTimeout(() => setDraftRestoredMsg(null), 3500);
+                    }
+                }
+            })
+            .catch(() => {});
+    }, [selectedPhong, date]);
 
     // Logic hiển thị học sinh theo phòng đang chọn - Luôn sort mã bán trú tăng dần
     const students = useMemo(() => {
@@ -232,9 +343,104 @@ export default function DiemDanhNgu() {
             .sort((a, b) => Number(a.id) - Number(b.id))
             .map(s => ({
                 ...s,
-                trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] != null ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'),
+                trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] != null ? STATUS_MAP[diemDanhDb[s.id]] : (isGiaoVien ? 'chua_diem_danh' : 'comat')),
             }));
-    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom]);
+    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom, isGiaoVien]);
+
+    // Trạng thái chốt phòng hiện tại
+    const currentPhongStatus = useMemo(() => {
+        if (!selectedPhong) return null;
+        return phongStatuses.find(ps => ps.ma_phong_id === selectedPhong.ma_phong);
+    }, [phongStatuses, selectedPhong]);
+
+    const isDaChot = currentPhongStatus?.trang_thai_chot === 'da_chot' || Boolean(currentPhongStatus?.da_diem_danh);
+    const isTuDongChot = currentPhongStatus?.trang_thai_chot === 'tu_dong_chot';
+
+    // Xác nhận học sinh từ camera quét mã QR (Zero data loss)
+    const handleConfirmStudent = (student) => {
+        setOverrides(prev => {
+            const next = { ...prev, [student.id]: 'comat' };
+
+            // Lưu tức thì vào LocalStorage
+            if (selectedPhong) {
+                const localKey = `bantru_draft_${date}_ngu_${selectedPhong.ma_phong}`;
+                const draftList = students.map(s => {
+                    const st = (s.id === student.id) ? 'comat' : (next[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh'));
+                    if (st === 'comat') {
+                        return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'qr' };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+                try {
+                    localStorage.setItem(localKey, JSON.stringify(draftList));
+                    setLastLocalSaveTime(new Date());
+                } catch (err) {
+                    console.warn('LocalStorage save error:', err);
+                }
+
+                // Đồng bộ nền lên server draft
+                api.post('/api/diemdanh/draft-sync/', {
+                    ngay: date,
+                    loai_truc: 1,
+                    ma_phong_id: selectedPhong.ma_phong,
+                    danh_sach_hs: draftList
+                }).then(r => {
+                    if (r.data?.ok) setLastSyncedTime(new Date());
+                }).catch(err => {
+                    console.warn('Draft sync to server error:', err);
+                });
+            }
+
+            return next;
+        });
+    };
+
+    // Chốt dữ liệu phòng lên Tổng
+    const handleChotPhong = async () => {
+        if (!selectedPhong || students.length === 0) return;
+
+        let chuaQuetCount = 0;
+
+        const danhSachHs = [];
+        students.forEach(s => {
+            const st = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : (isGiaoVien ? 'chua_diem_danh' : 'comat'));
+            if (st === 'comat') {
+                danhSachHs.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, phuong_thuc: 'qr' });
+            } else if (st === 'phep') {
+                // Đã báo phép trước bởi Admin
+            } else {
+                chuaQuetCount++;
+                danhSachHs.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1 });
+            }
+        });
+
+        if (chuaQuetCount > 0 && !showChotConfirmModal) {
+            setShowChotConfirmModal(true);
+            return;
+        }
+
+        setChotting(true);
+        try {
+            const res = await api.post('/api/diemdanh/chot-phong/', {
+                ngay: date,
+                loai_truc: 1,
+                ma_phong_id: selectedPhong.ma_phong,
+                danh_sach_hs: danhSachHs,
+                ghi_chu: isDaChot ? 'Giáo viên cập nhật bổ sung' : 'Giáo viên chốt điểm danh thành công lên Tổng'
+            });
+
+            if (res.data?.ok) {
+                showAlert(res.data.message || 'Đã chốt điểm danh phòng lên Tổng thành công!', 'success');
+                setShowChotConfirmModal(false);
+                await fetchDiemDanh(date, true);
+            }
+        } catch (err) {
+            showAlert(err.response?.data?.error || 'Lỗi khi chốt điểm danh lên Tổng', 'danger');
+        } finally {
+            setChotting(false);
+        }
+    };
 
     const otherRoomMatches = useMemo(() => {
         if (!searchTerm || !searchTerm.trim() || searchTerm.trim().length < 2) return [];
@@ -848,48 +1054,56 @@ ${htmlPages}
                     })()}
                 </div>
                 <div className="page-header-actions">
-                    <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={() => setShowBaoPhepModal(true)}
-                        style={{
-                            color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
-                            fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6
-                        }}
-                    >
-                        <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép trước
-                    </button>
-                    <div className="dd-export-btn-group">
-                        <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)}>
-                            <i className="fas fa-print"></i> Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
+                    {!isGiaoVien && (
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setShowBaoPhepModal(true)}
+                            style={{
+                                color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
+                                fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6
+                            }}
+                        >
+                            <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép trước
                         </button>
-                        <div className={`dd-export-menu ${showActions ? 'open' : ''}`} style={{ minWidth: 200 }}>
-                            <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
-                                <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> {cauhinhNgay ? 'In ngày đặc biệt' : 'In danh sách ngày (PDF)'}
+                    )}
+                    {!isGiaoVien && (
+                        <div className="dd-export-btn-group">
+                            <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)}>
+                                <i className="fas fa-print"></i> Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
                             </button>
-                            <button className="dd-export-item" onClick={() => { setShowMonthExportModal(true); setShowActions(false); }}>
-                                <i className="fas fa-file-pdf" style={{ color: '#6c5ce7', width: 20, textAlign: 'center' }}></i> In DS (Tuần)
-                            </button>
+                            <div className={`dd-export-menu ${showActions ? 'open' : ''}`} style={{ minWidth: 200 }}>
+                                <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
+                                    <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> {cauhinhNgay ? 'In ngày đặc biệt' : 'In danh sách ngày (PDF)'}
+                                </button>
+                                <button className="dd-export-item" onClick={() => { setShowMonthExportModal(true); setShowActions(false); }}>
+                                    <i className="fas fa-file-pdf" style={{ color: '#6c5ce7', width: 20, textAlign: 'center' }}></i> In DS (Tuần)
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                     {hasSchedule && (
                         <>
                             {!isAllowedTime() && (
                                 <span style={{ fontSize: '0.78rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '5px 10px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                                    <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ điểm danh của HV: <strong>11h00 – 14h00</strong>
+                                    <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ điểm danh: <strong>{isGiaoVien ? '11h30 – 12h00' : '11h00 – 14h00'}</strong>
                                 </span>
                             )}
-                            <button className="btn btn-ghost btn-sm" onClick={() => setAll('vang')}><i className="fas fa-times"></i> Tất cả Vắng</button>
-                            <button className="btn btn-primary" onClick={handleSave} disabled={!selectedPhong || saving}>
-                                {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
-                            </button>
+                            {!isGiaoVien && (
+                                <button className="btn btn-ghost btn-sm" onClick={() => setAll('vang')}><i className="fas fa-times"></i> Tất cả Vắng</button>
+                            )}
+                            {!isGiaoVien && (
+                                <button className="btn btn-primary" onClick={handleSave} disabled={!selectedPhong || saving}>
+                                    {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                    {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
             </div>
 
-            {hasSchedule && (
+            {!isGiaoVien && hasSchedule && (
                 <div className="stat-cards-row" style={{ marginBottom: 18 }}>
                     <div className="stat-card green"><div className="stat-card-icon"><i className="fas fa-check-circle"></i></div><div className="stat-card-info"><p>Có mặt</p><h3>{counts.comat || 0}</h3></div></div>
                     <div className="stat-card red"><div className="stat-card-icon"><i className="fas fa-times-circle"></i></div><div className="stat-card-info"><p>Vắng</p><h3>{counts.vang || 0}</h3></div></div>
@@ -996,10 +1210,22 @@ ${htmlPages}
                             <p style={{ color: '#64748b' }}>Đang kiểm tra lịch bán trú...</p>
                         </div>
                     ) : !hasSchedule ? (
-                        <div style={{ textAlign: 'center', padding: '100px 20px', background: '#fff', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ fontSize: '4rem', color: '#cbd5e1', marginBottom: 16 }}><i className="fas fa-calendar-times"></i></div>
                             <h3 style={{ color: '#475569', fontSize: '1.4rem', marginBottom: 8 }}>Không có lịch bán trú</h3>
-                            <p style={{ color: '#64748b', fontSize: '1rem' }}>Ngày <b>{fmtDate(date)}</b> không có phân công trực, học sinh nghỉ bán trú.</p>
+                            <p style={{ color: '#64748b', fontSize: '1rem', maxWidth: 460 }}>Ngày <b>{fmtDate(date)}</b> không có phân công trực, học sinh nghỉ bán trú.</p>
+                            {canManageDuty && (
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', fontWeight: 600, borderRadius: 8 }}
+                                    onClick={handleQuickApplySchedule}
+                                    disabled={applyingSchedule}
+                                >
+                                    {applyingSchedule ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-magic"></i>}
+                                    Nạp lịch trực cố định để mở điểm danh ({fmtDate(date)})
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -1014,7 +1240,97 @@ ${htmlPages}
                                         <input type="text" placeholder="Tìm tên học sinh..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                                     </div>
                                 )}
-                            </div>
+                            </div>                            {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
+                            {selectedPhong && isGiaoVien && (
+                                <>
+                                    <div className={`dd-shift-banner ${shiftTiming.state === 'dang_dien_ra' ? 'active' : shiftTiming.state === 'sap_den' ? 'pending' : 'expired'}`}>
+                                        <div>
+                                            <div className="dd-shift-banner-title">
+                                                {shiftTiming.state === 'dang_dien_ra' ? (
+                                                    <span>🟢 CA TRỰC NGỦ ĐANG DIỄN RA ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
+                                                ) : shiftTiming.state === 'sap_den' ? (
+                                                    <span>⏳ CHƯA ĐẾN GIỜ ĐIỂM DANH ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
+                                                ) : (
+                                                    <span>🔒 ĐÃ QUÁ GIỜ ĐIỂM DANH CA NGỦ (Hết hạn lúc {shiftTiming.endLabel})</span>
+                                                )}
+                                            </div>
+                                            <div className="dd-shift-banner-time">
+                                                {shiftTiming.state === 'dang_dien_ra' ? (
+                                                    <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Còn lại <strong>{shiftTiming.remainingMins} phút</strong> trước khi hệ thống chốt lúc 12:00.</span>
+                                                ) : shiftTiming.state === 'sap_den' ? (
+                                                    <span>Hệ thống sẽ mở camera điểm danh lúc 11:30. Vui lòng chuẩn bị.</span>
+                                                ) : (
+                                                    <span>Dữ liệu nháp đã được hệ thống tự động thu hồi và chốt lên Tổng lúc 12:00.</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="dd-persistence-indicator" title={`Dữ liệu lưu an toàn trên máy ${lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN')})` : ''}${lastSyncedTime ? ` • Đã đồng bộ máy chủ (${lastSyncedTime.toLocaleTimeString('vi-VN')})` : ''}`}>
+                                            <i className="fas fa-shield-alt" style={{ color: '#16a34a' }}></i>
+                                            <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}</span>
+                                        </div>
+                                    </div>
+
+                                    {draftRestoredMsg && (
+                                        <div style={{ background: '#eff6ff', border: '1.5px solid #60a5fa', color: '#1d4ed8', padding: '10px 16px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600 }}>
+                                            <i className="fas fa-history" style={{ fontSize: '1.2rem' }}></i>
+                                            <span>{draftRestoredMsg}</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ── NÚT QUÉT QR & CHỐT ĐIỂM DANH LÊN TỔNG ── */}
+                            {selectedPhong && (
+                                <div className="dd-teacher-actions-bar">
+                                    <button
+                                        type="button"
+                                        className="dd-qr-scan-btn"
+                                        style={{ background: 'linear-gradient(135deg,#6c5ce7,#a29bfe)', boxShadow: '0 4px 14px rgba(108,92,231,0.35)' }}
+                                        onClick={() => setShowQRModal(true)}
+                                        disabled={isGiaoVien && (shiftTiming.state === 'da_qua_gio' && !isDaChot)}
+                                    >
+                                        <i className="fas fa-qrcode"></i>
+                                        {isDaChot ? 'Quét bổ sung HS đến muộn' : 'Quét mã QR thẻ học sinh'}
+                                    </button>
+
+                                    {isGiaoVien ? (
+                                        <button
+                                            type="button"
+                                            className="dd-chot-btn"
+                                            onClick={handleChotPhong}
+                                            disabled={chotting || (shiftTiming.state === 'da_qua_gio')}
+                                        >
+                                            {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
+                                            {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh lên Tổng'}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="dd-chot-btn"
+                                            onClick={handleChotPhong}
+                                            disabled={chotting}
+                                        >
+                                            {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
+                                            {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh phòng'}
+                                        </button>
+                                    )}
+
+                                    {isDaChot && (
+                                        <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <i className="fas fa-check-circle"></i>
+                                            ĐÃ CHỐT LÊN TỔNG {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                        </span>
+                                    )}
+
+                                    {isTuDongChot && (
+                                        <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <i className="fas fa-robot"></i>
+                                            TỰ ĐỘNG CHỐT DO QUÁ GIỜ (12:00)
+                                        </span>
+                                    )}
+                                </div>
+                            )}
 
                             {otherRoomMatches.length > 0 && (
                                 <div style={{
@@ -1074,21 +1390,42 @@ ${htmlPages}
                                             return removeAccents(s.ho_ten.toLowerCase()).includes(removeAccents(searchTerm.toLowerCase()));
                                         }).map(s => (
                                             <div key={s.id} className={`dd-student-card status-${s.trang_thai}`}
-                                                style={{ background: STATUS[s.trang_thai].bg, borderColor: STATUS[s.trang_thai].border }}>
+                                                style={{ background: STATUS[s.trang_thai]?.bg || '#fff', borderColor: STATUS[s.trang_thai]?.border || '#e2e8f0' }}>
                                                 <div className="dd-student-info">
                                                     <span className="dd-student-name">{(s.ho_ten || '').normalize('NFC')}</span>
-                                                    <span className="dd-student-class"><b style={{ color: '#6366f1', marginRight: 4 }}>#{s.id}</b> • {s.lop}</span>
+                                                    <span className="dd-student-class"><b style={{ color: '#6c5ce7', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
                                                 </div>
-                                                <div className="dd-status-btns">
-                                                    {Object.entries(STATUS).map(([key, val]) => (
-                                                        <button key={key}
-                                                            className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
-                                                            style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}}
-                                                            onClick={() => changeStatus(s.id, key)} title={val.label}>
-                                                            {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
-                                                        </button>
-                                                    ))}
-                                                </div>
+
+                                                {/* Đối với Giáo viên: BẮT BUỘC QUÉT QR, không bấm thủ công để tránh HS quên thẻ */}
+                                                {isGiaoVien ? (
+                                                    <div className="dd-status-display">
+                                                        {s.trang_thai === 'comat' ? (
+                                                            <span className="dd-student-status-badge comat">
+                                                                <i className="fas fa-check-circle"></i> Có mặt (Đã quét)
+                                                            </span>
+                                                        ) : s.trang_thai === 'phep' ? (
+                                                            <span className="dd-student-status-badge phep" title="Phép do Ban quản lý/Admin duyệt">
+                                                                <i className="fas fa-file-alt"></i> Phép (Admin cấp)
+                                                            </span>
+                                                        ) : (
+                                                            <span className="dd-student-status-badge chua-quet">
+                                                                <i className="fas fa-qrcode"></i> Chưa quét thẻ
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    /* Đối với Admin / Học vụ: Giữ nguyên 3 nút chỉnh sửa linh hoạt */
+                                                    <div className="dd-status-btns">
+                                                        {Object.entries(STATUS).filter(([k]) => k !== 'chua_diem_danh').map(([key, val]) => (
+                                                            <button key={key}
+                                                                className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
+                                                                style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}}
+                                                                onClick={() => changeStatus(s.id, key)} title={val.label}>
+                                                                {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1097,16 +1434,24 @@ ${htmlPages}
                             {selectedPhong && !loading && students.length > 0 && (
                                 <>
                                     <div className="dd-summary">
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-comat"></span> Có mặt: <strong>{counts.comat || 0}</strong></span>
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-vang"></span> Vắng: <strong>{counts.vang || 0}</strong></span>
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-phep"></span> Phép: <strong>{counts.phep || 0}</strong></span>
+                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-comat"></span> Đã quét Có mặt: <strong>{counts.comat || 0}</strong></span>
+                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-phep"></span> Phép (Admin duyệt): <strong>{counts.phep || 0}</strong></span>
+                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-vang"></span> Chưa quét (Sẽ tính Vắng): <strong>{(students.length - (counts.comat || 0) - (counts.phep || 0))}</strong></span>
                                     </div>
                                     <div className="dd-footer">
-                                        <div className="dd-footer-note"><i className="fas fa-info-circle"></i> Trạng thái mặc định: <strong>Có mặt</strong>. Nhấn nút để thay đổi.</div>
-                                        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                            {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
-                                        </button>
+                                        <div className="dd-footer-note">
+                                            {isGiaoVien ? (
+                                                <span><i className="fas fa-shield-alt"></i> Giáo viên điểm danh bằng quét mã QR thẻ học sinh. Bấm <strong>Chốt điểm danh</strong> trước 12:00 để gửi lên Tổng.</span>
+                                            ) : (
+                                                <span><i className="fas fa-info-circle"></i> Trạng thái mặc định: <strong>Có mặt</strong>. Nhấn nút để thay đổi.</span>
+                                            )}
+                                        </div>
+                                        {!isGiaoVien && (
+                                            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                                                {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                                {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
+                                            </button>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -1229,6 +1574,73 @@ ${htmlPages}
                 students={hsList}
                 onSuccess={() => fetchDiemDanh(date, true)}
             />
+
+            {/* Modal Quét mã QR */}
+            <QRScannerModal
+                isOpen={showQRModal}
+                onClose={() => setShowQRModal(false)}
+                expectedRoomStudents={students}
+                allStudents={hsList}
+                currentRoomName={selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : ''}
+                onConfirmStudent={handleConfirmStudent}
+                scannedIds={new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id))}
+            />
+
+            {/* Modal Xác nhận Chốt điểm danh lên Tổng khi còn học sinh chưa quét */}
+            {showChotConfirmModal && (
+                <div className="dd-modal-backdrop">
+                    <div className="dd-confirm-modal">
+                        <div className="dd-modal-title">
+                            <i className="fas fa-exclamation-triangle" style={{ color: '#f59e0b' }}></i>
+                            <span>Xác nhận chốt điểm danh ca ngủ</span>
+                        </div>
+                        <div className="dd-modal-body">
+                            <p>
+                                Phòng ngủ <strong>{selectedPhong?.ma_phong}</strong> có <strong>{students.length} học sinh</strong>. Dữ liệu hiện tại:
+                            </p>
+                            <div className="dd-modal-stats-list">
+                                <div className="dd-modal-stats-item">
+                                    <span>✓ Đã quét Có mặt:</span>
+                                    <strong style={{ color: '#16a34a' }}>{students.filter(s => s.trang_thai === 'comat').length} em</strong>
+                                </div>
+                                <div className="dd-modal-stats-item">
+                                    <span>🏷️ Nghỉ có phép (Admin duyệt):</span>
+                                    <strong style={{ color: '#d97706' }}>{students.filter(s => s.trang_thai === 'phep').length} em</strong>
+                                </div>
+                                <div className="dd-modal-stats-item">
+                                    <span>⏳ CHƯA QUÉT THẺ:</span>
+                                    <strong style={{ color: '#dc2626' }}>
+                                        {students.length - students.filter(s => s.trang_thai === 'comat').length - students.filter(s => s.trang_thai === 'phep').length} em
+                                    </strong>
+                                </div>
+                            </div>
+                            <p style={{ color: '#b91c1c', fontSize: '0.88rem', fontWeight: 600 }}>
+                                ⚠️ CẢNH BÁO: Tất cả các học sinh CHƯA QUÉT THẺ sẽ được hệ thống ghi nhận là VẮNG MẶT khi chốt lên Tổng!
+                            </p>
+                            <p style={{ fontSize: '0.88rem' }}>
+                                Thầy/Cô có muốn tiếp tục gửi chốt lên Tổng ngay bây giờ không?
+                            </p>
+                        </div>
+                        <div className="dd-modal-actions">
+                            <button
+                                className="btn btn-outline-secondary"
+                                onClick={() => setShowChotConfirmModal(false)}
+                                disabled={chotting}
+                            >
+                                Quay lại quét thẻ
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={handleChotPhong}
+                                disabled={chotting}
+                            >
+                                {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-check"></i>}
+                                Đồng ý chốt lên Tổng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {AlertUI}
         </>
