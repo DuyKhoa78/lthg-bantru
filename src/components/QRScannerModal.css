@@ -1,484 +1,403 @@
-/* QR Scanner Modal Stylesheet */
+/* Zalo-style Immersive QR Scanner CSS */
 
-.qr-modal-overlay {
+.zalo-scanner-fullscreen {
     position: fixed;
     inset: 0;
-    z-index: 9999;
-    background: rgba(15, 23, 42, 0.92);
-    backdrop-filter: blur(8px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 12px;
-}
-
-.qr-modal-container {
-    width: 100%;
-    max-width: 500px;
-    height: 90vh;
-    max-height: 720px;
-    background: #0f172a;
-    border-radius: 20px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    z-index: 10000;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: relative;
-}
-
-/* Header */
-.qr-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 18px;
-    background: #1e293b;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    color: #fff;
-}
-
-.qr-header-info h3 {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #f8fafc;
-}
-
-.qr-room-badge {
-    display: inline-block;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    background: #0284c7;
-    color: #fff;
-    border-radius: 9999px;
-    margin-bottom: 4px;
-    letter-spacing: 0.02em;
-}
-
-.qr-close-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: #94a3b8;
-    font-size: 1.1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.qr-close-btn:hover {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-}
-
-.qr-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.qr-mode-badge {
-    padding: 5px 12px;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all 0.2s ease;
+    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
 }
 
-.qr-mode-badge.auto-on {
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: #fff;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
-}
-
-.qr-mode-badge.manual {
-    background: rgba(255, 255, 255, 0.1);
-    color: #cbd5e1;
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Viewport Area */
-.qr-viewport-wrapper {
-    flex: 1;
-    position: relative;
-    background: #000;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#qr-reader-viewport {
+/* 1. Camera Viewport */
+#zalo-qr-viewport {
+    position: absolute;
+    inset: 0;
     width: 100% !important;
     height: 100% !important;
-    border: none !important;
+    z-index: 1;
+    overflow: hidden;
+    background: #000;
 }
 
-#qr-reader-viewport video {
+#zalo-qr-viewport video {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
-    backface-visibility: hidden;
     will-change: transform;
 }
 
-/* Reticle & Laser Scan Line */
-.qr-scanner-overlay {
+/* 2. Top Header Bar (Zalo style) */
+.zalo-top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(14px, env(safe-area-inset-top, 14px)) 16px 12px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.4) 65%, transparent 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: #fff;
+}
+
+.zalo-btn-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.15s ease;
+}
+
+.zalo-btn-icon:active {
+    transform: scale(0.92);
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.zalo-torch-btn.on {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
+}
+
+.zalo-title-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.zalo-room-pill {
+    display: inline-block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    background: #0284c7;
+    color: #fff;
+    letter-spacing: 0.02em;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+}
+
+.zalo-header-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f8fafc;
+    letter-spacing: -0.01em;
+}
+
+/* 3. Floating Notification Dropdown (Zalo notification banner) */
+.zalo-scan-toast {
+    position: absolute;
+    top: max(72px, calc(env(safe-area-inset-top, 0px) + 68px));
+    left: 16px;
+    right: 16px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+    animation: zaloSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zaloSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.zalo-scan-toast.success {
+    background: rgba(21, 128, 61, 0.9);
+    border: 1.5px solid #4ade80;
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(22, 163, 74, 0.35);
+}
+
+.zalo-scan-toast.info {
+    background: rgba(30, 64, 175, 0.9);
+    border: 1.5px solid #60a5fa;
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+}
+
+.zalo-scan-toast.warning {
+    background: rgba(180, 83, 9, 0.92);
+    border: 1.5px solid #fbbf24;
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(217, 119, 6, 0.4);
+}
+
+.zalo-scan-toast.error {
+    background: rgba(185, 28, 28, 0.92);
+    border: 1.5px solid #f87171;
+    color: #fff;
+}
+
+.zalo-toast-avatar {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zalo-toast-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.zalo-toast-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.zalo-toast-sub {
+    font-size: 0.84rem;
+    opacity: 0.92;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 4. Center Scanner Reticle (Khung quét chính giữa màn hình như Zalo) */
+.zalo-center-container {
     position: absolute;
     inset: 0;
+    z-index: 10;
     pointer-events: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.55) 75%);
 }
 
-.qr-target-box {
-    width: 250px;
-    height: 250px;
+.zalo-reticle-box {
+    width: min(270px, 72vw);
+    height: min(270px, 72vw);
     position: relative;
+    border-radius: 18px;
+    /* Hiệu ứng làm tối toàn bộ vùng ngoài khung quét giống hệt Zalo */
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.52);
     border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 16px;
-    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
     overflow: hidden;
     transform: translateZ(0);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.qr-corner {
+/* Nháy viền khi quét trúng */
+.zalo-reticle-box.success {
+    border-color: #22c55e;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.52), 0 0 24px #22c55e;
+}
+
+.zalo-reticle-box.warning {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.52), 0 0 24px #ef4444;
+}
+
+/* 4 Corner brackets (Khung góc Zalo) */
+.zalo-corner {
     position: absolute;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-color: #38bdf8;
     border-style: solid;
+    transition: border-color 0.2s ease;
 }
 
-.qr-corner.top-left {
+.zalo-reticle-box.success .zalo-corner {
+    border-color: #22c55e;
+}
+
+.zalo-reticle-box.warning .zalo-corner {
+    border-color: #ef4444;
+}
+
+.zalo-corner.tl {
     top: 0;
     left: 0;
     border-width: 4px 0 0 4px;
-    border-top-left-radius: 14px;
+    border-top-left-radius: 16px;
 }
 
-.qr-corner.top-right {
+.zalo-corner.tr {
     top: 0;
     right: 0;
     border-width: 4px 4px 0 0;
-    border-top-right-radius: 14px;
+    border-top-right-radius: 16px;
 }
 
-.qr-corner.bottom-left {
+.zalo-corner.bl {
     bottom: 0;
     left: 0;
     border-width: 0 0 4px 4px;
-    border-bottom-left-radius: 14px;
+    border-bottom-left-radius: 16px;
 }
 
-.qr-corner.bottom-right {
+.zalo-corner.br {
     bottom: 0;
     right: 0;
     border-width: 0 4px 4px 0;
-    border-bottom-right-radius: 14px;
+    border-bottom-right-radius: 16px;
 }
 
-.qr-scan-line {
+/* Tia laser quét mượt mà chuẩn GPU */
+.zalo-laser-line {
     position: absolute;
     left: 0;
     right: 0;
     top: 0;
     height: 3px;
-    background: linear-gradient(90deg, transparent, #38bdf8, #818cf8, transparent);
+    background: linear-gradient(90deg, transparent, #38bdf8 30%, #818cf8 70%, transparent);
     box-shadow: 0 0 12px #38bdf8;
     transform: translateY(12px) translateZ(0);
     will-change: transform;
-    animation: qrScanMoveGPU 2s infinite ease-in-out;
+    animation: zaloLaserSweep 2.2s infinite ease-in-out;
 }
 
-@keyframes qrScanMoveGPU {
-    0% { transform: translateY(12px) translateZ(0); opacity: 0.25; }
-    50% { transform: translateY(228px) translateZ(0); opacity: 1; }
-    100% { transform: translateY(12px) translateZ(0); opacity: 0.25; }
+.zalo-reticle-box.success .zalo-laser-line {
+    background: linear-gradient(90deg, transparent, #22c55e 30%, #4ade80 70%, transparent);
+    box-shadow: 0 0 14px #22c55e;
 }
 
-.qr-scan-instruction {
+@keyframes zaloLaserSweep {
+    0% { transform: translateY(12px) translateZ(0); opacity: 0.3; }
+    50% { transform: translateY(calc(min(270px, 72vw) - 16px)) translateZ(0); opacity: 1; }
+    100% { transform: translateY(12px) translateZ(0); opacity: 0.3; }
+}
+
+.zalo-guide-hint {
     margin-top: 24px;
-    font-size: 0.82rem;
-    color: #cbd5e1;
-    background: rgba(15, 23, 42, 0.75);
-    backdrop-filter: blur(4px);
-    padding: 6px 14px;
+    font-size: 0.86rem;
+    color: #f1f5f9;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 8px 18px;
     border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     text-align: center;
-    max-width: 85%;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.01em;
 }
 
-/* Toast Notice */
-.qr-toast-notice {
+/* 5. Bottom Status Bar */
+.zalo-bottom-bar {
     position: absolute;
-    top: 16px;
-    left: 16px;
-    right: 16px;
-    z-index: 50;
-    padding: 12px 16px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: #fff;
-    font-size: 0.9rem;
-    animation: slideDownToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-}
-
-.qr-toast-notice.success {
-    background: linear-gradient(135deg, #15803d, #16a34a);
-    border: 1px solid #4ade80;
-}
-
-.qr-toast-notice.info {
-    background: linear-gradient(135deg, #1e3a8a, #2563eb);
-    border: 1px solid #60a5fa;
-}
-
-.qr-toast-icon {
-    font-size: 1.3rem;
-}
-
-.qr-toast-sub {
-    font-size: 0.8rem;
-    opacity: 0.9;
-}
-
-@keyframes slideDownToast {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-/* Student Confirmation Card Modal */
-.qr-confirm-card-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 40;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(5px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 18px;
-    animation: fadeInModal 0.2s ease;
-}
-
-.qr-confirm-card {
-    width: 100%;
-    background: #1e293b;
-    border: 2px solid #38bdf8;
-    border-radius: 18px;
-    padding: 20px;
-    color: #f8fafc;
-    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.25);
-    animation: scaleUpCard 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qr-confirm-card.qr-card-warning {
-    border-color: #ef4444;
-    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(239, 68, 68, 0.3);
-}
-
-@keyframes fadeInModal {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes scaleUpCard {
-    from { transform: scale(0.92); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
-
-.qr-card-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 14px;
-}
-
-.qr-student-avatar {
-    width: 54px;
-    height: 54px;
-    border-radius: 50%;
-    background: #334155;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.8rem;
-    border: 2px solid #38bdf8;
-}
-
-.qr-warning-icon {
-    font-size: 2.2rem;
-}
-
-.qr-student-title h4 {
-    margin: 0 0 4px 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #f8fafc;
-}
-
-.qr-badge-class {
-    display: inline-block;
-    background: #0284c7;
-    color: #fff;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 2px 10px;
-    border-radius: 6px;
-}
-
-.qr-badge-warning {
-    display: inline-block;
-    background: rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 6px;
-}
-
-.qr-student-details {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 20px;
-    background: rgba(15, 23, 42, 0.6);
-    padding: 12px 14px;
-    border-radius: 10px;
-}
-
-.qr-detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.88rem;
-}
-
-.qr-detail-row .label {
-    color: #94a3b8;
-}
-
-.qr-detail-row .value {
-    color: #f1f5f9;
-}
-
-.qr-warning-desc {
-    margin: 0 0 6px 0;
-    font-size: 0.95rem;
-    color: #fecaca;
-    line-height: 1.4;
-}
-
-.qr-warning-sub {
-    margin: 0;
-    font-size: 0.82rem;
-    color: #94a3b8;
-}
-
-.qr-card-actions {
-    display: flex;
     gap: 12px;
+    padding: 16px 20px max(20px, env(safe-area-inset-bottom, 20px));
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 75%, transparent 100%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
 }
 
-.btn-confirm-presence {
-    flex: 2;
-    padding: 12px 16px;
-    font-size: 1.05rem;
+.zalo-progress-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.zalo-count-text {
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.zalo-count-text strong {
+    color: #38bdf8;
     font-weight: 700;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    border: none;
+}
+
+.zalo-progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.zalo-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0284c7, #22c55e);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+.zalo-finish-btn {
+    width: 100%;
+    padding: 13px 20px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: #fff;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);
+    backdrop-filter: blur(8px);
     transition: all 0.15s ease;
 }
 
-.btn-confirm-presence:active {
-    transform: scale(0.97);
+.zalo-finish-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(0.98);
 }
 
-.btn-cancel-scan {
-    flex: 1;
-    padding: 12px 14px;
-    font-size: 0.95rem;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: transparent;
-    color: #cbd5e1;
-    cursor: pointer;
-}
-
-/* Camera Error */
-.qr-error-box {
+/* Error Popup */
+.zalo-error-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    background: rgba(185, 28, 28, 0.95);
+    border: 1px solid rgba(248, 113, 113, 0.5);
     padding: 24px;
+    border-radius: 16px;
     text-align: center;
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 12px;
-    margin: 20px;
+    color: #fff;
+    max-width: 85%;
+    backdrop-filter: blur(8px);
 }
 
-.qr-error-icon {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
-}
-
-/* Footer Controls */
-.qr-modal-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 18px;
-    background: #1e293b;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.qr-tool-btn {
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.05);
-    color: #e2e8f0;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.qr-tool-btn.active {
-    background: #f59e0b;
-    color: #000;
-    border-color: #f59e0b;
-    font-weight: 600;
-}
-
-.qr-scan-counter {
-    font-size: 0.85rem;
-    color: #94a3b8;
-}
-
-.qr-scan-counter strong {
-    color: #38bdf8;
+.zalo-error-icon {
+    font-size: 2.4rem;
+    margin-bottom: 8px;
 }
