@@ -288,38 +288,25 @@ export default function QRScannerModal({
         const qrCodeId = 'zalo-qr-viewport';
 
         try {
+            // Tắt BarcodeDetector để dùng ZXing thuần túy 100% tương thích mọi điện thoại di động
             qrScanner = new Html5Qrcode(qrCodeId, {
                 formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                useBarCodeDetectorIfSupported: false,
                 verbose: false,
             });
             html5QrCodeRef.current = qrScanner;
 
-            // Ràng buộc camera: Lấy nét tự động liên tục (continuous autofocus) và độ phân giải sắc nét
-            const cameraConstraints = {
-                facingMode: { ideal: 'environment' },
-                width: { min: 720, ideal: 1280, max: 1920 },
-                height: { min: 720, ideal: 720, max: 1080 },
-                advanced: [
-                    { focusMode: 'continuous' },
-                    { exposureMode: 'continuous' },
-                    { whiteBalanceMode: 'continuous' }
-                ]
-            };
-
-            // Vùng Focus giải mã: Tập trung chính xác vào ô vuông ở giữa màn hình
+            // Quét toàn bộ khung hình để bắt mã QR siêu nhạy tại bất kỳ góc nào,
+            // không giới hạn qrbox cố định để tránh lỗi tràn kích thước (bounds error) trên màn hình nhỏ
             const config = {
                 fps: 15,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const size = Math.min(300, Math.max(220, Math.floor(minEdge * 0.75)));
-                    return { width: size, height: size };
-                },
                 aspectRatio: undefined,
                 disableFlip: false,
             };
 
+            // Ràng buộc camera: Bắt buộc đúng 1 thuộc tính facingMode để không bị lỗi OverconstrainedError
             qrScanner.start(
-                cameraConstraints,
+                { facingMode: 'environment' },
                 config,
                 (decodedText) => {
                     if (isMounted) handleScan(decodedText);
@@ -327,48 +314,44 @@ export default function QRScannerModal({
                 () => {
                     // Frame không có QR
                 }
-            ).then(() => {
-                if (isMounted) {
-                    setScannerActive(true);
+            ).then(async () => {
+                if (!isMounted) return;
+                setScannerActive(true);
 
-                    // Kiểm tra khả năng Bật Flash & Thu Phóng (Zoom)
-                    try {
-                        const track = qrScanner.getRunningTrackCameraCapabilities();
-                        if (track && track.torchFeature && track.torchFeature().isSupported()) {
-                            setHasTorch(true);
-                        }
-                    } catch (err) {
-                        console.debug('Torch feature check:', err);
+                // Sau khi camera đã chạy, xin bật lấy nét tự động liên tục (autofocus)
+                try {
+                    await qrScanner.applyVideoConstraints({
+                        advanced: [
+                            { focusMode: 'continuous' },
+                            { exposureMode: 'continuous' },
+                            { whiteBalanceMode: 'continuous' }
+                        ]
+                    });
+                } catch (e) {
+                    console.debug('Autofocus constraint not supported:', e);
+                }
+
+                // Kiểm tra khả năng Bật Flash & Thu Phóng (Zoom)
+                try {
+                    const trackCaps = qrScanner.getRunningTrackCameraCapabilities ? qrScanner.getRunningTrackCameraCapabilities() : null;
+                    if (trackCaps && trackCaps.torchFeature && trackCaps.torchFeature().isSupported()) {
+                        setHasTorch(true);
                     }
-
-                    try {
+                    if (trackCaps && trackCaps.zoomFeature && trackCaps.zoomFeature().isSupported()) {
+                        setHasZoom(true);
+                    } else {
                         const caps = qrScanner.getRunningTrackCapabilities ? qrScanner.getRunningTrackCapabilities() : null;
                         if (caps && caps.zoom) {
                             setHasZoom(true);
                         }
-                    } catch (err) {
-                        console.debug('Zoom capability check:', err);
                     }
+                } catch (err) {
+                    console.debug('Capabilities check:', err);
                 }
             }).catch(err => {
-                console.warn('Camera initial start with advanced constraints failed, retrying simple:', err);
-                // Thử lại với ràng buộc camera cơ bản nếu điện thoại không hỗ trợ advanced focusMode
-                if (isMounted && qrScanner) {
-                    qrScanner.start(
-                        { facingMode: 'environment' },
-                        config,
-                        (decodedText) => {
-                            if (isMounted) handleScan(decodedText);
-                        },
-                        () => {}
-                    ).then(() => {
-                        if (isMounted) setScannerActive(true);
-                    }).catch(finalErr => {
-                        console.error('Final camera start error:', finalErr);
-                        if (isMounted) {
-                            setCameraError('Không thể mở camera. Vui lòng kiểm tra quyền truy cập máy ảnh trong cài đặt trình duyệt.');
-                        }
-                    });
+                console.error('Camera start error:', err);
+                if (isMounted) {
+                    setCameraError('Không thể mở camera. Vui lòng cho phép quyền truy cập máy ảnh trong cài đặt trình duyệt và tải lại trang.');
                 }
             });
         } catch (e) {
@@ -379,10 +362,15 @@ export default function QRScannerModal({
             isMounted = false;
             if (qrScanner) {
                 try {
-                    if (qrScanner.isScanning) {
-                        qrScanner.stop().catch(err => console.warn('QR stop warning:', err));
+                    const state = qrScanner.getState ? qrScanner.getState() : null;
+                    // Nếu đang scanning (state 2) hoặc paused (state 3)
+                    if (qrScanner.isScanning || state === 2 || state === 3) {
+                        qrScanner.stop().then(() => {
+                            try { qrScanner.clear(); } catch (e) { console.debug('QR clear on stop:', e); }
+                        }).catch(err => console.warn('QR stop warning:', err));
+                    } else {
+                        try { qrScanner.clear(); } catch (e) { console.debug('QR clear idle:', e); }
                     }
-                    qrScanner.clear();
                 } catch (err) {
                     console.warn('QR cleanup warning:', err);
                 }
@@ -396,9 +384,14 @@ export default function QRScannerModal({
         if (!html5QrCodeRef.current || !hasTorch) return;
         try {
             const nextState = !torchOn;
-            await html5QrCodeRef.current.applyVideoConstraints({
-                advanced: [{ torch: nextState }]
-            });
+            const trackCaps = html5QrCodeRef.current.getRunningTrackCameraCapabilities ? html5QrCodeRef.current.getRunningTrackCameraCapabilities() : null;
+            if (trackCaps && trackCaps.torchFeature && trackCaps.torchFeature().isSupported()) {
+                await trackCaps.torchFeature().apply(nextState);
+            } else {
+                await html5QrCodeRef.current.applyVideoConstraints({
+                    advanced: [{ torch: nextState }]
+                });
+            }
             setTorchOn(nextState);
         } catch (e) {
             console.warn('Torch toggle error:', e);
@@ -410,9 +403,14 @@ export default function QRScannerModal({
         if (!html5QrCodeRef.current) return;
         const nextZoom = zoomLevel >= 2 ? 1 : 2;
         try {
-            await html5QrCodeRef.current.applyVideoConstraints({
-                advanced: [{ zoom: nextZoom }]
-            });
+            const trackCaps = html5QrCodeRef.current.getRunningTrackCameraCapabilities ? html5QrCodeRef.current.getRunningTrackCameraCapabilities() : null;
+            if (trackCaps && trackCaps.zoomFeature && trackCaps.zoomFeature().isSupported()) {
+                await trackCaps.zoomFeature().apply(nextZoom);
+            } else {
+                await html5QrCodeRef.current.applyVideoConstraints({
+                    advanced: [{ zoom: nextZoom }]
+                });
+            }
             setZoomLevel(nextZoom);
         } catch (e) {
             console.warn('Zoom error:', e);

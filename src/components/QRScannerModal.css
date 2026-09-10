@@ -32,6 +32,10 @@
     object-fit: cover !important;
 }
 
+#qr-shaded-region {
+    display: none !important;
+}
+
 /* 2. Top Header Bar (Zalo style) */
 .zalo-top-bar {
     position: absolute;
