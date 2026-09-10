@@ -183,36 +183,11 @@ export default function QRScannerModal({
     const lastScannedTimeRef = useRef({});
     const isPendingRef = useRef(false);
 
-    // Tạm dừng giải mã QR (camera vẫn hiển thị hình ảnh sống)
-    const pauseScanning = useCallback(() => {
-        isPendingRef.current = true;
-        try {
-            const scanner = html5QrCodeRef.current;
-            if (scanner && scanner.getState && scanner.getState() === 2) {
-                scanner.pause(false); // pause scanning but keep video running
-            }
-        } catch (e) {
-            console.debug('Pause scanning:', e);
-        }
-    }, []);
-
-    // Tiếp tục giải mã QR
-    const resumeScanning = useCallback(() => {
-        isPendingRef.current = false;
-        try {
-            const scanner = html5QrCodeRef.current;
-            if (scanner && scanner.getState && scanner.getState() === 3) {
-                scanner.resume();
-            }
-        } catch (e) {
-            console.debug('Resume scanning:', e);
-        }
-    }, []);
-
     // === QUÉT & HIỆN THỊ THÔNG TIN (KHÔNG TỰ ĐỘNG CHỐT) ===
+    // Camera + giải mã QR chạy liên tục 100%, chỉ dùng cờ ref để bỏ qua kết quả khi đang hiện thẻ
     const handleScan = useCallback((decodedText) => {
         if (!decodedText) return;
-        if (isPendingRef.current) return; // Đang hiện thẻ xác nhận, bỏ qua
+        if (isPendingRef.current) return; // Đang hiện thẻ xác nhận, bỏ qua frame này
         const now = Date.now();
         console.log('[QR SCAN DECODED]:', decodedText);
 
@@ -243,18 +218,15 @@ export default function QRScannerModal({
             setBoxFlash('success');
             setTimeout(() => setBoxFlash(null), 600);
 
+            isPendingRef.current = true; // Khóa quét trước khi set state
             if (curScannedIds.has(matched.id)) {
-                // Đã điểm danh trước đó
                 setPendingStudent(matched);
                 setPendingType('already');
                 setPendingExtra(null);
-                pauseScanning();
             } else {
-                // Hiển thị thông tin, chờ GV xác nhận
                 setPendingStudent(matched);
                 setPendingType('new');
                 setPendingExtra(null);
-                pauseScanning();
             }
             return;
         }
@@ -267,19 +239,18 @@ export default function QRScannerModal({
         setBoxFlash('warning');
         setTimeout(() => setBoxFlash(null), 600);
 
+        isPendingRef.current = true; // Khóa quét
         if (otherStudent) {
             const actualRoom = otherStudent.phong_an || otherStudent.phong_ngu || 'Chưa phân phòng';
             setPendingStudent(otherStudent);
             setPendingType('wrong_room');
             setPendingExtra({ actualRoom, curRoomName });
-            pauseScanning();
         } else {
             setPendingStudent(null);
             setPendingType('invalid');
             setPendingExtra({ rawText: parsed.rawText });
-            pauseScanning();
         }
-    }, [pauseScanning]);
+    }, []);
 
     // === XÁC NHẬN CÓ MẶT (GV bấm nút) ===
     const handleConfirm = useCallback(() => {
@@ -298,20 +269,20 @@ export default function QRScannerModal({
         });
         setTimeout(() => setMiniToast(null), 2000);
 
-        // Đóng thẻ xác nhận & tiếp tục quét
+        // Đóng thẻ xác nhận & mở khóa quét tiếp
         setPendingStudent(null);
         setPendingType(null);
         setPendingExtra(null);
-        resumeScanning();
-    }, [pendingStudent, pendingType, resumeScanning]);
+        isPendingRef.current = false;
+    }, [pendingStudent, pendingType]);
 
     // === BỎ QUA (dismiss thẻ xác nhận & quét tiếp) ===
     const handleDismiss = useCallback(() => {
         setPendingStudent(null);
         setPendingType(null);
         setPendingExtra(null);
-        resumeScanning();
-    }, [resumeScanning]);
+        isPendingRef.current = false;
+    }, []);
 
     // Khởi động Camera duy nhất 1 lần khi mở modal
     useEffect(() => {
