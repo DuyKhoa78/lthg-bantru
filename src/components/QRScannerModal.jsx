@@ -67,18 +67,13 @@ function parseStudentId(decodedText) {
     if (!decodedText) return null;
     const text = String(decodedText).trim();
 
-    // Format: MSBT: \d+
-    const msbtMatch = text.match(/MSBT:\s*(\d+)/i);
+    // 1. Format: MSBT: 26015 / MSBT:26015 / MSBT-26015
+    const msbtMatch = text.match(/MSBT[:\s_-]*(\d+)/i);
     if (msbtMatch) {
         return { rawText: text, idCandidate: msbtMatch[1] };
     }
 
-    // Pure number format
-    if (/^\d+$/.test(text)) {
-        return { rawText: text, idCandidate: text };
-    }
-
-    // JSON format
+    // 2. Format JSON (e.g. {"id": 15})
     try {
         const parsed = JSON.parse(text);
         if (parsed.id || parsed.ma_hs) {
@@ -86,6 +81,12 @@ function parseStudentId(decodedText) {
         }
     } catch {
         // Not JSON
+    }
+
+    // 3. Format: 26xxx hoặc số nguyên bất kỳ
+    const numMatch = text.match(/\b(26\d{3,4}|\d+)\b/);
+    if (numMatch) {
+        return { rawText: text, idCandidate: numMatch[1] };
     }
 
     return { rawText: text, idCandidate: text };
@@ -133,6 +134,8 @@ export default function QRScannerModal({
     const handleScan = useCallback((decodedText) => {
         if (!decodedText) return;
         const now = Date.now();
+        console.log('[QR SCAN DECODED]:', decodedText);
+
         const parsed = parseStudentId(decodedText);
         if (!parsed || !parsed.idCandidate) return;
 
@@ -155,11 +158,23 @@ export default function QRScannerModal({
         let matched = curRoomStudents.find(s => {
             const sId = String(s.id);
             const sCardId = `26${String(s.id).padStart(3, '0')}`;
-            return sId === candidateStr || sCardId === candidateStr || String(s.ma_hs) === candidateStr;
+            return (
+                sId === candidateStr ||
+                sCardId === candidateStr ||
+                (s.ma_hs && String(s.ma_hs) === candidateStr) ||
+                (s.raw_id && String(s.raw_id) === candidateStr)
+            );
         });
+
+        // Nếu candidateStr dạng "26015" -> stripped là "15", so sánh với s.id
         if (!matched && candidateStr.startsWith('26') && candidateStr.length > 2) {
             const stripped = String(parseInt(candidateStr.slice(2), 10));
-            matched = curRoomStudents.find(s => String(s.id) === stripped);
+            matched = curRoomStudents.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
+        }
+
+        // Thử tìm theo rawText chứa id
+        if (!matched) {
+            matched = curRoomStudents.find(s => parsed.rawText.includes(String(s.id)));
         }
 
         if (matched) {
@@ -199,11 +214,19 @@ export default function QRScannerModal({
         let otherStudent = curAllStudents.find(s => {
             const sId = String(s.id);
             const sCardId = `26${String(s.id).padStart(3, '0')}`;
-            return sId === candidateStr || sCardId === candidateStr || String(s.ma_hs) === candidateStr;
+            return (
+                sId === candidateStr ||
+                sCardId === candidateStr ||
+                (s.ma_hs && String(s.ma_hs) === candidateStr) ||
+                (s.raw_id && String(s.raw_id) === candidateStr)
+            );
         });
         if (!otherStudent && candidateStr.startsWith('26') && candidateStr.length > 2) {
             const stripped = String(parseInt(candidateStr.slice(2), 10));
-            otherStudent = curAllStudents.find(s => String(s.id) === stripped);
+            otherStudent = curAllStudents.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
+        }
+        if (!otherStudent) {
+            otherStudent = curAllStudents.find(s => parsed.rawText.includes(String(s.id)));
         }
 
         lastScannedTimeRef.current[candidateStr] = now;
@@ -240,6 +263,21 @@ export default function QRScannerModal({
 
         if (!isOpen) return;
 
+        // Mở khóa AudioContext cho iOS/Android ngay khi bật camera
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+                if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+                    sharedAudioCtx = new AudioContextClass();
+                }
+                if (sharedAudioCtx.state === 'suspended') {
+                    sharedAudioCtx.resume();
+                }
+            }
+        } catch {
+            // Audio unlock ignore
+        }
+
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCameraError(null);
         setToastNotice(null);
@@ -247,22 +285,18 @@ export default function QRScannerModal({
         const qrCodeId = 'zalo-qr-viewport';
 
         try {
+            // Dùng ZXing thuần túy để tương thích 100% tất cả thiết bị di động (kể cả iPhone Safari)
             qrScanner = new Html5Qrcode(qrCodeId, {
                 formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
                 verbose: false,
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true,
-                },
             });
             html5QrCodeRef.current = qrScanner;
 
             const config = {
-                fps: 15,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const size = Math.min(280, Math.max(190, Math.floor(minEdge * 0.72)));
-                    return { width: size, height: size };
-                },
+                fps: 10,
+                // Không giới hạn qrbox pixel cố định để thuật toán quét toàn bộ khung hình camera cực nhạy
+                aspectRatio: undefined,
+                disableFlip: false,
             };
 
             qrScanner.start(
@@ -355,7 +389,7 @@ export default function QRScannerModal({
                         {torchOn ? '🔦' : '⚡'}
                     </button>
                 ) : (
-                    <div style={{ width: 38 }} />
+                    <div style={{ width: 40 }} />
                 )}
             </div>
 

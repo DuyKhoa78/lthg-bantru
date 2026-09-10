@@ -30,9 +30,6 @@
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    will-change: transform;
 }
 
 /* 2. Top Header Bar (Zalo style) */
