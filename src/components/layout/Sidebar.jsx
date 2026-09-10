@@ -25,16 +25,16 @@ const menuItems = [
 
   // ─── Quản trị (Admin only) ───
   { label: 'QUẢN TRỊ', type: 'label', permission: 'can_quan_tri' },
-  { to: '/phong',     icon: 'fas fa-door-open',         label: 'Quản lý phòng',     permission: 'can_quan_tri' },
-  { to: '/hoc-sinh',  icon: 'fas fa-user-graduate',     label: 'Quản lý học sinh',  permission: 'can_quan_tri' },
-  { to: '/giao-vien', icon: 'fas fa-chalkboard-teacher',label: 'Quản lý giáo viên', permission: 'can_quan_tri' },
-  { to: '/tai-khoan', icon: 'fas fa-users-cog',         label: 'Quản lý tài khoản', permission: 'can_quan_tri' },
+  { to: '/phong',          icon: 'fas fa-door-open',         label: 'Quản lý phòng',     permission: 'can_quan_tri' },
+  { to: '/hoc-sinh',       icon: 'fas fa-user-graduate',     label: 'Quản lý học sinh',  permission: 'can_quan_tri' },
+  { to: '/giao-vien',      icon: 'fas fa-chalkboard-teacher',label: 'Quản lý giáo viên', permission: 'can_quan_tri' },
+  { to: '/tai-khoan',      icon: 'fas fa-users-cog',         label: 'Quản lý tài khoản', permission: 'can_quan_tri' },
 
   // ─── Xem dữ liệu (Quản lý – read only) ───
   { label: 'XEM DỮ LIỆU', type: 'label', onlyQuanLy: true },
-  { to: '/phong',     icon: 'fas fa-door-open',         label: 'Danh sách phòng',   onlyQuanLy: true },
-  { to: '/hoc-sinh',  icon: 'fas fa-user-graduate',     label: 'Danh sách học sinh',onlyQuanLy: true },
-  { to: '/giao-vien', icon: 'fas fa-chalkboard-teacher',label: 'Danh sách giáo viên',onlyQuanLy: true },
+  { to: '/phong',          icon: 'fas fa-door-open',         label: 'Danh sách phòng',   onlyQuanLy: true },
+  { to: '/hoc-sinh',       icon: 'fas fa-user-graduate',     label: 'Danh sách học sinh',onlyQuanLy: true },
+  { to: '/giao-vien',      icon: 'fas fa-chalkboard-teacher',label: 'Danh sách giáo viên',onlyQuanLy: true },
 ];
 
 export default function Sidebar({ collapsed, mobileOpen }) {

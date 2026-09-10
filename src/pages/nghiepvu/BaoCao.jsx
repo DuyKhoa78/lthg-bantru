@@ -283,24 +283,45 @@ export default function BaoCao() {
                 const dataRows = roomStudents.map((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
                     const dayCells = weekGroups.map(wg => wg.days.map(({ ngay }, di2) => {
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        if (isOutOfRange) {
+                            return `<td class="col-day-an cell-inactive"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}><span class="mk-slash">/</span></td>`;
+                        }
                         const val = s.diemdanh[ngay];
                         // Chỉ hiển thị ký hiệu khi có bản ghi rõ ràng; null = chưa điểm danh → bỏ trống
                         const sym = val === 0 ? '<span class="mk-c">✓</span>' : val === 1 ? '<span class="mk-v">✗</span>' : val === 2 ? '<span class="mk-p">P</span>' : '';
                         return `<td class="col-day-an"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${sym}</td>`;
                     }).join('')).join('');
-                    const filteredVang = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
-                    const filteredPhep = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-                    const filteredCoMat = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
+
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    const filteredVang = activeDays.filter(ng => s.diemdanh[ng] === 1).length;
+                    const filteredPhep = activeDays.filter(ng => s.diemdanh[ng] === 2).length;
+                    const filteredCoMat = activeDays.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
+
+                    const noteParts = [];
+                    if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        noteParts.push(`Vào ${vd}/${vm}`);
+                    }
+                    if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    } else if (s.ngay_rut) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    }
+                    const noteStr = noteParts.join(', ');
+
                     return `<tr>
             <td class="col-stt-an">${i + 1}</td><td class="col-msbt-an">${s.id}</td>
             <td class="col-ten-an">${s.ho_ten}</td><td class="col-gt-an">${gt}</td>
             <td class="col-lop-an">${s.lop}</td><td class="col-phong-an">${ma_phong}</td>
             ${dayCells}
-            <td class="col-sum-an">${numDays}</td>
+            <td class="col-sum-an">${activeDays.length}</td>
             <td class="col-sum-an">${filteredVang}</td>
             <td class="col-sum-an">${filteredPhep}</td>
             <td class="col-sum-an">${filteredCoMat}</td>
-            <td class="col-ghichu-an"></td></tr>`;
+            <td class="col-ghichu-an" style="font-size:7.5pt;text-align:center;">${noteStr}</td></tr>`;
                 }).join('');
                 return `<div class="room-block">
 <table class="hdr-inner-an"><tr>
@@ -326,25 +347,35 @@ export default function BaoCao() {
     <th rowspan="2" class="col-ghichu-an">Ghi<br>chú</th>
   </tr><tr>${weekTH2}</tr>
 </thead><tbody>${dataRows}</tbody></table>
-<div class="ft-wrap-an">
-  <div class="ft-left-an">
-    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong></div>
-    <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
+<div style="margin-top: 8px; margin-bottom: 10px; font-size: 8.5pt; line-height: 1.4; text-align: left;">
+  <div>* Danh sách có TC: <strong>${roomStudents.length} HS</strong></div>
+  <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong> | Lớp 11: <strong>${total11} hs</strong> | Lớp 12: <strong>${total12} hs</strong></div>
+  <div style="margin-top: 2px; color: #333; font-style: italic;">* Ký hiệu: <strong>(✓)</strong> Có mặt &nbsp;|&nbsp; <strong>(✗)</strong> Vắng &nbsp;|&nbsp; <strong>(P)</strong> Có phép &nbsp;|&nbsp; <strong>(/)</strong> Chưa vào / Đã rút bán trú</div>
+</div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px; page-break-inside: avoid;">
+  <div style="width: 42%; text-align: center;">
+    <div style="height: 16px;"></div>
+    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 42px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
-  <div class="ft-right-an">
-    <div><em>${todayStr}</em></div>
-    <div style="font-weight:bold;margin-top:2px;">GIÁM ĐỐC</div>
-    <div class="sig-space-an"></div>
-    <div style="font-weight:bold;font-style:italic;">${nguoi_phu_trach}</div>
+  <div style="width: 45%; text-align: center;">
+    <div style="font-style: italic; font-size: 8.5pt; height: 16px; line-height: 16px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 42px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
   </div>
-</div></div>`;
+</div>
+</div>`;
             }).join('');
             if (htmlPages.trim() === '') return alert('Không có dữ liệu để xuất!');
             const css = `* { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; background:#fff; }
 .mk-c { color:#16a34a; font-weight:bold; } .mk-v { color:#dc2626; font-weight:bold; } .mk-p { color:#d97706; font-weight:bold; }
+.cell-inactive { background-color:#f1f5f9!important; background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; text-align:center; }
+.mk-slash { font-size:8.5pt; font-weight:bold; color:#64748b; }
 .room-block { page-break-before: always; } .room-block:first-of-type { page-break-before: auto; }
 .ly-row-an-div { padding:2px 4px; font-size:8pt; line-height:1.4; margin-bottom:4px; }
 .dt-an { width:100%; border-collapse:collapse; }
@@ -362,11 +393,11 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 .col-lop-an{width:10mm;text-align:center} .col-phong-an{width:9mm;text-align:center}
 .col-day-an{width:6mm;text-align:center;height:20px}
 .col-sum-an{width:13mm;text-align:center;font-weight:bold;background:#f0fff0}
-.col-ghichu-an{width:11mm}
+.col-ghichu-an{width:12mm}
 .ft-wrap-an{width:100%;margin-top:10px;font-size:9pt;display:flex;justify-content:space-between;page-break-inside:avoid}
 .ft-left-an{flex:1} .ft-right-an{flex:1;text-align:center} .sig-space-an{height:38px}
 @page{size:A4 landscape;margin:0.8cm 0.8cm 1.2cm 1cm}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f0fff0!important}}`;
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f0fff0!important}.cell-inactive{background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important}.mk-slash{color:#64748b!important}}`;
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
             w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh ăn tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
@@ -406,26 +437,46 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                     h1.push(`${d.getDate()}/${d.getMonth() + 1}`);
                     h2.push(DOWS[d.getDay()]);
                 });
-                h1.push('TS\nBuổi ăn', 'SB\nVắng', 'Vắng\ncó P', 'Buổi ăn\nthực tế');
-                h2.push('', '', '', '');
+                h1.push('TS\nBuổi ăn', 'SB\nVắng', 'Vắng\ncó P', 'Buổi ăn\nthực tế', 'Ghi chú');
+                h2.push('', '', '', '', '');
                 const aoa = [
-                    [`ĐIỂM DANH ĂN TRƯA – THÁNG ${so_thang}/${so_nam} – PHÒNG ${ma_phong}`, ...Array(5 + numDays + 4).fill('')],
-                    Array(6 + numDays + 4).fill(''), h1, h2,
+                    [`ĐIỂM DANH ĂN TRƯA – THÁNG ${so_thang}/${so_nam} – PHÒNG ${ma_phong}`, ...Array(5 + numDays + 5).fill('')],
+                    Array(6 + numDays + 5).fill(''), h1, h2,
                 ];
                 roomStudents.forEach((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
                     const dayCells = ngay_ban_tru.map(ngay => {
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        if (isOutOfRange) return '/';
                         const v = s.diemdanh[ngay]; return v === 0 ? '✓' : v === 1 ? '✗' : v === 2 ? 'P' : '';
                     });
-                    const filteredVang2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
-                    const filteredPhep2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-                    const filteredCoMat2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
-                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, ma_phong, ...dayCells, numDays, filteredVang2, filteredPhep2, filteredCoMat2]);
+                    const filteredVang2 = activeDays.filter(ng => s.diemdanh[ng] === 1).length;
+                    const filteredPhep2 = activeDays.filter(ng => s.diemdanh[ng] === 2).length;
+                    const filteredCoMat2 = activeDays.filter(ng => s.diemdanh[ng] === 0).length;
+
+                    const noteParts = [];
+                    if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        noteParts.push(`Vào ${vd}/${vm}`);
+                    }
+                    if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    } else if (s.ngay_rut) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    }
+                    const noteStr = noteParts.join(', ');
+
+                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, ma_phong, ...dayCells, activeDays.length, filteredVang2, filteredPhep2, filteredCoMat2, noteStr]);
                 });
+                aoa.push([]);
+                aoa.push(['* Ký hiệu: (✓) Có mặt, (✗) Vắng, (P) Có phép, (/) Chưa vào / Đã rút bán trú']);
                 const ws = XLSX.utils.aoa_to_sheet(aoa);
                 const cols = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 5 }, { wch: 8 }, { wch: 7 }];
                 for (let i = 0; i < numDays; i++) cols.push({ wch: 5 });
-                cols.push({ wch: 7 }, { wch: 7 }, { wch: 9 }, { wch: 12 });
+                cols.push({ wch: 7 }, { wch: 7 }, { wch: 9 }, { wch: 12 }, { wch: 14 });
                 ws['!cols'] = cols;
                 XLSX.utils.book_append_sheet(wb, ws, `Phong_${ma_phong}`.substring(0, 31));
             });
@@ -493,6 +544,10 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 const dataRows = roomStudents.map((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
                     const dayCells = weekGroups.map(wg => wg.days.map(({ ngay }, di2) => {
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        if (isOutOfRange) {
+                            return `<td class="col-day-an cell-inactive"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}><span class="mk-slash">/</span></td>`;
+                        }
                         let sym = '';
                         if (markedDaySet.has(ngay)) {
                             const val = s.diemdanh[ngay];
@@ -500,19 +555,36 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                         }
                         return `<td class="col-day-an"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${sym}</td>`;
                     }).join('')).join('');
-                    const filteredVang = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
-                    const filteredPhep = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-                    const filteredCoMat = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
+
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    const filteredVang = activeDays.filter(ng => s.diemdanh[ng] === 1).length;
+                    const filteredPhep = activeDays.filter(ng => s.diemdanh[ng] === 2).length;
+                    const filteredCoMat = activeDays.filter(ng => s.diemdanh[ng] === 0).length;
+
+                    const noteParts = [];
+                    if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        noteParts.push(`Vào ${vd}/${vm}`);
+                    }
+                    if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    } else if (s.ngay_rut) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    }
+                    const noteStr = noteParts.join(', ');
+
                     return `<tr>
             <td class="col-stt-an">${i + 1}</td><td class="col-msbt-an">${s.id}</td>
             <td class="col-ten-an">${s.ho_ten}</td><td class="col-gt-an">${gt}</td>
             <td class="col-lop-an">${s.lop}</td><td class="col-phong-an">${ma_phong}</td>
             ${dayCells}
-            <td class="col-sum-an">${numDays}</td>
+            <td class="col-sum-an">${activeDays.length}</td>
             <td class="col-sum-an">${filteredVang}</td>
             <td class="col-sum-an">${filteredPhep}</td>
             <td class="col-sum-an">${filteredCoMat}</td>
-            <td class="col-ghichu-an"></td></tr>`;
+            <td class="col-ghichu-an" style="font-size:7.5pt;text-align:center;">${noteStr}</td></tr>`;
                 }).join('');
                 return `<div class="room-block">
 <table class="hdr-inner-an"><tr>
@@ -539,25 +611,35 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
   </tr>
   <tr>${weekTH2}</tr>
 </thead><tbody>${dataRows}</tbody></table>
-<div class="ft-wrap-an">
-  <div class="ft-left-an">
-    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong></div>
-    <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
+<div style="margin-top: 8px; margin-bottom: 10px; font-size: 8.5pt; line-height: 1.4; text-align: left;">
+  <div>* Danh sách có TC: <strong>${roomStudents.length} HS</strong></div>
+  <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong> | Lớp 11: <strong>${total11} hs</strong> | Lớp 12: <strong>${total12} hs</strong></div>
+  <div style="margin-top: 2px; color: #333; font-style: italic;">* Ký hiệu: <strong>(✓)</strong> Có mặt &nbsp;|&nbsp; <strong>(✗)</strong> Vắng &nbsp;|&nbsp; <strong>(P)</strong> Có phép &nbsp;|&nbsp; <strong>(/)</strong> Chưa vào / Đã rút bán trú</div>
+</div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px; page-break-inside: avoid;">
+  <div style="width: 42%; text-align: center;">
+    <div style="height: 16px;"></div>
+    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 42px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
-  <div class="ft-right-an">
-    <div><em>${todayStr}</em></div>
-    <div style="font-weight:bold;margin-top:2px;">GIÁM ĐỐC</div>
-    <div class="sig-space-an"></div>
-    <div style="font-weight:bold;font-style:italic;">${nguoi_phu_trach}</div>
+  <div style="width: 45%; text-align: center;">
+    <div style="font-style: italic; font-size: 8.5pt; height: 16px; line-height: 16px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 42px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
   </div>
-</div></div>`;
+</div>
+</div>`;
             }).join('');
             if (htmlPages.trim() === '') return alert('Không có dữ liệu để xuất!');
             const css = `* { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; background:#fff; }
 .mk-c { color:#16a34a; font-weight:bold; } .mk-v { color:#dc2626; font-weight:bold; } .mk-p { color:#d97706; font-weight:bold; }
+.cell-inactive { background-color:#f1f5f9!important; background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; text-align:center; }
+.mk-slash { font-size:8.5pt; font-weight:bold; color:#64748b; }
 .room-block { page-break-before: always; } .room-block:first-of-type { page-break-before: auto; }
 .ly-row-an-div { padding:2px 4px; font-size:8pt; line-height:1.4; margin-bottom:4px; }
 .dt-an { width:100%; border-collapse:collapse; }
@@ -575,11 +657,11 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 .col-lop-an{width:10mm;text-align:center} .col-phong-an{width:9mm;text-align:center}
 .col-day-an{width:6mm;text-align:center;height:20px}
 .col-sum-an{width:13mm;text-align:center;font-weight:bold;background:#f8f4ff}
-.col-ghichu-an{width:11mm}
+.col-ghichu-an{width:12mm}
 .ft-wrap-an{width:100%;margin-top:10px;font-size:9pt;display:flex;justify-content:space-between;page-break-inside:avoid}
 .ft-left-an{flex:1} .ft-right-an{flex:1;text-align:center} .sig-space-an{height:38px}
 @page{size:A4 landscape;margin:0.8cm 0.8cm 1.2cm 1cm}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f8f4ff!important}}`;
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f8f4ff!important}.cell-inactive{background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important}.mk-slash{color:#64748b!important}}`;
             const win = window.open('', '_blank');
             if (!win) return alert('Trình duyệt chặn popup!');
             win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh Ngủ tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
@@ -619,26 +701,46 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                     h1.push(`${d.getDate()}/${d.getMonth() + 1}`);
                     h2.push(DOWS[d.getDay()]);
                 });
-                h1.push('TS\nBuổi ngủ', 'SB\nVắng', 'Vắng\ncó P', 'Buổi ngủ\nthực tế');
-                h2.push('', '', '', '');
+                h1.push('TS\nBuổi ngủ', 'SB\nVắng', 'Vắng\ncó P', 'Buổi ngủ\nthực tế', 'Ghi chú');
+                h2.push('', '', '', '', '');
                 const aoa = [
-                    [`ĐIỂM DANH NGỦ TRƯA – THÁNG ${so_thang}/${so_nam} – PHÒNG ${ma_phong}`, ...Array(5 + numDays + 4).fill('')],
-                    Array(6 + numDays + 4).fill(''), h1, h2,
+                    [`ĐIỂM DANH NGỦ TRƯA – THÁNG ${so_thang}/${so_nam} – PHÒNG ${ma_phong}`, ...Array(5 + numDays + 5).fill('')],
+                    Array(6 + numDays + 5).fill(''), h1, h2,
                 ];
                 roomStudents.forEach((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
                     const dayCells = ngay_ban_tru.map(ngay => {
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        if (isOutOfRange) return '/';
                         const v = s.diemdanh[ngay]; return v === 0 ? '✓' : v === 1 ? '✗' : v === 2 ? 'P' : '';
                     });
-                    const filteredVang2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 1).length;
-                    const filteredPhep2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 2).length;
-                    const filteredCoMat2 = ngay_ban_tru.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
-                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, ma_phong, ...dayCells, numDays, filteredVang2, filteredPhep2, filteredCoMat2]);
+                    const filteredVang2 = activeDays.filter(ng => s.diemdanh[ng] === 1).length;
+                    const filteredPhep2 = activeDays.filter(ng => s.diemdanh[ng] === 2).length;
+                    const filteredCoMat2 = activeDays.filter(ng => s.diemdanh[ng] === 0).length;
+
+                    const noteParts = [];
+                    if (s.ngay_vao && s.ngay_vao >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_vao <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [vy, vm, vd] = s.ngay_vao.split('-');
+                        noteParts.push(`Vào ${vd}/${vm}`);
+                    }
+                    if (s.ngay_rut && s.ngay_rut >= `${so_nam}-${p2(so_thang)}-01` && s.ngay_rut <= `${so_nam}-${p2(so_thang)}-31`) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    } else if (s.ngay_rut) {
+                        const [ry, rm, rd] = s.ngay_rut.split('-');
+                        noteParts.push(`Rút ${rd}/${rm}`);
+                    }
+                    const noteStr = noteParts.join(', ');
+
+                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, ma_phong, ...dayCells, activeDays.length, filteredVang2, filteredPhep2, filteredCoMat2, noteStr]);
                 });
+                aoa.push([]);
+                aoa.push(['* Ký hiệu: (✓) Có mặt, (✗) Vắng, (P) Có phép, (/) Chưa vào / Đã rút bán trú']);
                 const ws = XLSX.utils.aoa_to_sheet(aoa);
                 const cols = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 5 }, { wch: 8 }, { wch: 7 }];
                 for (let i = 0; i < numDays; i++) cols.push({ wch: 5 });
-                cols.push({ wch: 7 }, { wch: 7 }, { wch: 9 }, { wch: 12 });
+                cols.push({ wch: 7 }, { wch: 7 }, { wch: 9 }, { wch: 12 }, { wch: 14 });
                 ws['!cols'] = cols;
                 XLSX.utils.book_append_sheet(wb, ws, `Phong_${ma_phong}`.substring(0, 31));
             });
@@ -862,18 +964,24 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
   <th class="col-phong">P.${specialLoai === 'an' ? 'ĂN' : 'NGỦ'}</th>
   <th class="col-dd">Đ.DANH</th><th class="col-ghichu">Ghi chú</th>
 </tr></thead><tbody>${dataRows}</tbody></table>
-<div class="ft-wrap">
-  <div class="ft-left">
-    <div>Phòng ${ma_phong}: <strong>${roomTotal} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
-    <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
+<div style="margin-top: 8px; margin-bottom: 10px; font-size: 9.5pt; line-height: 1.45; text-align: left;">
+  <div>* Phòng ${ma_phong}: <strong>${roomTotal} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
+  <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong> | Lớp 11: <strong>${total11} hs</strong> | Lớp 12: <strong>${total12} hs</strong></div>
+</div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; page-break-inside: avoid;">
+  <div style="width: 42%; text-align: center;">
+    <div style="height: 19px;"></div>
+    <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 9pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 50px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 10.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
-  <div class="ft-right">
-    <div><em>${todayStr}</em></div>
-    <div class="sig-title">GIÁM ĐỐC</div>
-    <div class="sig-space"></div>
-    <div class="sig-name">${nguoiPhuTrach}</div>
+  <div style="width: 45%; text-align: center;">
+    <div style="font-style: italic; font-size: 9.5pt; height: 19px; line-height: 19px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 9pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 50px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 10.5pt;">${nguoiPhuTrach || 'Vũ Quốc Phong'}</div>
   </div>
 </div>
 </div>`;
@@ -947,7 +1055,7 @@ ${htmlPages}
         const headerAll = ['STT', 'Mã số BT', 'Họ và tên', 'Lớp', 'GT',
             'TS Buổi ăn', 'Ăn thực tế', 'Vắng ăn', 'Phép ăn',
             'TS Buổi ngủ', 'Ngủ thực tế', 'Vắng ngủ', 'Phép ngủ',
-            'Tiền ăn (đ)', 'Tiền ngủ (đ)', 'TỔNG TIỀN (đ)'
+            'Tiền ăn (đ)', 'Tiền ngủ (đ)', 'TỔNG TIỀN (đ)', 'Ghi chú'
         ];
         const aoaAll = [
             [`BẢNG TỔNG HỢP CHUYÊN CẦN VÀ THU TIỀN BÁN TRÚ – THÁNG ${so_thang}/${so_nam}`],
@@ -958,11 +1066,11 @@ ${htmlPages}
                 i + 1, h.id, h.ho_ten, h.lop, h.gioi_tinh === 0 ? 'Nam' : 'Nữ',
                 h.tong_buoi_an, h.buoi_an_thuc_te, h.vang_an, h.phep_an,
                 h.tong_buoi_ngu, h.buoi_ngu_thuc_te, h.vang_ngu, h.phep_ngu,
-                h.tien_an, h.tien_ngu, h.tong_tien
+                h.tien_an, h.tien_ngu, h.tong_tien, h.ghi_chu || ''
             ])
         ];
         const wsAll = XLSX.utils.aoa_to_sheet(aoaAll);
-        wsAll['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 8 }, { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+        wsAll['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 8 }, { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
         if (!thLopSelected) XLSX.utils.book_append_sheet(wb, wsAll, 'Toan_truong');
         // Sheet từng lớp
         Object.entries(lopMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([lop, hsArr]) => {
@@ -977,18 +1085,18 @@ ${htmlPages}
                     i + 1, h.id, h.ho_ten, h.lop, h.gioi_tinh === 0 ? 'Nam' : 'Nữ',
                     h.tong_buoi_an, h.buoi_an_thuc_te, h.vang_an, h.phep_an,
                     h.tong_buoi_ngu, h.buoi_ngu_thuc_te, h.vang_ngu, h.phep_ngu,
-                    h.tien_an, h.tien_ngu, h.tong_tien
+                    h.tien_an, h.tien_ngu, h.tong_tien, h.ghi_chu || ''
                 ]),
                 ['', '', '', '', 'TỔNG',
                     hsArr.reduce((a, h) => a + h.tong_buoi_an, 0), '', '', '',
                     hsArr.reduce((a, h) => a + h.tong_buoi_ngu, 0), '', '', '',
                     hsArr.reduce((a, h) => a + h.tien_an, 0),
                     hsArr.reduce((a, h) => a + h.tien_ngu, 0),
-                    hsArr.reduce((a, h) => a + h.tong_tien, 0)
+                    hsArr.reduce((a, h) => a + h.tong_tien, 0), ''
                 ]
             ];
             const ws = XLSX.utils.aoa_to_sheet(aoa);
-            ws['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 8 }, { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+            ws['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 8 }, { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
             XLSX.utils.book_append_sheet(wb, ws, `Lop_${lop}`.substring(0, 31));
         });
         XLSX.writeFile(wb, `TongHop_BanTru_Thang${so_thang}_${so_nam}.xlsx`);
@@ -1017,7 +1125,7 @@ ${htmlPages}
         <td class="c">${h.tong_buoi_ngu}</td><td class="c hl">${h.buoi_ngu_thuc_te}</td><td class="c r">${h.vang_ngu}</td><td class="c r">${h.phep_ngu}</td>
         <td class="r">${fmtM(h.tien_an)}</td><td class="r">${fmtM(h.tien_ngu)}</td>
         <td class="r b total">${fmtM(h.tong_tien)}</td>
-        <td class="ghichu"></td>
+        <td class="ghichu" style="font-size:7.5pt;text-align:center;">${h.ghi_chu || ''}</td>
       </tr>`).join('');
             return `<div class="page">
 <table class="hdr"><tr>
@@ -1052,10 +1160,26 @@ ${htmlPages}
   <td class="r b total">${fmtM(tongTienLop)}</td><td></td>
 </tr></tfoot>
 </table>
-<div class="ft">
-  <div class="ft-l"><div>Lớp ${lop}: <strong>${hsArr.length} học sinh</strong></div><div>Tổng thu: <strong>${fmtM(tongTienLop)} đồng</strong></div></div>
-  <div class="ft-r"><div>${todayStr}</div><div class="sig-t">GIÁM ĐỐC</div><div class="sig-s"></div><div class="sig-n">${nguoi_phu_trach}</div></div>
-</div></div>`;
+<div style="margin-top: 8px; margin-bottom: 10px; font-size: 9pt; line-height: 1.45; text-align: left;">
+  * Lớp ${lop}: <strong>${hsArr.length} học sinh</strong> | Tổng thu: <strong>${fmtM(tongTienLop)} đồng</strong>
+</div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; page-break-inside: avoid;">
+  <div style="width: 42%; text-align: center;">
+    <div style="height: 18px;"></div>
+    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 45px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
+  </div>
+  <div style="width: 45%; text-align: center;">
+    <div style="font-style: italic; font-size: 8.5pt; height: 18px; line-height: 18px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 45px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
+  </div>
+</div>
+</div>`;
         }).join('');
         const css = `*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
@@ -1150,14 +1274,19 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
         * Ca ăn ${giaAn.toLocaleString('vi-VN')}đ - Ca ngủ ${giaNgu.toLocaleString('vi-VN')}đ
       </div>
       <div class="ft-wrap-an">
-        <div class="ft-left-an" style="padding-top:30px;">
-        </div>
-        <div class="ft-right-an">
-          <div style="font-style:italic;">${todayStr}</div>
+        <div class="ft-left-an">
+          <div style="height: 20px;"></div>
           <div style="font-weight:bold; margin-top:2px;">KẾ TOÁN</div>
           <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
           <div class="sig-space-an" style="height: 60px;"></div>
-          <div style="font-weight:bold; font-style:italic; font-size:12pt;">${keToanName || (user?.fullname?.trim() ? user.fullname : (user?.username || ''))}</div>
+          <div style="font-weight:bold; font-style:italic; font-size:12pt;">${keToanName || user?.fullname?.trim() || user?.username || ''}</div>
+        </div>
+        <div class="ft-right-an">
+          <div style="font-style:italic; height: 20px; line-height: 20px;">${todayStr}</div>
+          <div style="font-weight:bold; margin-top:2px;">GIÁM ĐỐC</div>
+          <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
+          <div class="sig-space-an" style="height: 60px;"></div>
+          <div style="font-weight:bold; font-style:italic; font-size:12pt;">${quanLyName || 'Vũ Quốc Phong'}</div>
         </div>
       </div>`;
 
@@ -1351,14 +1480,19 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     </tbody>
                 </table>
                 <div class="ft-wrap-an">
-                    <div class="ft-left-an" style="padding-top:30px;">
+                    <div class="ft-left-an">
+                        <div style="height: 20px;"></div>
+                        <div style="font-weight:bold; margin-top:2px;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+                        <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
+                        <div class="sig-space-an" style="height: 60px;"></div>
+                        <div style="font-weight:bold; font-style:italic; font-size:12pt;">${user?.fullname?.trim() || user?.username || ''}</div>
                     </div>
                     <div class="ft-right-an">
-                        <div style="font-style:italic;">${todayStr}</div>
+                        <div style="font-style:italic; height: 20px; line-height: 20px;">${todayStr}</div>
                         <div style="font-weight:bold; margin-top:2px;">GIÁM ĐỐC</div>
                         <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
                         <div class="sig-space-an" style="height: 60px;"></div>
-                        <div style="font-weight:bold; font-style:italic; font-size:12pt;">${managerName}</div>
+                        <div style="font-weight:bold; font-style:italic; font-size:12pt;">${managerName || 'Vũ Quốc Phong'}</div>
                     </div>
                 </div>
             </div>`;

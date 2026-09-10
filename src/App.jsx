@@ -19,6 +19,7 @@ const BaoCao        = lazy(() => import('./pages/nghiepvu/BaoCao'));
 const BaoCaoTrucGV  = lazy(() => import('./pages/nghiepvu/BaoCaoTrucGV'));
 const GiaoVien      = lazy(() => import('./pages/quanli/GiaoVien'));
 const HocSinh       = lazy(() => import('./pages/quanli/HocSinh'));
+const InTheBanTru   = lazy(() => import('./pages/quanli/InTheBanTru'));
 const Phong         = lazy(() => import('./pages/quanli/Phong'));
 const VatDung       = lazy(() => import('./pages/quanli/VatDung'));
 const CauHinh       = lazy(() => import('./pages/quanli/CauHinh'));
@@ -64,9 +65,10 @@ export default function App() {
               <Route path="/bao-cao-truc"    element={<BaoCaoTrucGV />} />
 
               {/* Quản lý */}
-              <Route path="/giao-vien" element={<GiaoVien />} />
-              <Route path="/hoc-sinh"  element={<HocSinh />} />
-              <Route path="/phong"     element={<Phong />} />
+              <Route path="/giao-vien"      element={<GiaoVien />} />
+              <Route path="/hoc-sinh"       element={<HocSinh />} />
+              <Route path="/in-the-ban-tru" element={<InTheBanTru />} />
+              <Route path="/phong"          element={<Phong />} />
               <Route path="/vat-dung"  element={<VatDung />} />
               <Route path="/cau-hinh"  element={<CauHinh />} />
 

@@ -480,8 +480,8 @@ export default function BaoCaoTrucGV() {
     thead { display: table-header-group; }
     
     .note-box { font-style:italic; font-size:9pt; margin-top:8px; margin-bottom:12px; color:#1e293b; line-height:1.45; }
-    .sig-section { display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid; break-inside:avoid; }
-    .sig-box { width:45%; text-align:center; }
+    .sig-section { display:flex; justify-content:space-between; align-items:flex-start; margin-top:20px; page-break-inside:avoid; break-inside:avoid; }
+    .sig-box { width:42%; text-align:center; }
     .sig-date { font-style:italic; font-size:9.5pt; margin-bottom:4px; }
     .sig-role { font-weight:bold; font-size:10.5pt; text-transform:uppercase; }
     .sig-hint { font-style:italic; font-size:8.5pt; }
@@ -552,11 +552,18 @@ export default function BaoCaoTrucGV() {
 
   <div class="sig-section">
     <div class="sig-box">
-      <div class="sig-date">${todayStrFull}</div>
-      <div class="sig-role">NGƯỜI LẬP BẢNG</div>
+      <div class="sig-date-space" style="height: 18px;"></div>
+      <div class="sig-role">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
       <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
       <div class="sig-space"></div>
-      <div class="sig-name">${user?.fullname || 'Huỳnh Duy Khoa'}</div>
+      <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-date">${todayStrFull}</div>
+      <div class="sig-role">GIÁM ĐỐC</div>
+      <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
+      <div class="sig-space"></div>
+      <div class="sig-name">${data.nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
     </div>
   </div>
 
@@ -663,13 +670,20 @@ export default function BaoCaoTrucGV() {
           <br />** Kính đề nghị Quý Thầy/Cô Chủ nhiệm phối hợp cùng Ban Giám Thị nhắc nhở, làm việc với học sinh và liên hệ phụ huynh để răn đe, giáo dục.
         </div>
 
-        <div class="sig-section" style="display:flex; justify-content:flex-end; margin-top:24px; page-break-inside:avoid;">
-          <div class="sig-box" style="width:45%; text-align:center;">
-            <div class="sig-date">${todayStrFull}</div>
-            <div class="sig-role">NGƯỜI LẬP BẢNG</div>
+        <div class="sig-section" style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:24px; page-break-inside:avoid;">
+          <div class="sig-box" style="width:40%; text-align:center;">
+            <div class="sig-date-space" style="height: 18px;"></div>
+            <div class="sig-role">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
             <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
             <div class="sig-space" style="height:60px;"></div>
-            <div class="sig-name">${user?.fullname || 'Huỳnh Duy Khoa'}</div>
+            <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+          </div>
+          <div class="sig-box" style="width:45%; text-align:center;">
+            <div class="sig-date">${todayStrFull}</div>
+            <div class="sig-role">GIÁM ĐỐC</div>
+            <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
+            <div class="sig-space" style="height:60px;"></div>
+            <div class="sig-name">${data.nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
           </div>
         </div>
       </div>
@@ -702,8 +716,8 @@ export default function BaoCaoTrucGV() {
     table.data-table th { background:#f5f5f5 !important; text-align:center; font-weight:bold; }
     
     .note-box { font-style:italic; font-size:9.5pt; margin-top:8px; margin-bottom:12px; color:#1e293b; }
-    .sig-section { display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid; }
-    .sig-box { width:45%; text-align:center; }
+    .sig-section { display:flex; justify-content:space-between; align-items:flex-start; margin-top:20px; page-break-inside:avoid; }
+    .sig-box { width:42%; text-align:center; }
     .sig-date { font-style:italic; font-size:9.5pt; margin-bottom:4px; }
     .sig-role { font-weight:bold; font-size:10.5pt; text-transform:uppercase; }
     .sig-hint { font-style:italic; font-size:8.5pt; }
@@ -889,13 +903,20 @@ export default function BaoCaoTrucGV() {
     </tbody>
   </table>
 
-  <div class="sig-section" style="display:flex; justify-content:flex-end; margin-top:24px; page-break-inside:avoid;">
+  <div class="sig-section" style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:24px; page-break-inside:avoid;">
     <div class="sig-box" style="width:40%; text-align:center;">
-      <div class="sig-date">${todayStrFull}</div>
-      <div class="sig-role">NGƯỜI LẬP BẢNG</div>
+      <div class="sig-date-space" style="height: 18px;"></div>
+      <div class="sig-role">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
       <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
       <div class="sig-space" style="height:65px;"></div>
-      <div class="sig-name">${user?.fullname || 'Huỳnh Duy Khoa'}</div>
+      <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+    </div>
+    <div class="sig-box" style="width:45%; text-align:center;">
+      <div class="sig-date">${todayStrFull}</div>
+      <div class="sig-role">GIÁM ĐỐC</div>
+      <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
+      <div class="sig-space" style="height:65px;"></div>
+      <div class="sig-name">${data.nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
     </div>
   </div>
 
@@ -1827,6 +1848,28 @@ function tuDongTaoFormBaoCao() {
                 ))}
               </tbody>
             </table>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '10px 16px',
+              background: '#f8fafc',
+              borderTop: '1px solid #e2e8f0',
+              fontSize: '0.86rem',
+              color: '#475569',
+              flexWrap: 'wrap',
+              gap: 10
+            }}>
+              <div>
+                <i className="fas fa-user-edit" style={{ marginRight: 6, color: '#0284c7' }}></i>
+                <span>{(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'Kế toán:' : 'Người lập bảng:'} </span>
+                <strong style={{ color: '#0f172a' }}>{user?.fullname?.trim() || user?.username || '—'}</strong>
+              </div>
+              <div>
+                <span>Ký duyệt: </span>
+                <strong style={{ color: '#0f172a' }}>GIÁM ĐỐC - {data.nguoi_phu_trach || 'Vũ Quốc Phong'}</strong>
+              </div>
+            </div>
           </div>
         )}
       </div>

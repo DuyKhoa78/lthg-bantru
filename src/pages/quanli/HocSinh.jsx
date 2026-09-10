@@ -10,7 +10,7 @@ import { removeAccents, getSortNames } from '../../utils/stringUtils';
 import { cacheInvalidateStudents } from '../../utils/cache';
 import '../../styles/admin.css';
 
-const EMPTY_FORM = { ho_ten: '', lop: '', gioi_tinh: '', ma_phong_an: '', ma_phong_ngu: '', dang_hoc: true, ghi_chu: '', ma_bt: '' };
+const EMPTY_FORM = { ho_ten: '', lop: '', gioi_tinh: '', ma_phong_an: '', ma_phong_ngu: '', dang_hoc: true, ngay_vao: '', ngay_rut: '', ghi_chu: '', ma_bt: '' };
 const CSV_COLS   = ['STT', 'Mã BT', 'Họ tên', 'GT', 'Lớp', 'P.Ngủ', 'P.Ăn', 'Ghi chú'];
 
 // Sắp xếp thứ tự tự nhiên các lớp (10A1 -> 10A2 -> ... -> 10A10 -> 11A1 -> 12A10)
@@ -53,6 +53,10 @@ export default function HocSinh() {
   const [filterGT, setFilterGT]   = useState('');
   const [filterTT, setFilterTT]   = useState('');
   const [filterPhong, setFilterPhong] = useState('');
+
+  // ── Sắp xếp (Mặc định mã bán trú tăng dần) ──
+  const [sortField, setSortField] = useState('mabt');
+  const [sortAsc, setSortAsc] = useState(true);
 
   const availableLops = useMemo(() => {
     return [...new Set(data.map(h => h.lop))].filter(Boolean).sort(compareClasses);
@@ -143,13 +147,21 @@ export default function HocSinh() {
     });
 
     result.sort((a, b) => {
+      if (sortField === 'mabt') {
+        const diff = Number(a.id) - Number(b.id);
+        return sortAsc ? diff : -diff;
+      }
+      if (sortField === 'ten') {
+        const cmp = compareVietnameseNames(a.ho_ten, b.ho_ten);
+        return sortAsc ? cmp : -cmp;
+      }
       let cmp = compareClasses(a.lop, b.lop);
-      if (cmp !== 0) return cmp;
+      if (cmp !== 0) return sortAsc ? cmp : -cmp;
       return compareVietnameseNames(a.ho_ten, b.ho_ten);
     });
 
     return result;
-  }, [data, search, filterLop, filterGT, filterTT, filterPhong]);
+  }, [data, search, filterLop, filterGT, filterTT, filterPhong, sortField, sortAsc]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -174,7 +186,13 @@ export default function HocSinh() {
   // ── CRUD ──
   const openAdd  = () => { setForm(EMPTY_FORM); setModal('add'); };
   const openEdit = (hs) => {
-    setForm({ ...hs, ma_phong_an: hs.ma_phong_an_id || '', ma_phong_ngu: hs.ma_phong_ngu_id || '' });
+    setForm({ 
+      ...hs, 
+      ma_phong_an: hs.ma_phong_an_id || '', 
+      ma_phong_ngu: hs.ma_phong_ngu_id || '',
+      ngay_vao: hs.ngay_vao ? hs.ngay_vao.slice(0, 10) : '',
+      ngay_rut: hs.ngay_rut ? hs.ngay_rut.slice(0, 10) : ''
+    });
     setModal({ edit: hs });
   };
 
@@ -201,7 +219,10 @@ export default function HocSinh() {
         gioi_tinh: Number(form.gioi_tinh),
         ma_phong_an: form.ma_phong_an || null,
         ma_phong_ngu: form.ma_phong_ngu || null,
-        dang_hoc: form.dang_hoc, ghi_chu: form.ghi_chu,
+        dang_hoc: form.dang_hoc, 
+        ngay_vao: form.ngay_vao || null,
+        ngay_rut: form.ngay_rut || null,
+        ghi_chu: form.ghi_chu,
       });
       cacheInvalidateStudents();
       setModal(null); fetchData(true);
@@ -402,14 +423,14 @@ export default function HocSinh() {
     }
     .sig-wrap {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: flex-start;
-      margin-top: 8px;
+      margin-top: 18px;
       page-break-inside: avoid;
       break-inside: avoid;
     }
     .sig-col {
-      min-width: 220px;
+      width: 42%;
       text-align: center;
     }
     .sig-date {
@@ -443,6 +464,9 @@ export default function HocSinh() {
   const generateClassHtml = (lop, students, namHoc, nguoiPhuTrach, todayStr, isPageBreak = false) => {
     const namCount = students.filter(s => s.gioi_tinh === 0).length;
     const nuCount = students.filter(s => s.gioi_tinh === 1).length;
+    const isKeToan = user?.role === 'ke_toan' || user?.is_ke_toan;
+    const leftRoleTitle = isKeToan ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG';
+    const leftCreatorName = user?.fullname?.trim() || user?.username || '';
 
     const rowsHtml = students.map((s, idx) => `
       <tr>
@@ -498,6 +522,13 @@ export default function HocSinh() {
       </div>
 
       <div class="sig-wrap">
+        <div class="sig-col">
+          <div class="sig-date-space" style="height: 18px;"></div>
+          <div class="sig-role">${leftRoleTitle}</div>
+          <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
+          <div class="sig-space"></div>
+          <div class="sig-name">${leftCreatorName}</div>
+        </div>
         <div class="sig-col">
           <div class="sig-date">${todayStr}</div>
           <div class="sig-role">GIÁM ĐỐC</div>
@@ -678,6 +709,14 @@ export default function HocSinh() {
           >
             <i className="fas fa-file-pdf" style={{ color: '#ef4444' }}></i> Xuất PDF theo lớp
           </button>
+          <Link
+            to="/in-the-ban-tru"
+            className="btn btn-sm"
+            style={{ fontWeight: 700, borderColor: '#38bdf8', color: '#0284c7', background: '#f0f9ff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Chức năng in thẻ bán trú học sinh theo lớp và cá nhân"
+          >
+            <i className="fas fa-id-card" style={{ color: '#0284c7' }}></i> In Thẻ Bán Trú
+          </Link>
           {(user?.is_admin || user?.is_superuser) ? (
             <>
               <button className="btn btn-ghost btn-sm" onClick={openImport}><i className="fas fa-file-csv"></i> Import CSV</button>
@@ -738,7 +777,30 @@ export default function HocSinh() {
         <div className="table-scroll">
           <table className="data-table">
             <thead><tr>
-              <th>#</th><th>Mã BT</th><th>Họ tên</th><th>GT</th><th>Lớp</th><th>Phòng ăn</th><th>Phòng ngủ</th><th>Trạng thái</th>
+              <th>#</th>
+              <th
+                onClick={() => { if (sortField === 'mabt') setSortAsc(!sortAsc); else { setSortField('mabt'); setSortAsc(true); } }}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+                title="Nhấn để sắp xếp theo Mã BT"
+              >
+                Mã BT {sortField === 'mabt' ? (sortAsc ? <i className="fas fa-sort-up" style={{ color: 'var(--primary)', marginLeft: 4 }}></i> : <i className="fas fa-sort-down" style={{ color: 'var(--primary)', marginLeft: 4 }}></i>) : <i className="fas fa-sort" style={{ color: '#cbd5e1', marginLeft: 4 }}></i>}
+              </th>
+              <th
+                onClick={() => { if (sortField === 'ten') setSortAsc(!sortAsc); else { setSortField('ten'); setSortAsc(true); } }}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+                title="Nhấn để sắp xếp theo Họ tên"
+              >
+                Họ tên {sortField === 'ten' ? (sortAsc ? <i className="fas fa-sort-up" style={{ color: 'var(--primary)', marginLeft: 4 }}></i> : <i className="fas fa-sort-down" style={{ color: 'var(--primary)', marginLeft: 4 }}></i>) : <i className="fas fa-sort" style={{ color: '#cbd5e1', marginLeft: 4 }}></i>}
+              </th>
+              <th>GT</th>
+              <th
+                onClick={() => { if (sortField === 'lop') setSortAsc(!sortAsc); else { setSortField('lop'); setSortAsc(true); } }}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+                title="Nhấn để sắp xếp theo Lớp"
+              >
+                Lớp {sortField === 'lop' ? (sortAsc ? <i className="fas fa-sort-up" style={{ color: 'var(--primary)', marginLeft: 4 }}></i> : <i className="fas fa-sort-down" style={{ color: 'var(--primary)', marginLeft: 4 }}></i>) : <i className="fas fa-sort" style={{ color: '#cbd5e1', marginLeft: 4 }}></i>}
+              </th>
+              <th>Phòng ăn</th><th>Phòng ngủ</th><th>Trạng thái</th>
               {(user?.is_admin || user?.is_superuser) && <th>Thao tác</th>}
             </tr></thead>
             <tbody>
@@ -753,9 +815,22 @@ export default function HocSinh() {
                   <td><b>{hs.lop}</b></td>
                   <td>{hs.phong_an?.ma_phong || hs.ma_phong_an_id || '—'}</td>
                   <td>{hs.phong_ngu?.ma_phong || hs.ma_phong_ngu_id || '—'}</td>
-                  <td>{hs.dang_hoc ? <span className="badge badge-success">Đang học</span> : <span className="badge badge-danger">Rút BT</span>}</td>
+                  <td>
+                    {hs.dang_hoc ? (
+                      <div>
+                        <span className="badge badge-success">Đang học</span>
+                        {hs.ngay_vao && <div style={{ fontSize: '.72rem', color: '#64748b', marginTop: 2 }}>Vào: {hs.ngay_vao.slice(8, 10)}/{hs.ngay_vao.slice(5, 7)}</div>}
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="badge badge-danger">Rút BT</span>
+                        {hs.ngay_rut && <div style={{ fontSize: '.72rem', color: '#dc2626', marginTop: 2, fontWeight: 600 }}>Rút: {hs.ngay_rut.slice(8, 10)}/{hs.ngay_rut.slice(5, 7)}</div>}
+                      </div>
+                    )}
+                  </td>
                   {(user?.is_admin || user?.is_superuser) && (
                     <td><div className="action-btns">
+                      <Link to={`/in-the-ban-tru?id=${hs.id}`} className="btn-icon" title={`In thẻ bán trú cho ${hs.ho_ten}`} style={{ color: '#0284c7', textDecoration: 'none' }}><i className="fas fa-id-card"></i></Link>
                       <button className="btn-icon edit" onClick={() => openEdit(hs)}><i className="fas fa-edit"></i></button>
                       <button className="btn-icon delete" onClick={() => handleDelete(hs.id, hs.ho_ten)}><i className="fas fa-trash"></i></button>
                     </div></td>
@@ -809,9 +884,50 @@ export default function HocSinh() {
                 </div>
                 <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
                   <div className="toggle-wrapper">
-                    <label className="toggle"><input type="checkbox" checked={form.dang_hoc} onChange={(e) => setForm({ ...form, dang_hoc: e.target.checked })} /><span className="toggle-slider"></span></label>
-                    <span className="toggle-label">Đang học</span>
+                    <label className="toggle">
+                      <input 
+                        type="checkbox" 
+                        checked={form.dang_hoc} 
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setForm({ 
+                            ...form, 
+                            dang_hoc: isChecked, 
+                            ngay_rut: isChecked ? '' : (form.ngay_rut || new Date().toISOString().split('T')[0])
+                          });
+                        }} 
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                    <span className="toggle-label" style={{ fontWeight: 600, color: form.dang_hoc ? '#16a34a' : '#dc2626' }}>
+                      {form.dang_hoc ? 'Đang học bán trú' : 'Đã rút bán trú'}
+                    </span>
                   </div>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Ngày vào bán trú</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={form.ngay_vao || ''} 
+                    onChange={(e) => setForm({ ...form, ngay_vao: e.target.value })} 
+                  />
+                  <small style={{ color: '#64748b', fontSize: '.75rem' }}>Để trống nếu vào từ đầu năm học hoặc chọn ngày bắt đầu</small>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Ngày rút bán trú</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={form.ngay_rut || ''} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm({ ...form, ngay_rut: val, dang_hoc: !val });
+                    }} 
+                  />
+                  <small style={{ color: '#64748b', fontSize: '.75rem' }}>Chỉ điền khi học sinh rút bán trú giữa chừng</small>
                 </div>
               </div>
               <div className="form-row">
@@ -1084,6 +1200,10 @@ export default function HocSinh() {
                 <div>
                   <span style={{ color: '#64748b' }}>Năm học: </span>
                   <b style={{ color: '#1e40af' }}>{cauhinh?.nam_hoc || '2026-2027'}</b>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>{(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'Kế toán:' : 'Người lập bảng:'} </span>
+                  <b style={{ color: '#0f172a' }}>{user?.fullname || user?.username || '—'}</b>
                 </div>
                 <div>
                   <span style={{ color: '#64748b' }}>Ký duyệt: </span>

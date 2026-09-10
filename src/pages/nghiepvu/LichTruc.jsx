@@ -346,10 +346,18 @@ export default function LichTruc() {
           <div class="notes-wrap">${notesHtml}</div>
           <div class="sig-wrap">
             <div class="sig-box">
+              <div class="sig-date-space" style="height: 19px;"></div>
+              <div class="sig-title">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+              <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
+              <div class="sig-space"></div>
+              <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+            </div>
+            <div class="sig-box">
               <div class="sig-date">TP Hồ Chí Minh, ngày ${ws1.getDate()} tháng ${ws1.getMonth()+1} năm ${ws1.getFullYear()}</div>
               <div class="sig-title">GIÁM ĐỐC</div>
+              <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
               <div class="sig-space"></div>
-              <div class="sig-name">${phuTrach}</div>
+              <div class="sig-name">${phuTrach || 'Vũ Quốc Phong'}</div>
             </div>
           </div>
         </div>
@@ -388,6 +396,7 @@ export default function LichTruc() {
         border-spacing: 0;
         font-size: 9.5pt;
         margin-top: 2px;
+        margin-bottom: 20px;
       }
       thead { display: table-header-group; }
       tfoot { display: table-footer-group; }
@@ -429,9 +438,9 @@ export default function LichTruc() {
       .td-w2-empty { background: #fafafa; }
       .td-ghi  { text-align: left; padding: 3px 3px; font-size: 7.5pt; line-height: 1.15; width: 148px; }
       
-      .footer-wrap { margin-top: 8px; page-break-inside: avoid; break-inside: avoid; }
-      .sig-wrap { margin-top: 6px; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid; }
-      .sig-box { text-align: center; min-width: 210px; display: inline-block; }
+      .footer-wrap { margin-top: 20px; page-break-inside: avoid; break-inside: avoid; }
+      .sig-wrap { margin-top: 16px; display: flex; justify-content: space-between; align-items: flex-start; page-break-inside: avoid; break-inside: avoid; }
+      .sig-box { text-align: center; width: 42%; min-width: 210px; display: inline-block; }
       .sig-date { font-size: 12pt; font-style: italic; margin-bottom: 2px; }
       .sig-title { font-weight: bold; font-size: 12pt; text-transform: uppercase; }
       .sig-space { height: 48px; }
@@ -659,6 +668,7 @@ export default function LichTruc() {
         border-spacing: 0;
         font-size: 9.5pt;
         margin-top: 2px;
+        margin-bottom: 20px;
       }
       thead { display: table-header-group; }
       tfoot { display: table-footer-group; }
@@ -697,9 +707,9 @@ export default function LichTruc() {
       .td-w1-empty { background: #fafafa; }
       .td-ghi  { text-align: left; padding: 3px 3px; font-size: 7.5pt; line-height: 1.15; width: 200px; }
       
-      .footer-wrap { margin-top: 8px; page-break-inside: avoid; break-inside: avoid; }
-      .sig-wrap { margin-top: 6px; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid; }
-      .sig-box { text-align: center; min-width: 210px; display: inline-block; }
+      .footer-wrap { margin-top: 20px; page-break-inside: avoid; break-inside: avoid; }
+      .sig-wrap { margin-top: 16px; display: flex; justify-content: space-between; align-items: flex-start; page-break-inside: avoid; break-inside: avoid; }
+      .sig-box { text-align: center; width: 42%; min-width: 210px; display: inline-block; }
       .sig-date { font-size: 12pt; font-style: italic; margin-bottom: 2px; }
       .sig-title { font-weight: bold; font-size: 12pt; text-transform: uppercase; }
       .sig-space { height: 48px; }
@@ -753,10 +763,18 @@ export default function LichTruc() {
           </div>
           <div class="sig-wrap">
             <div class="sig-box">
+              <div class="sig-date-space" style="height: 19px;"></div>
+              <div class="sig-title">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+              <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
+              <div class="sig-space"></div>
+              <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+            </div>
+            <div class="sig-box">
               <div class="sig-date">TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}</div>
               <div class="sig-title">GIÁM ĐỐC</div>
+              <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
               <div class="sig-space"></div>
-              <div class="sig-name">${phuTrach}</div>
+              <div class="sig-name">${phuTrach || 'Vũ Quốc Phong'}</div>
             </div>
           </div>
         </div>

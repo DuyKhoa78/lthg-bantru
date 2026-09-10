@@ -1,0 +1,686 @@
+/* ============================================================
+   CHỨC NĂNG IN THẺ BÁN TRÚ - THPT LÊ THỊ HỒNG GẤM
+   Hỗ trợ 2 chế độ: 1. In theo lớp | 2. In cá nhân
+   Chuẩn CR80: 85.60 mm x 53.98 mm - Mã số hiển thị 26xxx
+   ============================================================ */
+
+/* ── TAB CHUYỂN ĐỔI CHẾ ĐỘ IN ── */
+.in-the-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  background: #f1f5f9;
+  padding: 6px;
+  border-radius: 12px;
+  width: fit-content;
+}
+.in-the-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.in-the-tab-btn:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.6);
+}
+.in-the-tab-btn.active {
+  background: #ffffff;
+  color: #0284c7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ── BẢNG ĐIỀU KHIỂN & BỘ LỌC ── */
+.in-the-control-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.in-the-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+.in-the-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.in-the-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.in-the-select {
+  padding: 8px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  background: #ffffff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.in-the-select:focus {
+  border-color: #0284c7;
+}
+
+/* Segment buttons */
+.in-the-segment {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 3px;
+}
+.in-the-segment-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.in-the-segment-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.3);
+}
+
+/* Search Box */
+.in-the-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 280px;
+}
+.in-the-search-wrap i.fa-search {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+.in-the-search-input {
+  width: 100%;
+  padding: 8px 30px 8px 34px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+}
+.in-the-search-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+.in-the-clear-btn {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+}
+.in-the-clear-btn:hover { color: #334155; }
+
+/* Status / Counter Chip */
+.in-the-counter-chip {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── THÔNG TIN HỌC SINH CÁ NHÂN (CHẾ ĐỘ 2) ── */
+.student-detail-summary {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.student-detail-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.student-avatar-mini {
+  width: 50px;
+  height: 65px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 2px solid #cbd5e1;
+  background: #ffffff;
+}
+.student-detail-meta h4 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  color: #0f172a;
+  font-weight: 800;
+}
+.student-detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.badge-code-card {
+  background: #1e3a8a;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 3px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+.badge-class {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.badge-room-eat {
+  background: #ffedd5;
+  color: #c2410c;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.badge-room-sleep {
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+/* ── XEM TRƯỚC THẺ BÁN TRÚ (PREVIEW) ── */
+.single-cards-preview-wrap {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin: 20px 0 30px;
+}
+.card-box-outer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.card-box-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── MẪU THẺ THỰC TẾ (CR80) ── */
+.smart-id-card {
+  width: 348px;
+  height: 218px;
+  background: #ffffff;
+  border-radius: 11px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border: 1px solid #cbd5e1;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+.card-h-head {
+  background: linear-gradient(135deg, var(--primary-navy, #0a192f) 0%, var(--primary-blue, #1e3a8a) 100%);
+  color: #ffffff;
+  height: 48px;
+  padding: 4px 10px 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  border-bottom: 2.5px solid var(--gold-accent, #38bdf8);
+}
+.head-logo-img {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  border: none !important;
+}
+.head-titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.title-sub {
+  font-size: 7.2px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.title-school {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 9.8px;
+  font-weight: 900;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.year-tag {
+  font-size: 6.8px;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.3);
+  border: 0.8px solid var(--gold-accent, #38bdf8);
+  color: var(--gold-text, #bae6fd);
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Watermark */
+.card-watermark-trongdong {
+  position: absolute;
+  top: 136px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 178px;
+  height: 178px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-watermark-trongdong img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Main title */
+.card-main-title {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 13.5px;
+  font-weight: 900;
+  color: var(--primary-blue, #1e3a8a);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+  padding: 9px 0 2px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Content */
+.card-h-content {
+  display: flex;
+  padding: 0 10px 8px 10px;
+  gap: 10px;
+  height: 154px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.avatar-frame {
+  width: 82px;
+  height: 108px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+.avatar-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.info-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+.student-name-block {
+  border-bottom: 1px dashed #cbd5e1;
+  margin-top: -4px;
+  margin-bottom: 2px;
+  padding-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.name-label {
+  font-size: 7.2px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-top: -1px;
+  margin-bottom: 2px;
+}
+.student-fullname-val {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 700;
+  color: var(--primary-blue, #1e3a8a);
+  text-transform: uppercase;
+  letter-spacing: 0.25px;
+  line-height: 1.35;
+  padding-top: 3px;
+  padding-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+.meta-row-clean {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.2px;
+}
+.meta-lbl {
+  color: #64748b;
+  font-weight: 600;
+}
+.meta-val {
+  color: #1e293b;
+  font-weight: 700;
+}
+.meta-val.blue {
+  color: var(--primary-blue, #1e3a8a);
+}
+.meta-sep {
+  color: #cbd5e1;
+  margin: 0 2px;
+}
+.meta-id-highlight {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 900;
+  color: #ef4444;
+  letter-spacing: 0.5px;
+}
+
+.room-badges-compact {
+  display: flex;
+  gap: 4px;
+  margin-top: 1px;
+}
+.room-tag-sm {
+  font-size: 7.8px;
+  font-weight: 700;
+  padding: 1.5px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.room-tag-sm.pill-orange {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 0.5px solid #fed7aa;
+}
+.room-tag-sm.pill-green {
+  background: #dcfce7;
+  color: #15803d;
+  border: 0.5px solid #bbf7d0;
+}
+
+.qr-scan-zone {
+  width: 66px;
+  height: 66px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qr-scan-zone img, .qr-scan-zone canvas {
+  width: 66px !important;
+  height: 66px !important;
+  display: block;
+}
+
+/* Mặt sau thẻ */
+.card-back-view {
+  padding: 12px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+.card-back-title {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 11.2px;
+  font-weight: 800;
+  color: var(--primary-blue, #1e3a8a);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.rules-list {
+  list-style: decimal;
+  padding-left: 16px;
+  margin: 0;
+  font-size: 8.6px;
+  color: #1e293b;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.rules-list li {
+  margin-bottom: 4px;
+}
+
+/* ── KHỔ GIẤY IN A4 TRÊN MÀN HÌNH ── */
+.a4-wrapper {
+  margin: 24px auto;
+  width: 794px;
+  max-width: 794px;
+  min-height: 1050px;
+  background: #ffffff;
+  padding: 24px 41px 30px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  color: #0f172a;
+}
+.a4-wrapper + .a4-wrapper {
+  margin-top: 36px;
+}
+.a4-top-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+.a4-grid-h {
+  display: grid;
+  grid-template-columns: 348px 348px;
+  column-gap: 16px;
+  row-gap: 16px;
+  justify-content: center;
+  margin: 0 auto;
+}
+.a4-grid-pair {
+  display: grid;
+  grid-template-columns: 348px 348px;
+  column-gap: 0;
+  row-gap: 16px;
+  justify-content: center;
+  margin: 0 auto;
+}
+.print-item-cell {
+  width: 348px;
+  height: 218px;
+  position: relative;
+  outline: 1px dashed #cbd5e1;
+  outline-offset: 2px;
+  box-sizing: border-box;
+}
+.print-item-cell-pair-left {
+  border-right: 1px dashed #64748b !important;
+}
+
+/* ── KHI IN THẬT (PRINT MEDIA CSS) ── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .app-shell, .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+  }
+  .sidebar, .navbar, .footer, .no-print, .breadcrumb, .page-header, .in-the-tabs, .in-the-control-card, .student-detail-summary, .single-cards-preview-wrap, .a4-top-meta, .print-guide-banner {
+    display: none !important;
+  }
+  .a4-wrapper {
+    box-shadow: none !important;
+    border: none !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    padding-top: 31.54mm !important;
+    padding-bottom: 31.54mm !important;
+    padding-left: 14.40mm !important;
+    padding-right: 14.40mm !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+  .a4-wrapper:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+  .a4-grid-h {
+    display: grid !important;
+    grid-template-columns: 85.60mm 85.60mm !important;
+    column-gap: 10.00mm !important;
+    row-gap: 6.00mm !important;
+    justify-content: center !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    width: 181.20mm !important;
+  }
+  .a4-grid-pair {
+    display: grid !important;
+    grid-template-columns: 85.60mm 85.60mm !important;
+    column-gap: 0mm !important;
+    row-gap: 6.00mm !important;
+    justify-content: center !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    width: 171.20mm !important;
+  }
+  .print-item-cell {
+    width: 85.60mm !important;
+    height: 53.98mm !important;
+    min-width: 85.60mm !important;
+    max-width: 85.60mm !important;
+    min-height: 53.98mm !important;
+    max-height: 53.98mm !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    outline: none !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .print-item-cell .smart-id-card {
+    width: 348px !important;
+    height: 218px !important;
+    min-width: 348px !important;
+    max-width: 348px !important;
+    min-height: 218px !important;
+    max-height: 218px !important;
+    transform: scale(0.929677, 0.935869) !important;
+    transform-origin: 0 0 !important;
+    box-shadow: none !important;
+    border: 0.4mm solid #cbd5e1 !important;
+    border-radius: 11px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-item-cell .card-back-view {
+    border: none !important;
+  }
+  .print-item-cell-pair-left {
+    border-right: 0.3mm dashed #94a3b8 !important;
+  }
+}

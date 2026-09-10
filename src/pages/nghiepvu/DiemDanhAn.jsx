@@ -164,6 +164,9 @@ export default function DiemDanhAn() {
             extraHsList.filter(x => x.phong_an && x.phong_an !== ma_phong).map(x => x.id)
         );
         const base = hsList.filter(hs => {
+            // Lọc theo ngày đang xem: chỉ hiển thị học sinh đang tham gia bán trú vào ngày này
+            if (hs.ngay_vao && date < hs.ngay_vao) return false;
+            if (hs.ngay_rut && date > hs.ngay_rut) return false;
             if (!isHsAllowed(hs)) return false;
             if (overridedElsewhere.has(hs.id)) return false;
             
@@ -183,8 +186,8 @@ export default function DiemDanhAn() {
                 const baseHs = hsList.find(h => h.id === x.id);
                 return { ...(baseHs || {}), ...x, phong_an: ma_phong };
             });
-        return [...base, ...extraFiltered];
-    }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed]);
+        return [...base, ...extraFiltered].sort((a, b) => Number(a.id) - Number(b.id));
+    }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date]);
 
     const visiblePhongList = useMemo(() => {
         if (!cauhinhNgay) return phongList;
@@ -217,12 +220,15 @@ export default function DiemDanhAn() {
         }
     }, [visiblePhongList, selectedPhong]);
 
+    // Danh sách học sinh trong phòng: Luôn sort mã bán trú tăng dần
     const students = useMemo(() => {
         if (!selectedPhong) return [];
-        return getStudentsForRoom(selectedPhong.ma_phong).map(s => ({
-            ...s,
-            trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'),
-        }));
+        return getStudentsForRoom(selectedPhong.ma_phong)
+            .sort((a, b) => Number(a.id) - Number(b.id))
+            .map(s => ({
+                ...s,
+                trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'),
+            }));
     }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom]);
 
     const otherRoomMatches = useMemo(() => {
@@ -436,18 +442,24 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
     <th class="col-ghichu">Ghi chú</th>
   </tr>
 </thead><tbody>${dataRows}</tbody></table>
-<div class="ft-wrap">
-  <div class="ft-left">
-    <div>Phòng ${ma_phong}: <strong>${roomTotal} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
-    <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
+<div style="margin-top: 10px; margin-bottom: 12px; font-size: 9.5pt; line-height: 1.45; text-align: left;">
+  <div>* Phòng ${ma_phong}: <strong>${roomTotal} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
+  <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong> | Lớp 11: <strong>${total11} hs</strong> | Lớp 12: <strong>${total12} hs</strong></div>
+</div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; page-break-inside: avoid;">
+  <div style="width: 42%; text-align: center;">
+    <div style="height: 19px;"></div>
+    <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 9pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 50px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 10.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
-  <div class="ft-right">
-    <div><em>${todayStr}</em></div>
-    <div class="sig-title">GIÁM ĐỐC</div>
-    <div class="sig-space"></div>
-    <div class="sig-name">${nguoiPhuTrach}</div>
+  <div style="width: 45%; text-align: center;">
+    <div style="font-style: italic; font-size: 9.5pt; height: 19px; line-height: 19px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 9pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 50px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 10.5pt;">${nguoiPhuTrach || 'Vũ Quốc Phong'}</div>
   </div>
 </div>
 </div>`;
@@ -676,7 +688,7 @@ ${htmlPages}
         ).join('');
 
         const htmlPages = exportRooms.flatMap(ma_phong => {
-            const roomStudents = hsList.filter(s => s.phong_an === ma_phong);
+            const roomStudents = hsList.filter(s => s.phong_an === ma_phong).sort((a, b) => Number(a.id) - Number(b.id));
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
@@ -756,18 +768,24 @@ ${htmlPages}
   </thead>
   <tbody>${dataRows}</tbody>
 </table>
-<div class="ft-wrap-an">
-  <div class="ft-left-an">
-    <div>Danh sách có TC: <strong>${roomStudents.length} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
-    <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 11: <strong>${total11} hs</strong></div>
-    <div>&nbsp;&nbsp;Lớp 12: <strong>${total12} hs</strong></div>
+<div style="margin-top: 10px; margin-bottom: 12px; font-size: 9.5pt; line-height: 1.45; text-align: left;">
+  <div>* Danh sách có TC: <strong>${roomStudents.length} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
+  <div>&nbsp;&nbsp;Lớp 10: <strong>${total10} hs</strong> | Lớp 11: <strong>${total11} hs</strong> | Lớp 12: <strong>${total12} hs</strong></div>
+</div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; page-break-inside: avoid;">
+  <div style="width: 42%; text-align: center;">
+    <div style="height: 19px;"></div>
+    <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 9pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 50px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 10.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
-  <div class="ft-right-an">
-    <div><em>${todayStr}</em></div>
-    <div style="font-weight:bold;margin-top:2px;">GIÁM ĐỐC</div>
-    <div class="sig-space-an"></div>
-    <div style="font-weight:bold;font-style:italic;">${nguoiPhuTrach}</div>
+  <div style="width: 45%; text-align: center;">
+    <div style="font-style: italic; font-size: 9.5pt; height: 19px; line-height: 19px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 9pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 50px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 10.5pt;">${nguoiPhuTrach || 'Vũ Quốc Phong'}</div>
   </div>
 </div>
 </div>`;
@@ -1059,7 +1077,8 @@ ${htmlPages}
                                             style={{
                                                 background: '#fff', border: '1px solid #93c5fd', borderRadius: 6,
                                                 padding: '4px 10px', fontSize: '0.82rem', color: '#1d4ed8', cursor: 'pointer',
-                                                fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                                display: 'inline-flex', alignItems: 'center', gap: 6,
                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                             }}
                                             onClick={() => {
@@ -1067,7 +1086,10 @@ ${htmlPages}
                                                 if (target) setSelectedPhong(target);
                                             }}
                                         >
-                                            <strong>{m.ho_ten}</strong> ({m.lop}) – Phòng <strong>{m.phong_an}</strong> <i className="fas fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
+                                            <span style={{ fontWeight: 700 }}>{(m.ho_ten || '').normalize('NFC')}</span>
+                                            <span style={{ fontWeight: 500 }}>({m.lop}) – Phòng</span>
+                                            <span style={{ fontWeight: 700 }}>{m.phong_an}</span>
+                                            <i className="fas fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
                                         </button>
                                     ))}
                                 </div>
@@ -1089,8 +1111,8 @@ ${htmlPages}
                                             <div key={s.id} className={`dd-student-card status-${s.trang_thai}`}
                                                 style={{ background: STATUS[s.trang_thai].bg, borderColor: STATUS[s.trang_thai].border }}>
                                                 <div className="dd-student-info">
-                                                    <span className="dd-student-name">{s.ho_ten}</span>
-                                                    <span className="dd-student-class">{s.lop}</span>
+                                                    <span className="dd-student-name">{(s.ho_ten || '').normalize('NFC')}</span>
+                                                    <span className="dd-student-class"><b style={{ color: '#009CFF', marginRight: 4 }}>#{s.id}</b> • {s.lop}</span>
                                                 </div>
                                                 <div className="dd-status-btns">
                                                     {Object.entries(STATUS).map(([key, val]) => (
