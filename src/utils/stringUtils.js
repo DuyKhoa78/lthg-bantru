@@ -79,12 +79,31 @@ export const getHTAClassOrder = (cls) => {
 
 export const getHTAGroupNumber = (cls) => {
   const key = normalizeClassName(cls);
+  // 1. Khớp chính xác theo 13 lớp quy định
   for (const group of HTA_DS_CONFIG) {
     if (group.classes.some(c => normalizeClassName(c) === key)) {
       return group.ds;
     }
   }
-  return 999;
+  // 2. Học sinh lẻ/lớp mới được add linh hoạt vào phòng HT.A:
+  // - Khối 11: Xếp vào DS1 (vì DS1 là tờ có khối 11)
+  if (key.startsWith('11')) return 1;
+  // - Khối 10: Xếp vào DS2 hoặc DS3 (tương ứng với 10A9 ở DS2, 10A10 ở DS3)
+  if (key.startsWith('10')) {
+    const numMatch = key.match(/\d+A?(\d+)/i);
+    const num = numMatch ? parseInt(numMatch[1], 10) : 0;
+    return (num >= 10 || num % 2 === 0) ? 3 : 2;
+  }
+  // - Khối 12: Xếp theo nhóm lớp tương tự hoặc vào DS3
+  if (key.startsWith('12')) {
+    const numMatch = key.match(/\d+A?(\d+)/i);
+    const num = numMatch ? parseInt(numMatch[1], 10) : 0;
+    if ([1, 3, 6, 8].includes(num)) return 1;
+    if ([2, 5, 7].includes(num)) return 2;
+    return 3;
+  }
+  // Mặc định các trường hợp khác vào DS3
+  return 3;
 };
 
 // Sắp xếp danh sách học sinh: Nếu là phòng HT.A thì sắp xếp theo 3 nhóm (DS1 -> DS2 -> DS3), trong mỗi nhóm sort thuần theo Mã số bán trú (MSBT)
@@ -108,23 +127,17 @@ export const sortStudentsForRoom = (students, roomCode) => {
 export const splitStudentsByTeachers = (students, numTeachers, roomCode) => {
   if (!students || students.length === 0) return [];
   if (isHTARoom(roomCode)) {
-    const g1 = [], g2 = [], g3 = [], other = [];
+    const g1 = [], g2 = [], g3 = [];
     students.forEach(s => {
       const g = getHTAGroupNumber(s.lop);
       if (g === 1) g1.push(s);
       else if (g === 2) g2.push(s);
-      else if (g === 3) g3.push(s);
-      else other.push(s);
+      else g3.push(s);
     });
     const sortById = (a, b) => Number(a.id) - Number(b.id);
     g1.sort(sortById);
     g2.sort(sortById);
     g3.sort(sortById);
-    other.sort(sortById);
-    if (other.length > 0) {
-      g3.push(...other);
-      g3.sort(sortById);
-    }
     const groups = [g1, g2, g3].filter(g => g.length > 0);
     if (groups.length > 0) return groups;
   }
