@@ -336,9 +336,9 @@ export default function DiemDanhAn() {
         return sortStudentsForRoom(getStudentsForRoom(selectedPhong.ma_phong), selectedPhong.ma_phong)
             .map(s => ({
                 ...s,
-                trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : (isGiaoVien ? 'chua_diem_danh' : 'comat')),
+                trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'),
             }));
-    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom, isGiaoVien]);
+    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom]);
 
     const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
@@ -369,7 +369,7 @@ export default function DiemDanhAn() {
             if (selectedPhong) {
                 const localKey = `bantru_draft_${date}_an_${selectedPhong.ma_phong}`;
                 const draftList = students.map(s => {
-                    const st = (s.id === student.id) ? 'comat' : (next[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh'));
+                    const st = (s.id === student.id) ? 'comat' : (next[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'));
                     if (st === 'comat') {
                         return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'qr' };
                     }
@@ -404,23 +404,14 @@ export default function DiemDanhAn() {
     const handleChotPhong = async () => {
         if (!selectedPhong || students.length === 0) return;
 
-        let chuaQuetCount = 0;
-
-        const danhSachHs = [];
-        students.forEach(s => {
-            const st = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : (isGiaoVien ? 'chua_diem_danh' : 'comat'));
-            if (st === 'comat') {
-                danhSachHs.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, phuong_thuc: 'qr' });
-            } else if (st !== 'phep') {
-                chuaQuetCount++;
-                danhSachHs.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1 });
-            }
-        });
-
-        if (chuaQuetCount > 0 && !showChotConfirmModal) {
-            setShowChotConfirmModal(true);
-            return;
-        }
+        // Gửi danh sách học sinh theo đúng trạng thái hiện tại (mặc định Có mặt, chỉ gửi Vắng khi bấm Vắng)
+        const danhSachHs = students.map(s => ({
+            id: s.id,
+            ho_ten: s.ho_ten,
+            lop: s.lop,
+            status: INV_STATUS_MAP[s.trang_thai] ?? 0,
+            phuong_thuc: 'thu_cong'
+        }));
 
         setChotting(true);
         try {
@@ -429,11 +420,11 @@ export default function DiemDanhAn() {
                 loai_truc: 0,
                 ma_phong_id: selectedPhong.ma_phong,
                 danh_sach_hs: danhSachHs,
-                ghi_chu: isDaChot ? 'Giáo viên cập nhật bổ sung' : 'Giáo viên chốt điểm danh thành công lên Tổng'
+                ghi_chu: isDaChot ? 'Cập nhật bổ sung' : 'Chốt điểm danh phòng thành công'
             });
 
             if (res.data?.ok) {
-                showAlert(res.data.message || 'Đã chốt điểm danh phòng lên Tổng thành công!', 'success');
+                showAlert(res.data.message || 'Đã chốt điểm danh phòng thành công!', 'success');
                 setShowChotConfirmModal(false);
                 await fetchDiemDanh(date, true);
             }
@@ -1134,7 +1125,14 @@ ${htmlPages}
                                 </span>
                             )}
                             {!isGiaoVien && (
-                                <button className="btn btn-ghost btn-sm" onClick={() => setAll('vang')}><i className="fas fa-times"></i> Tất cả Vắng</button>
+                                <>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => setAll('comat')} style={{ color: '#16a34a', fontWeight: 600 }} title="Đặt tất cả học sinh trong phòng là Có mặt">
+                                        <i className="fas fa-check-double"></i> Tất cả Có mặt
+                                    </button>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => setAll('vang')} style={{ color: '#dc2626' }} title="Đặt tất cả học sinh trong phòng là Vắng">
+                                        <i className="fas fa-times"></i> Tất cả Vắng
+                                    </button>
+                                </>
                             )}
                             {!isGiaoVien && (
                                 <button className="btn btn-primary" onClick={handleSave} disabled={!selectedPhong || saving}>
@@ -1434,39 +1432,19 @@ ${htmlPages}
                                                     <span className="dd-student-class"><b style={{ color: '#009CFF', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
                                                 </div>
                                                 
-                                                {/* Đối với Giáo viên: BẮT BUỘC QUÉT QR, không bấm thủ công để tránh HS quên thẻ */}
-                                                {isGiaoVien ? (
-                                                    <div className="dd-status-display">
-                                                        {s.trang_thai === 'comat' ? (
-                                                            <span className="dd-student-status-badge comat">
-                                                                <i className="fas fa-check-circle"></i> Có mặt (Đã quét)
-                                                            </span>
-                                                        ) : s.trang_thai === 'phep' ? (
-                                                            <span className="dd-student-status-badge phep" title="Phép do Ban quản lý/Admin duyệt">
-                                                                <i className="fas fa-file-alt"></i> Phép (Admin cấp)
-                                                            </span>
-                                                        ) : (
-                                                            <span className="dd-student-status-badge chua-quet">
-                                                                <i className="fas fa-qrcode"></i> Chưa quét thẻ
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    /* Đối với Admin / Học vụ: Giữ nguyên 3 nút chỉnh sửa linh hoạt */
-                                                    <div className="dd-status-btns">
-                                                        {['comat', 'vang', 'phep'].map(key => {
-                                                            const val = STATUS[key];
-                                                            return (
-                                                                <button key={key}
-                                                                    className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
-                                                                    style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}` } : {}}
-                                                                    onClick={() => changeStatus(s.id, key)} title={val.label}>
-                                                                    {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
+                                                <div className="dd-status-btns">
+                                                    {['comat', 'vang', 'phep'].map(key => {
+                                                        const val = STATUS[key];
+                                                        return (
+                                                            <button key={key}
+                                                                className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
+                                                                style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}` } : {}}
+                                                                onClick={() => changeStatus(s.id, key)} title={val.label}>
+                                                                {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -1476,9 +1454,9 @@ ${htmlPages}
                             {selectedPhong && !loading && students.length > 0 && (
                                 <>
                                     <div className="dd-summary">
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-comat"></span> Đã quét Có mặt: <strong>{counts.comat || 0}</strong></span>
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-phep"></span> Phép (Admin duyệt): <strong>{counts.phep || 0}</strong></span>
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-vang"></span> Chưa quét (Sẽ tính Vắng): <strong>{(students.length - (counts.comat || 0) - (counts.phep || 0))}</strong></span>
+                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-comat"></span> Có mặt: <strong>{counts.comat || 0}</strong></span>
+                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-vang"></span> Vắng: <strong>{counts.vang || 0}</strong></span>
+                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-phep"></span> Có phép: <strong>{counts.phep || 0}</strong></span>
                                     </div>
                                     <div className="dd-footer">
                                         <div className="dd-footer-note">
