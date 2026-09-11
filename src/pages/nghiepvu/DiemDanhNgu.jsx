@@ -422,8 +422,10 @@ export default function DiemDanhNgu() {
             });
 
             if (res.data?.ok) {
-                showAlert(res.data.message || 'Đã chốt điểm danh phòng lên Tổng thành công!', 'success');
+                const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                showAlert(res.data.message || `Đã chốt danh sách phòng ${selectedPhong.ma_phong} lúc ${timeStr} thành công!`, 'success');
                 setShowChotConfirmModal(false);
+                setOverrides({});
                 await fetchDiemDanh(date, true);
             }
         } catch (err) {
@@ -1091,10 +1093,44 @@ ${htmlPages}
                                 </>
                             )}
                             {!isGiaoVien && (
-                                <button className="btn btn-primary" onClick={handleSave} disabled={!selectedPhong || saving}>
-                                    {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                    {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
-                                </button>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                    {isDaChot && (
+                                        <span style={{
+                                            background: '#ecfdf5',
+                                            color: '#065f46',
+                                            border: '1.5px solid #a7f3d0',
+                                            padding: '6px 14px',
+                                            borderRadius: 8,
+                                            fontSize: '0.84rem',
+                                            fontWeight: 700,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6
+                                        }}>
+                                            <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
+                                            ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={handleChotPhong}
+                                        disabled={!selectedPhong || chotting}
+                                        style={{
+                                            background: isDaChot ? '#059669' : 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                                            borderColor: isDaChot ? '#047857' : '#1d4ed8',
+                                            fontWeight: 700,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            boxShadow: isDaChot ? '0 2px 8px rgba(5, 150, 105, 0.25)' : '0 2px 8px rgba(37, 99, 235, 0.25)'
+                                        }}
+                                        title="Chốt danh sách phòng này lên hệ thống"
+                                    >
+                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${isDaChot ? 'fa-check-double' : 'fa-paper-plane'}`}></i>}
+                                        {chotting ? ' Đang chốt...' : isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
+                                    </button>
+                                </div>
                             )}
                         </>
                     )}
@@ -1278,41 +1314,29 @@ ${htmlPages}
                                 </>
                             )}
 
-                            {/* ── NÚT QUÉT QR & CHỐT ĐIỂM DANH LÊN TỔNG ── */}
-                            {selectedPhong && (
+                            {/* ── NÚT QUÉT QR & CHỐT ĐIỂM DANH LÊN TỔNG DÀNH RIÊNG CHO GIÁO VIÊN ── */}
+                            {selectedPhong && isGiaoVien && (
                                 <div className="dd-teacher-actions-bar">
                                     <button
                                         type="button"
                                         className="dd-qr-scan-btn"
                                         style={{ background: 'linear-gradient(135deg,#6c5ce7,#a29bfe)', boxShadow: '0 4px 14px rgba(108,92,231,0.35)' }}
                                         onClick={() => setShowQRModal(true)}
-                                        disabled={isGiaoVien && (shiftTiming.state === 'da_qua_gio' && !isDaChot)}
+                                        disabled={shiftTiming.state === 'da_qua_gio' && !isDaChot}
                                     >
                                         <i className="fas fa-qrcode"></i>
                                         {isDaChot ? 'Quét bổ sung HS đến muộn' : 'Quét mã QR thẻ học sinh'}
                                     </button>
 
-                                    {isGiaoVien ? (
-                                        <button
-                                            type="button"
-                                            className="dd-chot-btn"
-                                            onClick={handleChotPhong}
-                                            disabled={chotting || (shiftTiming.state === 'da_qua_gio')}
-                                        >
-                                            {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
-                                            {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh lên Tổng'}
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="dd-chot-btn"
-                                            onClick={handleChotPhong}
-                                            disabled={chotting}
-                                        >
-                                            {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
-                                            {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh phòng'}
-                                        </button>
-                                    )}
+                                    <button
+                                        type="button"
+                                        className="dd-chot-btn"
+                                        onClick={handleChotPhong}
+                                        disabled={chotting || (shiftTiming.state === 'da_qua_gio')}
+                                    >
+                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
+                                        {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh lên Tổng'}
+                                    </button>
 
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
