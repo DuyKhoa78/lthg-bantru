@@ -177,13 +177,13 @@ export default function GiamSatChot() {
                         )}
                         {shiftInfo.status === 'da_qua_gio' && (
                             <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>
-                                ĐÃ HẾT GIỜ (ĐÃ KÍCH HOẠT CỨU HỘ)
+                                ĐÃ HẾT GIỜ
                             </span>
                         )}
                     </div>
                     <div style={{ fontSize: '0.84rem', color: '#475569', marginTop: 4 }}>
-                        <i className="fas fa-shield-alt" style={{ color: '#16a34a', marginRight: 6 }}></i>
-                        Hệ thống tự động chốt lên Tổng và cứu nháp khi đến <strong>{shiftInfo.endLabel}</strong>. Dữ liệu quét QR của giáo viên được bảo toàn an toàn tuyệt đối.
+                        <i className="fas fa-info-circle" style={{ color: '#009CFF', marginRight: 6 }}></i>
+                        Ca trực kết thúc lúc <strong>{shiftInfo.endLabel}</strong>. Dữ liệu điểm danh luôn được hệ thống lưu trữ an toàn.
                     </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -273,7 +273,7 @@ export default function GiamSatChot() {
                         <i className="fas fa-robot"></i>
                     </div>
                     <div className="stat-card-info">
-                        <p>Tự động chốt (Cứu nháp sự cố)</p>
+                        <p>Hệ thống tự động chốt</p>
                         <h3>{tuDongChotCount}</h3>
                     </div>
                 </div>
@@ -297,7 +297,7 @@ export default function GiamSatChot() {
                 }}>
                     <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <i className="fas fa-list-check" style={{ color: '#009CFF' }}></i>
-                        Danh Sách Phòng Trực & Trạng Thái Cứu Hộ Dữ Liệu
+                        Danh Sách Phòng Trực & Trạng Thái Điểm Danh
                     </h3>
                     <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
                         Hạn chốt: <strong>{chotLoai === '0' ? '11:30' : '12:00'}</strong>
@@ -393,10 +393,10 @@ export default function GiamSatChot() {
                                             {isTuDongChot && (
                                                 <div>
                                                     <span style={{ background: '#fffbeb', color: '#b45309', border: '1.5px solid #fde68a', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                        <i className="fas fa-robot"></i> TỰ ĐỘNG CHỐT (CỨU DỮ LIỆU)
+                                                        <i className="fas fa-robot"></i> TỰ ĐỘNG CHỐT
                                                     </span>
                                                     <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: 3, fontWeight: 500 }}>
-                                                        ⚠️ {r.ghi_chu_chot || `Quá giờ quy định (${chotLoai === '0' ? '11:30' : '12:00'}). Hệ thống đã cứu nháp và tính vắng các em chưa quét.`}
+                                                        ⚠️ {r.ghi_chu_chot || `Quá giờ quy định (${chotLoai === '0' ? '11:30' : '12:00'}). Hệ thống đã ghi nhận chốt theo giờ.`}
                                                     </div>
                                                 </div>
                                             )}
