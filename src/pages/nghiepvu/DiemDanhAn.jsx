@@ -113,30 +113,6 @@ export default function DiemDanhAn() {
 
     const [showActions, setShowActions] = useState(false);
     const [showBaoPhepModal, setShowBaoPhepModal] = useState(false);
-    const [applyingSchedule, setApplyingSchedule] = useState(false);
-
-    const canManageDuty = Boolean(user?.is_admin || user?.is_superuser || user?.is_quan_ly);
-
-    const handleQuickApplySchedule = async () => {
-        setApplyingSchedule(true);
-        try {
-            const res = await api.post('/api/lichtruc/apply-day-bu/', {
-                targetDate: date,
-                sourceThu: 0,
-                force: true,
-            });
-            if (res.data?.ok) {
-                showAlert('Đã nạp lịch trực thành công! Có thể tiến hành điểm danh.', 'success');
-                fetchDiemDanh(date);
-            } else {
-                showAlert(res.data?.error || 'Nạp lịch thất bại', 'danger');
-            }
-        } catch (err) {
-            showAlert(err.response?.data?.error || 'Lỗi khi nạp lịch trực', 'danger');
-        } finally {
-            setApplyingSchedule(false);
-        }
-    };
 
     useEffect(() => {
         const handleClickOutside = (e) => {
