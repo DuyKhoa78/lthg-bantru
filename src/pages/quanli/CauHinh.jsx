@@ -10,6 +10,7 @@ export default function CauHinh() {
   const { user, refreshSystemStatus } = useAuth();
   const { showAlert, AlertUI } = useAlert();
   const canEdit = user?.is_admin || user?.is_superuser;
+  const isSuperAdmin = Boolean(user?.is_superuser || user?.role === 'super_admin');
 
   const [heThong, setHeThong] = useState({
     nam_hoc: '',
@@ -58,8 +59,14 @@ export default function CauHinh() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const payloadHeThong = { ...heThong };
+      if (!isSuperAdmin) {
+        delete payloadHeThong.bao_tri;
+        delete payloadHeThong.thong_bao_bao_tri;
+        delete payloadHeThong.thoi_gian_bao_tri;
+      }
       await Promise.all([
-        api.post('/api/hethong/save/', heThong),
+        api.post('/api/hethong/save/', payloadHeThong),
         api.post('/api/cauhinh/save/', { an: parseFloat(giaAn) || 0, ngu: parseFloat(giaNgu) || 0 }),
       ]);
       if (refreshSystemStatus) await refreshSystemStatus();
@@ -194,94 +201,96 @@ export default function CauHinh() {
           </div>
         </div>
 
-        {/* Chế độ bảo trì hệ thống */}
-        <div className="cauhinh-section" style={{
-          border: heThong.bao_tri ? '2px solid #f59e0b' : '1px solid var(--border)',
-          boxShadow: heThong.bao_tri ? '0 0 16px rgba(245, 158, 11, 0.25)' : undefined,
-        }}>
-          <div className="cauhinh-section-header" style={{
-            background: heThong.bao_tri ? '#fffbeb' : undefined,
-            color: heThong.bao_tri ? '#b45309' : undefined,
+        {/* Chế độ bảo trì hệ thống - Chỉ Super Admin mới thấy và thao tác */}
+        {isSuperAdmin && (
+          <div className="cauhinh-section" style={{
+            border: heThong.bao_tri ? '2px solid #f59e0b' : '1px solid var(--border)',
+            boxShadow: heThong.bao_tri ? '0 0 16px rgba(245, 158, 11, 0.25)' : undefined,
           }}>
-            <i className="fas fa-tools" style={{ color: '#f59e0b' }}></i>
-            <span>Chế độ Bảo trì Hệ thống (Maintenance Mode)</span>
-            {heThong.bao_tri ? (
-              <span style={{
-                marginLeft: 'auto',
-                background: '#fef3c7',
-                color: '#b45309',
-                border: '1px solid #fcd34d',
-                padding: '2px 8px',
-                borderRadius: 4,
-                fontSize: '.75rem',
-                fontWeight: 700
-              }}>
-                ĐANG BẬT
-              </span>
-            ) : (
-              <span style={{
-                marginLeft: 'auto',
-                background: '#f1f5f9',
-                color: '#64748b',
-                padding: '2px 8px',
-                borderRadius: 4,
-                fontSize: '.75rem',
-                fontWeight: 600
-              }}>
-                Đang tắt
-              </span>
-            )}
-          </div>
-          <div className="cauhinh-section-body">
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Trạng thái bảo trì:</span>
-                <label style={{ cursor: canEdit ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={heThong.bao_tri}
-                    disabled={!canEdit}
-                    onChange={(e) => setHeThong({ ...heThong, bao_tri: e.target.checked })}
-                    style={{ width: 18, height: 18, accentColor: '#f59e0b', cursor: 'pointer' }}
-                  />
-                  <strong style={{ color: heThong.bao_tri ? '#b45309' : '#15803d', fontSize: '.92rem' }}>
-                    {heThong.bao_tri ? 'BẬT BẢO TRÌ (Khóa truy cập người dùng)' : 'TẮT BẢO TRÌ (Hoạt động bình thường)'}
-                  </strong>
-                </label>
-              </label>
-              <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 6, lineHeight: 1.5 }}>
-                Khi bật, mọi người dùng thông thường khi vào web sẽ thấy thông báo <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
-              </p>
+            <div className="cauhinh-section-header" style={{
+              background: heThong.bao_tri ? '#fffbeb' : undefined,
+              color: heThong.bao_tri ? '#b45309' : undefined,
+            }}>
+              <i className="fas fa-tools" style={{ color: '#f59e0b' }}></i>
+              <span>Chế độ Bảo trì Hệ thống (Maintenance Mode)</span>
+              {heThong.bao_tri ? (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#fef3c7',
+                  color: '#b45309',
+                  border: '1px solid #fcd34d',
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  fontSize: '.75rem',
+                  fontWeight: 700
+                }}>
+                  ĐANG BẬT
+                </span>
+              ) : (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#f1f5f9',
+                  color: '#64748b',
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  fontSize: '.75rem',
+                  fontWeight: 600
+                }}>
+                  Đang tắt
+                </span>
+              )}
             </div>
-
-            {heThong.bao_tri && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e2e8f0' }}>
-                <div className="form-group">
-                  <label className="form-label">Nội dung thông báo bảo trì gửi người dùng</label>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    disabled={!canEdit}
-                    value={heThong.thong_bao_bao_tri}
-                    onChange={(e) => setHeThong({ ...heThong, thong_bao_bao_tri: e.target.value })}
-                    placeholder="Nhập lời nhắn gửi đến phụ huynh, học sinh và giáo viên..."
-                  />
-                </div>
-                <div className="form-group" style={{ marginTop: 12 }}>
-                  <label className="form-label">Thời gian dự kiến hoàn tất</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    disabled={!canEdit}
-                    value={heThong.thoi_gian_bao_tri}
-                    onChange={(e) => setHeThong({ ...heThong, thoi_gian_bao_tri: e.target.value })}
-                    placeholder="VD: 15-30 phút, hoặc Đến 15h00 ngày hôm nay"
-                  />
-                </div>
+            <div className="cauhinh-section-body">
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Trạng thái bảo trì:</span>
+                  <label style={{ cursor: canEdit ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={heThong.bao_tri}
+                      disabled={!canEdit}
+                      onChange={(e) => setHeThong({ ...heThong, bao_tri: e.target.checked })}
+                      style={{ width: 18, height: 18, accentColor: '#f59e0b', cursor: 'pointer' }}
+                    />
+                    <strong style={{ color: heThong.bao_tri ? '#b45309' : '#15803d', fontSize: '.92rem' }}>
+                      {heThong.bao_tri ? 'BẬT BẢO TRÌ (Khóa truy cập người dùng)' : 'TẮT BẢO TRÌ (Hoạt động bình thường)'}
+                    </strong>
+                  </label>
+                </label>
+                <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 6, lineHeight: 1.5 }}>
+                  Khi bật, mọi người dùng thông thường khi vào web sẽ thấy thông báo <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
+                </p>
               </div>
-            )}
+
+              {heThong.bao_tri && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e2e8f0' }}>
+                  <div className="form-group">
+                    <label className="form-label">Nội dung thông báo bảo trì gửi người dùng</label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      disabled={!canEdit}
+                      value={heThong.thong_bao_bao_tri}
+                      onChange={(e) => setHeThong({ ...heThong, thong_bao_bao_tri: e.target.value })}
+                      placeholder="Nhập lời nhắn gửi đến phụ huynh, học sinh và giáo viên..."
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginTop: 12 }}>
+                    <label className="form-label">Thời gian dự kiến hoàn tất</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      disabled={!canEdit}
+                      value={heThong.thoi_gian_bao_tri}
+                      onChange={(e) => setHeThong({ ...heThong, thoi_gian_bao_tri: e.target.value })}
+                      placeholder="VD: 15-30 phút, hoặc Đến 15h00 ngày hôm nay"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {!canEdit && (
