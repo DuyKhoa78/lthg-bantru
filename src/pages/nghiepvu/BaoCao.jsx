@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Chart, ArcElement, BarElement, LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler } from 'chart.js';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
-import { formatLopList, getSortNames } from '../../utils/stringUtils';
+import { formatLopList, getSortNames, sortStudentsForRoom, splitStudentsByTeachers } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './BaoCao.css';
 
@@ -276,7 +276,7 @@ export default function BaoCao() {
             ).join('')).join('');
 
             const htmlPages = exportAnRooms.map(ma_phong => {
-                const roomStudents = [...(dataByPhong[ma_phong] || [])].sort((a, b) => a.id - b.id);
+                const roomStudents = sortStudentsForRoom([...(dataByPhong[ma_phong] || [])], ma_phong);
                 const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
                 const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
                 const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -429,7 +429,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             const numDays = ngay_ban_tru.length;
             const wb = XLSX.utils.book_new();
             exportAnRooms.forEach(ma_phong => {
-                const roomStudents = [...(dataByPhong[ma_phong] || [])].sort((a, b) => a.id - b.id);
+                const roomStudents = sortStudentsForRoom([...(dataByPhong[ma_phong] || [])], ma_phong);
                 const h1 = ['STT', 'STT\nDS BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'Phòng\nĂn'];
                 const h2 = ['', '', '', '', '', ''];
                 ngay_ban_tru.forEach(ngay => {
@@ -912,7 +912,8 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 
             const phongCodes = Object.keys(byPhong).sort();
             const htmlPages = phongCodes.flatMap(ma_phong => {
-                const roomStudents = byPhong[ma_phong].sort((a, b) => a.id - b.id);
+                const isAn = specialLoai === 'an';
+                const roomStudents = isAn ? sortStudentsForRoom(byPhong[ma_phong], ma_phong) : byPhong[ma_phong].sort((a, b) => a.id - b.id);
                 const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
                 const numTeachers = phongInfo?.sl_diem_danh || 1;
                 const roomTotal = roomStudents.length;
@@ -925,13 +926,17 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 const roomClasses = [...new Set(roomStudents.map(s => s.lop).filter(Boolean))].sort();
                 const roomLopList = roomClasses.length > 0 ? roomClasses.join(', ') : 'Không rõ';
 
-                const chunks = splitByTeachers(roomStudents, numTeachers);
+                const chunks = isAn ? splitStudentsByTeachers(roomStudents, numTeachers, ma_phong) : splitByTeachers(roomStudents, numTeachers);
                 const totalPages = chunks.length;
                 let off = 0;
                 const offsets = chunks.map(chunk => { const o = off; off += chunk.length; return o; });
 
                 return chunks.map((chunk, pageIdx) => {
-                    chunk.sort((a, b) => a.id - b.id);
+                    if (isAn) {
+                        chunk = sortStudentsForRoom(chunk, ma_phong);
+                    } else {
+                        chunk.sort((a, b) => a.id - b.id);
+                    }
                     const pageLabel = totalPages > 1 ? ` (Tờ ${pageIdx + 1}/${totalPages})` : '';
                     const globalOffset = offsets[pageIdx];
 

@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { cachedFetch } from '../../utils/cache';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
-import { removeAccents, formatLopList } from '../../utils/stringUtils';
+import { removeAccents, formatLopList, sortStudentsForRoom, splitStudentsByTeachers } from '../../utils/stringUtils';
 import BaoPhepModal from '../../components/BaoPhepModal';
 import QRScannerModal from '../../components/QRScannerModal';
 import '../../styles/admin.css';
@@ -256,7 +256,7 @@ export default function DiemDanhAn() {
                 const baseHs = hsList.find(h => h.id === x.id);
                 return { ...(baseHs || {}), ...x, phong_an: ma_phong };
             });
-        return [...base, ...extraFiltered].sort((a, b) => Number(a.id) - Number(b.id));
+        return sortStudentsForRoom([...base, ...extraFiltered], ma_phong);
     }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date]);
 
     const visiblePhongList = useMemo(() => {
@@ -330,11 +330,10 @@ export default function DiemDanhAn() {
             .catch(() => {});
     }, [selectedPhong, date]);
 
-    // Danh sách học sinh trong phòng: Luôn sort mã bán trú tăng dần
+    // Danh sách học sinh trong phòng: Sắp xếp theo cấu hình phòng (HT.A: DS1 -> DS2 -> DS3, phòng khác: MSBT)
     const students = useMemo(() => {
         if (!selectedPhong) return [];
-        return getStudentsForRoom(selectedPhong.ma_phong)
-            .sort((a, b) => Number(a.id) - Number(b.id))
+        return sortStudentsForRoom(getStudentsForRoom(selectedPhong.ma_phong), selectedPhong.ma_phong)
             .map(s => ({
                 ...s,
                 trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : (isGiaoVien ? 'chua_diem_danh' : 'comat')),
@@ -501,21 +500,9 @@ export default function DiemDanhAn() {
 
     const counts = students.reduce((acc, s) => { acc[s.trang_thai] = (acc[s.trang_thai] || 0) + 1; return acc; }, {});
 
-    // ── Hàm chia danh sách HS theo số GV điểm danh: sort theo thứ tự mã bán trú từ trên xuống, chia đều ra khi đủ số lượng ──
-    const splitByTeachers = (students, numTeachers) => {
-        if (!numTeachers || numTeachers <= 1) return [students];
-        const sorted = [...students].sort((a, b) => Number(a.id) - Number(b.id));
-        const total = sorted.length;
-        const groups = [];
-        let start = 0;
-        for (let i = 0; i < numTeachers; i++) {
-            const count = Math.floor(total / numTeachers) + (i < (total % numTeachers) ? 1 : 0);
-            if (count > 0) {
-                groups.push(sorted.slice(start, start + count));
-                start += count;
-            }
-        }
-        return groups.filter(g => g.length > 0);
+    // ── Hàm chia danh sách HS theo số GV điểm danh (HT.A: chia theo DS1, DS2, DS3; phòng khác chia đều) ──
+    const splitByTeachers = (students, numTeachers, maPhong = '') => {
+        return splitStudentsByTeachers(students, numTeachers, maPhong);
     };
 
     // ── In danh sách ĂN 1 ngày đặc biệt – theo phòng & chia tờ theo GV ────────
@@ -598,7 +585,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
         // Sinh HTML cho tất cả các phòng
         const phongCodes = Object.keys(byPhong).sort();
         const htmlPages = phongCodes.flatMap(ma_phong => {
-            const roomStudents = byPhong[ma_phong].sort((a, b) => a.id - b.id);
+            const roomStudents = sortStudentsForRoom(byPhong[ma_phong], ma_phong);
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const roomTotal = roomStudents.length;
@@ -611,13 +598,13 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
             const roomClasses = [...new Set(roomStudents.map(s => s.lop).filter(Boolean))].sort();
             const roomLopList = roomClasses.length > 0 ? roomClasses.join(', ') : 'Không rõ';
 
-            const chunks = splitByTeachers(roomStudents, numTeachers);
+            const chunks = splitByTeachers(roomStudents, numTeachers, ma_phong);
             const totalPages = chunks.length;
             let off = 0;
             const offsets = chunks.map(chunk => { const o = off; off += chunk.length; return o; });
 
             return chunks.map((chunk, pageIdx) => {
-                chunk.sort((a, b) => a.id - b.id);
+                chunk = sortStudentsForRoom(chunk, ma_phong);
                 const pageLabel = totalPages > 1 ? ` (Tờ ${pageIdx + 1}/${totalPages})` : '';
                 const globalOffset = offsets[pageIdx];
 
@@ -791,7 +778,7 @@ ${htmlPages}
         const wb = XLSX.utils.book_new();
 
         exportRooms.forEach(ma_phong => {
-            const roomStudents = hsList.filter(s => s.phong_an === ma_phong).sort((a, b) => a.id - b.id);
+            const roomStudents = sortStudentsForRoom(hsList.filter(s => s.phong_an === ma_phong), ma_phong);
             let aoa = [];
             let merges = [];
 
@@ -902,24 +889,24 @@ ${htmlPages}
         ).join('');
 
         const htmlPages = exportRooms.flatMap(ma_phong => {
-            const roomStudents = hsList.filter(s => s.phong_an === ma_phong).sort((a, b) => Number(a.id) - Number(b.id));
+            const roomStudents = sortStudentsForRoom(hsList.filter(s => s.phong_an === ma_phong), ma_phong);
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
             const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
             const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
 
-            const chunks = splitByTeachers(roomStudents, numTeachers);
+            const chunks = splitByTeachers(roomStudents, numTeachers, ma_phong);
             const totalPages = chunks.length;
             const offsets = [];
             let off = 0;
             chunks.forEach(chunk => {
-                chunk.sort((a, b) => a.id - b.id);
                 offsets.push(off);
                 off += chunk.length;
             });
 
             return chunks.map((chunk, pageIdx) => {
+                chunk = sortStudentsForRoom(chunk, ma_phong);
                 const pageLabel = totalPages > 1 ? ` (Tờ ${pageIdx + 1}/${totalPages})` : '';
                 const globalOffset = offsets[pageIdx];
 
