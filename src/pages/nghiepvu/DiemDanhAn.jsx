@@ -258,14 +258,12 @@ export default function DiemDanhAn() {
     }, [phongList, phongTamAn, cauhinhNgay, extraHsList, getStudentsForRoom, isGiaoVien, assignedRoomCodes]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDiemDanh(date);
     }, [date, fetchDiemDanh]);
 
     useEffect(() => {
         if (visiblePhongList.length > 0) {
             const isCurrentValid = selectedPhong && visiblePhongList.some(p => p.ma_phong === selectedPhong.ma_phong);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             if (!isCurrentValid) setSelectedPhong(visiblePhongList[0]);
         } else {
             setSelectedPhong(null);
@@ -676,7 +674,6 @@ ${htmlPages}
 
     // Reset tất cả tuần active khi tháng/năm thay đổi
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportWeeksActive(weekLabelsForModal.map((_, i) => i));
         setExportWeeksT6([]);
     }, [weekLabelsForModal]);
@@ -687,7 +684,6 @@ ${htmlPages}
         const d = new Date(date + 'T00:00:00');
         const m = d.getMonth() + 1;
         const y = d.getFullYear();
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportMonth(m);
         setExportYear(y);
         // Tính tuần chứa ngày hiện tại và chỉ active tuần đó (user có thể toggle thêm)

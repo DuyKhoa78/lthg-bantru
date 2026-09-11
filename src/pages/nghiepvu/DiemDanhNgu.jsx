@@ -194,7 +194,6 @@ export default function DiemDanhNgu() {
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDiemDanh(date);
     }, [date, fetchDiemDanh]);
 
@@ -692,7 +691,6 @@ ${htmlPages}
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [exportMonth, exportYear]);
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportSelectedWeek(0);
         setExportT6(false);
     }, [weekLabelsForModal]);
@@ -703,7 +701,6 @@ ${htmlPages}
         const d = new Date(date + 'T00:00:00');
         const m = d.getMonth() + 1;
         const y = d.getFullYear();
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportMonth(m);
         setExportYear(y);
         const allMons = computeWeekMondayStrs(m, y);
