@@ -1289,18 +1289,6 @@ ${htmlPages}
                             <div style={{ fontSize: '4rem', color: '#cbd5e1', marginBottom: 16 }}><i className="fas fa-calendar-times"></i></div>
                             <h3 style={{ color: '#475569', fontSize: '1.4rem', marginBottom: 8 }}>Không có lịch bán trú</h3>
                             <p style={{ color: '#64748b', fontSize: '1rem', maxWidth: 460 }}>Ngày <b>{fmtDate(date)}</b> không có phân công trực, học sinh nghỉ bán trú.</p>
-                            {canManageDuty && (
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', fontWeight: 600, borderRadius: 8 }}
-                                    onClick={handleQuickApplySchedule}
-                                    disabled={applyingSchedule}
-                                >
-                                    {applyingSchedule ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-magic"></i>}
-                                    Nạp lịch trực cố định để mở điểm danh ({fmtDate(date)})
-                                </button>
-                            )}
                         </div>
                     ) : (
                         <>
