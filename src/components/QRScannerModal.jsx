@@ -182,6 +182,7 @@ export default function QRScannerModal({
 
     const lastScannedTimeRef = useRef({});
     const isPendingRef = useRef(false);
+    const handleScanRef = useRef(null);
 
     // === QUÉT & HIỆN THỊ THÔNG TIN (KHÔNG TỰ ĐỘNG CHỐT) ===
     // Camera + giải mã QR chạy liên tục 100%, chỉ dùng cờ ref để bỏ qua kết quả khi đang hiện thẻ
@@ -251,6 +252,11 @@ export default function QRScannerModal({
             setPendingExtra({ rawText: parsed.rawText });
         }
     }, []);
+
+    // Luôn cập nhật ref mới nhất để camera callback dùng mà không cần restart
+    useEffect(() => {
+        handleScanRef.current = handleScan;
+    });
 
     // === XÁC NHẬN CÓ MẶT (GV bấm nút) ===
     const handleConfirm = useCallback(() => {
@@ -327,8 +333,15 @@ export default function QRScannerModal({
             html5QrCodeRef.current = qrScanner;
 
             // Quét toàn bộ khung hình để bắt mã QR siêu nhạy
+            // qrbox giới hạn vùng giải mã QR vào chính giữa khung hình
+            // → giảm nhiễu, tăng tốc decode, quét ổn định hơn rất nhiều trên điện thoại
             const config = {
                 fps: 15,
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    const size = Math.min(viewfinderWidth, viewfinderHeight);
+                    const qrboxSize = Math.floor(size * 0.72); // khớp với reticle 72vw
+                    return { width: qrboxSize, height: qrboxSize };
+                },
                 aspectRatio: undefined,
                 disableFlip: false,
             };
@@ -337,7 +350,7 @@ export default function QRScannerModal({
                 { facingMode: 'environment' },
                 config,
                 (decodedText) => {
-                    if (isMounted) handleScan(decodedText);
+                    if (isMounted && handleScanRef.current) handleScanRef.current(decodedText);
                 },
                 () => {
                     // Frame không có QR
@@ -405,7 +418,7 @@ export default function QRScannerModal({
             }
             setScannerActive(false);
         };
-    }, [isOpen, handleScan]);
+    }, [isOpen]); // Chỉ restart camera khi mở/đóng modal, handleScan dùng qua ref
 
     // Bật tắt Flashlight
     const toggleTorch = async () => {

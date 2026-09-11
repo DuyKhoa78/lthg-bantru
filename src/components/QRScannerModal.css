@@ -432,8 +432,10 @@
     z-index: 40;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    background: rgba(0, 0, 0, 0.35);
+    align-items: center;
+    justify-content: center;
+    padding: 24px 12px;
+    background: rgba(0, 0, 0, 0.5);
     animation: zaloFadeIn 0.18s ease-out;
 }
 
@@ -444,23 +446,24 @@
 
 .zalo-confirm-card {
     position: relative;
-    margin: 0 12px 0;
-    padding: 20px 20px max(20px, env(safe-area-inset-bottom, 20px));
-    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 380px;
+    padding: 20px 20px 24px;
+    border-radius: 20px;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    animation: zaloSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+    animation: zaloPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 
-@keyframes zaloSlideUp {
+@keyframes zaloPopIn {
     from {
         opacity: 0;
-        transform: translateY(100%);
+        transform: scale(0.9);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1);
     }
 }
 
