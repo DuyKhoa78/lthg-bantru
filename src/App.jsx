@@ -27,61 +27,81 @@ const CauHinh       = lazy(() => import('./pages/quanli/CauHinh'));
 const Profile       = lazy(() => import('./pages/accounts/Profile'));
 const TaiKhoan      = lazy(() => import('./pages/quanli/TaiKhoan'));
 
+import { useAuth } from './hooks/useAuth';
+
 const PageLoader = () => (
   <div style={{ textAlign: 'center', padding: '80px 20px', color: '#94a3b8' }}>
     <i className="fas fa-circle-notch fa-spin" style={{ fontSize: '2rem', color: '#009CFF' }}></i>
   </div>
 );
 
+function AppRoutes() {
+  const { user, loading, systemStatus, refreshSystemStatus } = useAuth();
+  const isSuperAdmin = Boolean(user && (user.is_superuser === true || user.role === 'super_admin'));
+
+  if (loading) {
+    return <PageLoader />;
+  }
+
+  // Khi hệ thống đang bật bảo trì:
+  // Khóa toàn bộ các trang đối với mọi người dùng không phải Super Admin, CHỈ HIỂN THỊ MÀN HÌNH BẢO TRÌ (ảnh công trình bao-tri.jpg)!
+  if (systemStatus?.bao_tri && !isSuperAdmin) {
+    return <Maintenance status={systemStatus} onRetry={refreshSystemStatus} />;
+  }
+
+  return (
+    <Routes>
+      {/* ─── Public ─── */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/maintenance" element={<Maintenance status={systemStatus} onRetry={refreshSystemStatus} />} />
+
+      {/* ─── Protected ─── */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Dashboard */}
+        <Route index element={<Dashboard />} />
+        <Route path="/" element={<Dashboard />} />
+
+        {/* Nghiệp vụ */}
+        <Route path="/diemdanh-an"     element={<DiemDanhAn />} />
+        <Route path="/diemdanh-ngu"    element={<DiemDanhNgu />} />
+        <Route path="/giam-sat-chot"   element={<GiamSatChot />} />
+        <Route path="/lich-truc"       element={<LichTruc />} />
+        <Route path="/lich-truc-admin" element={<LichTrucAdmin />} />
+        <Route path="/lich-truc-khung" element={<LichTrucKhung />} />
+        <Route path="/bao-cao"         element={<BaoCao />} />
+        <Route path="/bao-cao-truc"    element={<BaoCaoTrucGV />} />
+
+        {/* Quản lý */}
+        <Route path="/giao-vien"      element={<GiaoVien />} />
+        <Route path="/hoc-sinh"       element={<HocSinh />} />
+        <Route path="/in-the-ban-tru" element={<InTheBanTru />} />
+        <Route path="/phong"          element={<Phong />} />
+        <Route path="/vat-dung"  element={<VatDung />} />
+        <Route path="/cau-hinh"  element={<CauHinh />} />
+
+        {/* Tài khoản */}
+        <Route path="/profile"   element={<Profile />} />
+        <Route path="/tai-khoan" element={<TaiKhoan />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+}
 
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* ─── Public ─── */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/maintenance" element={<Maintenance />} />
-
-            {/* ─── Protected ─── */}
-            <Route
-              element={
-                <ProtectedRoute>
-                  <MainLayout />
-                </ProtectedRoute>
-              }
-            >
-              {/* Dashboard */}
-              <Route index element={<Dashboard />} />
-              <Route path="/" element={<Dashboard />} />
-
-              {/* Nghiệp vụ */}
-              <Route path="/diemdanh-an"     element={<DiemDanhAn />} />
-              <Route path="/diemdanh-ngu"    element={<DiemDanhNgu />} />
-              <Route path="/giam-sat-chot"   element={<GiamSatChot />} />
-              <Route path="/lich-truc"       element={<LichTruc />} />
-              <Route path="/lich-truc-admin" element={<LichTrucAdmin />} />
-              <Route path="/lich-truc-khung" element={<LichTrucKhung />} />
-              <Route path="/bao-cao"         element={<BaoCao />} />
-              <Route path="/bao-cao-truc"    element={<BaoCaoTrucGV />} />
-
-              {/* Quản lý */}
-              <Route path="/giao-vien"      element={<GiaoVien />} />
-              <Route path="/hoc-sinh"       element={<HocSinh />} />
-              <Route path="/in-the-ban-tru" element={<InTheBanTru />} />
-              <Route path="/phong"          element={<Phong />} />
-              <Route path="/vat-dung"  element={<VatDung />} />
-              <Route path="/cau-hinh"  element={<CauHinh />} />
-
-              {/* Tài khoản */}
-              <Route path="/profile"   element={<Profile />} />
-              <Route path="/tai-khoan" element={<TaiKhoan />} />
-
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
+          <AppRoutes />
         </Suspense>
       </AuthProvider>
     </BrowserRouter>
