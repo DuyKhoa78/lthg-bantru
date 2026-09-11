@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 
 export default function Maintenance({ status, onRetry }) {
+  const { user, logout } = useAuth();
   const [checking, setChecking] = useState(false);
   const [systemInfo, setSystemInfo] = useState(status || {
     bao_tri: true,
@@ -77,17 +79,17 @@ export default function Maintenance({ status, onRetry }) {
       <div style={{
         maxWidth: '560px',
         width: '100%',
-        background: 'rgba(30, 41, 59, 0.75)',
+        background: 'rgba(30, 41, 59, 0.85)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '20px',
-        padding: '40px 32px',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '24px',
+        padding: '36px 28px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
         textAlign: 'center',
         zIndex: 1,
       }}>
-        {/* Animated Badge & Icon */}
+        {/* Animated Badge */}
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -99,7 +101,7 @@ export default function Maintenance({ status, onRetry }) {
           color: '#fbbf24',
           fontSize: '0.85rem',
           fontWeight: 600,
-          marginBottom: '28px',
+          marginBottom: '20px',
         }}>
           <span style={{
             width: '8px',
@@ -112,57 +114,66 @@ export default function Maintenance({ status, onRetry }) {
           CHẾ ĐỘ BẢO TRÌ NÂNG CẤP
         </div>
 
-        {/* Big Icon */}
+        {/* Hero Maintenance Image from /public/bao-tri.jpg */}
         <div style={{
-          position: 'relative',
-          width: '96px',
-          height: '96px',
-          margin: '0 auto 24px',
+          maxWidth: '380px',
+          width: '100%',
+          margin: '0 auto 20px',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 12px 30px -6px rgba(0, 0, 0, 0.45)',
+          background: '#ffffff',
+          padding: '12px',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(245, 158, 11, 0.2))',
-          borderRadius: '50%',
-          border: '2px solid rgba(255, 255, 255, 0.15)',
+          alignItems: 'center',
+          border: '2px solid rgba(255, 255, 255, 0.15)'
         }}>
-          <i className="fas fa-tools" style={{
-            fontSize: '2.5rem',
-            color: '#38bdf8',
-            filter: 'drop-shadow(0 4px 10px rgba(56, 189, 248, 0.4))',
-          }}></i>
+          <img
+            src="/bao-tri.jpg"
+            alt="Hệ thống đang bảo trì"
+            style={{
+              maxWidth: '100%',
+              height: 'auto',
+              maxHeight: '220px',
+              objectFit: 'contain',
+              display: 'block',
+              borderRadius: '8px',
+            }}
+          />
         </div>
 
         {/* School Name & Title */}
         <div style={{
-          fontSize: '0.9rem',
+          fontSize: '0.88rem',
           textTransform: 'uppercase',
           letterSpacing: '1.5px',
           color: '#94a3b8',
           fontWeight: 600,
-          marginBottom: '6px',
+          marginBottom: '8px',
         }}>
           {systemInfo?.ten_truong || 'TRƯỜNG THPT LÊ THỊ HỒNG GẤM'}
         </div>
         <h1 style={{
-          fontSize: '1.75rem',
+          fontSize: '1.65rem',
           fontWeight: 800,
-          lineHeight: 1.3,
+          lineHeight: 1.35,
           color: '#ffffff',
-          marginBottom: '16px',
+          marginBottom: '14px',
           letterSpacing: '-0.5px',
         }}>
-          Hệ Thống Đang Được Bảo Trì
+          Hệ thống đang bảo trì vui lòng quay lại sau.
         </h1>
 
         {/* Message description */}
         <p style={{
-          fontSize: '1rem',
+          fontSize: '0.96rem',
           lineHeight: 1.6,
           color: '#cbd5e1',
-          marginBottom: '24px',
+          marginBottom: '22px',
           padding: '0 8px',
         }}>
-          {systemInfo?.thong_bao || 'Chúng tôi đang tiến hành cập nhật và tối ưu hóa hệ thống để nâng cao trải nghiệm quản lý bán trú. Xin lỗi quý Thầy Cô và Học sinh vì sự bất tiện này.'}
+          {systemInfo?.thong_bao || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ để nâng cao trải nghiệm dịch vụ. Quý Thầy Cô và Học sinh vui lòng quay lại sau!'}
         </p>
 
         {/* Estimated Time Box */}
@@ -171,13 +182,13 @@ export default function Maintenance({ status, onRetry }) {
             background: 'rgba(15, 23, 42, 0.6)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '12px',
-            padding: '14px 18px',
-            marginBottom: '28px',
+            padding: '12px 18px',
+            marginBottom: '24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '10px',
-            fontSize: '0.95rem',
+            fontSize: '0.92rem',
             color: '#e2e8f0',
           }}>
             <i className="far fa-clock" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i>
@@ -185,9 +196,10 @@ export default function Maintenance({ status, onRetry }) {
           </div>
         )}
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
           <button
+            type="button"
             onClick={checkStatus}
             disabled={checking}
             style={{
@@ -211,28 +223,67 @@ export default function Maintenance({ status, onRetry }) {
             }}
           >
             <i className={`fas fa-sync-alt ${checking ? 'fa-spin' : ''}`}></i>
-            {checking ? 'Đang kiểm tra hệ thống...' : 'Kiểm tra trạng thái & Tải lại'}
+            {checking ? 'Đang kiểm tra hệ thống...' : 'Tải lại trang web'}
           </button>
 
-          {/* Admin link */}
-          <Link
-            to="/login"
-            style={{
-              fontSize: '0.85rem',
-              color: '#94a3b8',
-              textDecoration: 'none',
-              marginTop: '8px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'color 0.2s',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.color = '#38bdf8'}
-            onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}
-          >
-            <i className="fas fa-user-shield"></i>
-            Dành cho Quản trị viên (Đăng nhập quản lý)
-          </Link>
+          {/* If user is logged in as non-superadmin */}
+          {user ? (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '10px',
+              padding: '10px 16px',
+              fontSize: '0.84rem',
+              color: '#fca5a5',
+              marginTop: '12px',
+              textAlign: 'center',
+              lineHeight: 1.5,
+              width: '100%',
+              maxWidth: '380px'
+            }}>
+              <i className="fas fa-lock" style={{ marginRight: 6, color: '#f87171' }}></i>
+              Tài khoản <strong>{user.username}</strong> ({user.fullname || user.role}) không có quyền truy cập khi đang bảo trì.<br />
+              Chỉ <strong>Super Admin</strong> mới có thể truy cập lúc này.
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={logout}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #f87171',
+                    color: '#fca5a5',
+                    borderRadius: '6px',
+                    padding: '4px 12px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
+                >
+                  <i className="fas fa-sign-out-alt"></i> Đăng xuất tài khoản
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Super Admin login link */
+            <Link
+              to="/login"
+              style={{
+                fontSize: '0.85rem',
+                color: '#94a3b8',
+                textDecoration: 'none',
+                marginTop: '10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'color 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.color = '#38bdf8'}
+              onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}
+            >
+              <i className="fas fa-user-shield"></i>
+              Dành cho Super Admin (Đăng nhập quản trị)
+            </Link>
+          )}
         </div>
       </div>
 

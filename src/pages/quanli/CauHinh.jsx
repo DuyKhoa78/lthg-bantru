@@ -250,7 +250,7 @@ export default function CauHinh() {
                 </label>
               </label>
               <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 6, lineHeight: 1.5 }}>
-                Khi bật, mọi người dùng thông thường khi vào web sẽ thấy trang <strong>"Hệ thống đang bảo trì"</strong>. Chỉ tài khoản <strong>Quản trị viên (Admin)</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
+                Khi bật, mọi người dùng thông thường khi vào web sẽ thấy thông báo <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
               </p>
             </div>
 

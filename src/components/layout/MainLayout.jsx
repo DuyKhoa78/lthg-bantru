@@ -77,7 +77,7 @@ export default function MainLayout() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <i className="fas fa-exclamation-triangle" style={{ fontSize: '1.25rem', color: '#fef08a' }}></i>
               <span>
-                <strong style={{ color: '#fef08a' }}>CHẾ ĐỘ BẢO TRÌ ĐANG BẬT:</strong> Người dùng thông thường hiện không thể truy cập hệ thống.
+                <strong style={{ color: '#fef08a' }}>CHẾ ĐỘ BẢO TRÌ ĐANG BẬT:</strong> Hệ thống đang bảo trì — Hiện chỉ có Super Admin mới có quyền truy cập.
               </span>
             </div>
             <Link to="/cau-hinh" style={{

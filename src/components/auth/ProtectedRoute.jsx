@@ -20,9 +20,9 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  // Khi hệ thống bật bảo trì: Chặn mọi người dùng, ngoại trừ Quản trị viên (Admin / Superuser)
-  const isAdmin = user && (user.is_superuser || user.is_admin || user.role === 'admin');
-  if (systemStatus?.bao_tri && !isAdmin) {
+  // Khi hệ thống bật bảo trì: Chặn mọi người dùng, ngoại trừ Super Admin (is_superuser: true)
+  const isSuperAdmin = user && (user.is_superuser === true || user.role === 'super_admin');
+  if (systemStatus?.bao_tri && !isSuperAdmin) {
     return <Maintenance status={systemStatus} onRetry={refreshSystemStatus} />;
   }
 
