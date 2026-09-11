@@ -36,6 +36,15 @@ api.interceptors.response.use(
       console.warn(`[API AUTH] 401 Unauthorized: ${error.config?.method?.toUpperCase()} ${url}`);
     }
 
+    // Xử lý 503: Hệ thống đang bật chế độ bảo trì
+    const is503 = status === 503;
+    if (is503 && error.response?.data?.maintenance) {
+      if (!window.location.pathname.includes('/maintenance')) {
+        const basePath = import.meta.env.BASE_URL || '/';
+        window.location.href = `${basePath}maintenance`.replace('//', '/');
+      }
+    }
+
     // Không redirect vòng lặp từ /api/auth/me – AuthContext tự xử lý
     if (is401 && !url.includes('/api/auth/me') && !window.location.pathname.includes('/login')) {
       console.error(`[API] 401 detected on ${url} → redirecting to /login`);

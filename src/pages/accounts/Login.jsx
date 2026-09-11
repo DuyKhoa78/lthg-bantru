@@ -24,7 +24,7 @@ function getSavedRemember() {
 }
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, systemStatus } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -79,7 +79,7 @@ export default function Login() {
 
         <div className="school-logo-wrap">
           <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo THPT Lê Thị Hồng Gấm" className="school-logo" />
-          <div className="school-name">THPT LÊ THỊ HỒNG GẤM</div>
+          <div className="school-name">THPT LÊ THI HỒNG GẤM</div>
           <div className="school-sub">Phân hiệu tại TP. Hồ Chí Minh</div>
         </div>
 
@@ -120,6 +120,32 @@ export default function Login() {
             <h2 className="card-title">Đăng nhập</h2>
             <p className="card-subtitle">Nhập thông tin tài khoản để tiếp tục</p>
           </div>
+
+          {/* Cảnh báo chế độ bảo trì */}
+          {systemStatus?.bao_tri && (
+            <div style={{
+              background: '#fffbeb',
+              border: '1px solid #fcd34d',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              color: '#b45309',
+              fontSize: '0.86rem',
+              lineHeight: 1.4,
+              fontWeight: 500
+            }}>
+              <i className="fas fa-tools" style={{ fontSize: '1.1rem', color: '#d97706', flexShrink: 0 }}></i>
+              <div>
+                <strong>HỆ THỐNG ĐANG BẢO TRÌ</strong>
+                <div style={{ fontSize: '0.8rem', color: '#92400e', marginTop: 2 }}>
+                  Hiện tại chỉ tài khoản <strong>Super Admin</strong> mới có thể đăng nhập.
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Alert */}
           {error && (

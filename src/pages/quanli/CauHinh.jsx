@@ -79,6 +79,29 @@ export default function CauHinh() {
     }
   };
 
+  const handleToggleMaintenance = async (newStatus) => {
+    setSaving(true);
+    try {
+      const payload = {
+        ...heThong,
+        bao_tri: newStatus,
+      };
+      await api.post('/api/hethong/save/', payload);
+      setHeThong(prev => ({ ...prev, bao_tri: newStatus }));
+      if (refreshSystemStatus) await refreshSystemStatus();
+      showAlert(
+        newStatus
+          ? 'ĐÃ BẬT CHẾ ĐỘ BẢO TRÌ THÀNH CÔNG! Chỉ tài khoản Super Admin mới có thể truy cập hệ thống lúc này.'
+          : 'ĐÃ TẮT CHẾ ĐỘ BẢO TRÌ THÀNH CÔNG! Hệ thống đã mở lại hoạt động bình thường.',
+        'success'
+      );
+    } catch (err) {
+      showAlert(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái bảo trì', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <div style={{ padding: 60, textAlign: 'center' }}><i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--primary)' }}></i></div>;
 
   return (
@@ -242,23 +265,71 @@ export default function CauHinh() {
             </div>
             <div className="cauhinh-section-body">
               <div className="form-group">
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Trạng thái bảo trì:</span>
-                  <label style={{ cursor: canEdit ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={heThong.bao_tri}
-                      disabled={!canEdit}
-                      onChange={(e) => setHeThong({ ...heThong, bao_tri: e.target.checked })}
-                      style={{ width: 18, height: 18, accentColor: '#f59e0b', cursor: 'pointer' }}
-                    />
-                    <strong style={{ color: heThong.bao_tri ? '#b45309' : '#15803d', fontSize: '.92rem' }}>
-                      {heThong.bao_tri ? 'BẬT BẢO TRÌ (Khóa truy cập người dùng)' : 'TẮT BẢO TRÌ (Hoạt động bình thường)'}
-                    </strong>
-                  </label>
-                </label>
-                <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 6, lineHeight: 1.5 }}>
-                  Khi bật, mọi người dùng thông thường khi vào web sẽ thấy thông báo <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <label style={{ cursor: canEdit ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={heThong.bao_tri}
+                        disabled={!canEdit || saving}
+                        onChange={(e) => handleToggleMaintenance(e.target.checked)}
+                        style={{ width: 20, height: 20, accentColor: '#f59e0b', cursor: 'pointer' }}
+                      />
+                      <strong style={{ color: heThong.bao_tri ? '#b45309' : '#15803d', fontSize: '1rem' }}>
+                        {heThong.bao_tri ? 'CHẾ ĐỘ BẢO TRÌ ĐANG BẬT (Khóa truy cập)' : 'CHẾ ĐỘ BẢO TRÌ ĐANG TẮT (Bình thường)'}
+                      </strong>
+                    </label>
+                  </div>
+                  <div>
+                    {heThong.bao_tri ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMaintenance(false)}
+                        disabled={saving}
+                        style={{
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          padding: '8px 18px',
+                          borderRadius: 8,
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+                          fontSize: '.88rem'
+                        }}
+                      >
+                        <i className="fas fa-check-circle"></i> TẮT BẢO TRÌ (MỞ LẠI HỆ THỐNG)
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMaintenance(true)}
+                        disabled={saving}
+                        style={{
+                          background: '#d97706',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          padding: '8px 18px',
+                          borderRadius: 8,
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          boxShadow: '0 2px 6px rgba(217, 119, 6, 0.3)',
+                          fontSize: '.88rem'
+                        }}
+                      >
+                        <i className="fas fa-tools"></i> BẬT BẢO TRÌ NGAY
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 8, lineHeight: 1.5 }}>
+                  Khi bật, toàn bộ người dùng khác (kể cả admin thường, quản lý, học vụ, giáo viên và học sinh) khi vào web sẽ thấy màn hình <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ duy nhất tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
                 </p>
               </div>
 
@@ -285,6 +356,18 @@ export default function CauHinh() {
                       onChange={(e) => setHeThong({ ...heThong, thoi_gian_bao_tri: e.target.value })}
                       placeholder="VD: 15-30 phút, hoặc Đến 15h00 ngày hôm nay"
                     />
+                  </div>
+                  <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleSave}
+                      disabled={saving}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, padding: '7px 16px', borderRadius: 8 }}
+                    >
+                      <i className={`fas ${saved ? 'fa-check' : saving ? 'fa-spinner fa-spin' : 'fa-save'}`}></i>
+                      {saved ? 'Đã lưu thông báo!' : 'Lưu nội dung thông báo bảo trì'}
+                    </button>
                   </div>
                 </div>
               )}

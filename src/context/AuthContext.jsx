@@ -49,6 +49,14 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Tự động kiểm tra trạng thái bảo trì định kỳ mỗi 15 giây
+  useEffect(() => {
+    const timer = setInterval(() => {
+      refreshSystemStatus();
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [refreshSystemStatus]);
+
   const login = useCallback(async (username, password, remember = false) => {
     try {
       // Ưu tiên gọi /api/auth/login (có fallback sang /login/ nếu cần)
@@ -68,6 +76,7 @@ export function AuthProvider({ children }) {
           localStorage.setItem('qlbt_token', res.data.token);
         }
         setUser(res.data.user);
+        await refreshSystemStatus();
         return res.data.user;
       }
       throw new Error(res.data?.error || 'Đăng nhập thất bại');
@@ -77,7 +86,7 @@ export function AuthProvider({ children }) {
       }
       throw err;
     }
-  }, []);
+  }, [refreshSystemStatus]);
 
   const logout = useCallback(async () => {
     try {
