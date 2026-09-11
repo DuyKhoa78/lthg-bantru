@@ -1326,18 +1326,20 @@ ${htmlPages}
 
                                     <button
                                         type="button"
-                                        className="dd-chot-btn"
-                                        onClick={() => setShowChotConfirmModal(true)}
-                                        disabled={chotting || (shiftTiming.state === 'da_qua_gio')}
+                                        className="btn btn-outline"
+                                        style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#a78bfa', color: '#5b21b6', background: '#f5f3ff' }}
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        title="Lưu tạm thời dữ liệu điểm danh"
                                     >
-                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
-                                        {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh ca ngủ'}
+                                        {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                        {saved ? ' Đã lưu tạm!' : saving ? ' Đang lưu...' : ' Lưu tạm dữ liệu'}
                                     </button>
 
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
-                                            ĐÃ CHỐT LÊN TỔNG {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
                                         </span>
                                     )}
 
@@ -1442,16 +1444,54 @@ ${htmlPages}
                                     <div className="dd-footer">
                                         <div className="dd-footer-note">
                                             {isGiaoVien ? (
-                                                <span><i className="fas fa-shield-alt"></i> Giáo viên điểm danh bằng quét mã QR thẻ học sinh. Bấm <strong>Chốt điểm danh</strong> trước 12:00 để gửi lên Tổng.</span>
+                                                <span><i className="fas fa-shield-alt"></i> Dữ liệu điểm danh của Thầy/Cô được lưu tạm thời. Ban quản lý (Admin) sẽ kiểm tra và chốt danh sách chính thức.</span>
                                             ) : (
-                                                <span><i className="fas fa-info-circle"></i> Trạng thái mặc định: <strong>Có mặt</strong>. Nhấn nút để thay đổi.</span>
+                                                <span><i className="fas fa-info-circle"></i> Bấm <strong>Chốt danh sách</strong> để hoàn tất điểm danh phòng này và tự động ghi nhận vắng cho học sinh chưa điểm danh.</span>
                                             )}
                                         </div>
                                         {!isGiaoVien && (
-                                            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                                                {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                                {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
-                                            </button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                                {!isDaChot && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline"
+                                                        onClick={() => setAll('comat')}
+                                                        style={{ fontWeight: 600, padding: '9px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#86efac', color: '#166534', background: '#f0fdf4' }}
+                                                        title="Đánh dấu tất cả học sinh trong phòng có mặt"
+                                                    >
+                                                        <i className="fas fa-check-double"></i> Tất cả có mặt
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    onClick={handleSave}
+                                                    disabled={saving || chotting}
+                                                    style={{ fontWeight: 600, padding: '9px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                                    title="Lưu tạm thời dữ liệu điểm danh mà chưa chốt sổ"
+                                                >
+                                                    <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>
+                                                    {saved ? ' Đã lưu tạm!' : saving ? ' Đang lưu...' : ' Lưu tạm'}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary"
+                                                    onClick={() => setShowChotConfirmModal(true)}
+                                                    disabled={chotting || saving}
+                                                    style={{ fontWeight: 700, padding: '9px 20px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}
+                                                >
+                                                    {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                                    {isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
+                                                </button>
+
+                                                {isDaChot && (
+                                                    <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        <i className="fas fa-check-circle"></i> ĐÃ CHỐT LÊN TỔNG
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </>

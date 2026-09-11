@@ -1346,7 +1346,7 @@ ${htmlPages}
                                 </>
                             )}
 
-                            {/* ── NÚT QUÉT QR & CHỐT ĐIỂM DANH LÊN TỔNG DÀNH RIÊNG CHO GIÁO VIÊN ── */}
+                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN ── */}
                             {selectedPhong && isGiaoVien && (
                                 <div className="dd-teacher-actions-bar">
                                     <button
@@ -1359,33 +1359,22 @@ ${htmlPages}
                                         {isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR thẻ HS'}
                                     </button>
 
-                                    {!isDaChot && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            onClick={() => setAll('comat')}
-                                            disabled={isGiamSatOnly}
-                                            style={{ fontWeight: 700, padding: '7px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#86efac', color: '#166534', background: '#f0fdf4' }}
-                                            title="Đánh dấu tất cả học sinh trong phòng có mặt"
-                                        >
-                                            <i className="fas fa-check-double"></i> Tất cả có mặt
-                                        </button>
-                                    )}
-
                                     <button
                                         type="button"
-                                        className="dd-chot-btn"
-                                        onClick={() => setShowChotConfirmModal(true)}
-                                        disabled={chotting || isGiamSatOnly || (shiftTiming.state === 'da_qua_gio')}
+                                        className="btn btn-outline"
+                                        style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#60a5fa', color: '#1d4ed8', background: '#eff6ff' }}
+                                        onClick={handleSave}
+                                        disabled={saving || isGiamSatOnly}
+                                        title="Lưu tạm thời dữ liệu điểm danh"
                                     >
-                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
-                                        {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh ca ăn'}
+                                        {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                        {saved ? ' Đã lưu tạm!' : saving ? ' Đang lưu...' : ' Lưu tạm dữ liệu'}
                                     </button>
 
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
-                                            ĐÃ CHỐT LÊN TỔNG {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
                                         </span>
                                     )}
 
@@ -1433,11 +1422,22 @@ ${htmlPages}
 
                             <div id="dd-student-area">
                                 {!selectedPhong ? (
-                                    <div className="dd-empty"><i className="fas fa-hand-pointer"></i><h3>Chọn một phòng ăn</h3><p>Danh sách học sinh sẽ hiển thị tại đây</p></div>
+                                    <div className="dd-empty">
+                                        <i className="fas fa-hand-pointer"></i>
+                                        <h3>Chọn một phòng ăn</h3>
+                                        <p>Danh sách học sinh sẽ hiển thị tại đây</p>
+                                    </div>
                                 ) : loading ? (
-                                    <div className="dd-empty" style={{ color: 'var(--primary)' }}><i className="fas fa-spinner fa-spin"></i><h3>Đang tải dữ liệu điểm danh...</h3></div>
+                                    <div className="dd-empty" style={{ color: '#0ea5e9' }}>
+                                        <i className="fas fa-spinner fa-spin"></i>
+                                        <h3>Đang tải dữ liệu điểm danh...</h3>
+                                    </div>
                                 ) : students.length === 0 ? (
-                                    <div className="dd-empty"><i className="fas fa-users-slash"></i><h3>Chưa có học sinh</h3><p>Phòng này chưa được xếp học sinh nào</p></div>
+                                    <div className="dd-empty">
+                                        <i className="fas fa-users-slash"></i>
+                                        <h3>Chưa có học sinh</h3>
+                                        <p>Phòng này chưa được xếp học sinh nào</p>
+                                    </div>
                                 ) : (
                                     <div className="dd-student-grid">
                                         {students.filter(s => {
@@ -1448,7 +1448,7 @@ ${htmlPages}
                                                 style={{ background: STATUS[s.trang_thai]?.bg || '#fff', borderColor: STATUS[s.trang_thai]?.border || '#e2e8f0' }}>
                                                 <div className="dd-student-info">
                                                     <span className="dd-student-name">{(s.ho_ten || '').normalize('NFC')}</span>
-                                                    <span className="dd-student-class"><b style={{ color: '#009CFF', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
+                                                    <span className="dd-student-class"><b style={{ color: '#0ea5e9', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
                                                 </div>
                                                 
                                                 <div className="dd-status-btns">
@@ -1457,7 +1457,7 @@ ${htmlPages}
                                                         return (
                                                             <button key={key}
                                                                 className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
-                                                                style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}` } : {}}
+                                                                style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}}
                                                                 onClick={() => changeStatus(s.id, key)} title={val.label}>
                                                                 {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
                                                             </button>
@@ -1480,17 +1480,55 @@ ${htmlPages}
                                     <div className="dd-footer">
                                         <div className="dd-footer-note">
                                             {isGiaoVien ? (
-                                                <span><i className="fas fa-shield-alt"></i> Giáo viên điểm danh bằng quét mã QR thẻ học sinh. Bấm <strong>Chốt điểm danh</strong> trước 11:30 để gửi lên Tổng.</span>
+                                                <span><i className="fas fa-shield-alt"></i> Dữ liệu điểm danh của Thầy/Cô được lưu tạm thời. Ban quản lý (Admin) sẽ kiểm tra và chốt danh sách chính thức.</span>
                                             ) : (
-                                                <span><i className="fas fa-info-circle"></i> Trạng thái mặc định: <strong>Có mặt</strong>. Nhấn nút để thay đổi.</span>
+                                                <span><i className="fas fa-info-circle"></i> Bấm <strong>Chốt danh sách</strong> để hoàn tất điểm danh phòng này và tự động ghi nhận vắng cho học sinh chưa điểm danh.</span>
                                             )}
                                         </div>
                                         
                                         {!isGiaoVien && (
-                                            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                                                {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                                {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu điểm danh'}
-                                            </button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                                {!isDaChot && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline"
+                                                        onClick={() => setAll('comat')}
+                                                        style={{ fontWeight: 600, padding: '9px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#86efac', color: '#166534', background: '#f0fdf4' }}
+                                                        title="Đánh dấu tất cả học sinh trong phòng có mặt"
+                                                    >
+                                                        <i className="fas fa-check-double"></i> Tất cả có mặt
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    onClick={handleSave}
+                                                    disabled={saving || chotting}
+                                                    style={{ fontWeight: 600, padding: '9px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                                    title="Lưu tạm thời dữ liệu điểm danh mà chưa chốt sổ"
+                                                >
+                                                    <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>
+                                                    {saved ? ' Đã lưu tạm!' : saving ? ' Đang lưu...' : ' Lưu tạm'}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary"
+                                                    onClick={() => setShowChotConfirmModal(true)}
+                                                    disabled={chotting || saving}
+                                                    style={{ fontWeight: 700, padding: '9px 20px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}
+                                                >
+                                                    {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                                    {isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
+                                                </button>
+
+                                                {isDaChot && (
+                                                    <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        <i className="fas fa-check-circle"></i> ĐÃ CHỐT LÊN TỔNG
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </>
