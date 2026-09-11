@@ -25,7 +25,6 @@ export default function GvDashboard() {
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDuty();
         const timer = setInterval(() => {
             setCurrentTime(new Date());
