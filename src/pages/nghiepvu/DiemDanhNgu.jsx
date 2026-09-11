@@ -1432,18 +1432,6 @@ ${htmlPages}
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
                                                 <button
                                                     type="button"
-                                                    className="btn btn-outline"
-                                                    onClick={handleSave}
-                                                    disabled={saving || chotting}
-                                                    style={{ fontWeight: 600, padding: '9px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                                                    title="Lưu tạm thời dữ liệu điểm danh mà chưa chốt sổ"
-                                                >
-                                                    <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>
-                                                    {saved ? ' Đã lưu tạm!' : saving ? ' Đang lưu...' : ' Lưu tạm'}
-                                                </button>
-
-                                                <button
-                                                    type="button"
                                                     className="btn btn-primary"
                                                     onClick={() => setShowChotConfirmModal(true)}
                                                     disabled={chotting || saving}
