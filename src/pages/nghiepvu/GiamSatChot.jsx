@@ -96,9 +96,17 @@ export default function GiamSatChot() {
         return () => clearInterval(interval);
     }, [autoRefresh, chotDate, chotLoai, fetchChotData]);
 
-    const daChotCount = chotData.filter(r => r.trang_thai_chot === 'da_chot').length;
-    const tuDongChotCount = chotData.filter(r => r.trang_thai_chot === 'tu_dong_chot').length;
-    const chuaChotCount = chotData.filter(r => r.trang_thai_chot === 'chua_chot').length;
+    const completedRooms = chotData.filter(r => r.trang_thai_chot === 'da_chot' || r.trang_thai_chot === 'tu_dong_chot' || r.is_completed);
+    const pendingRooms = chotData.filter(r => r.trang_thai_chot !== 'da_chot' && r.trang_thai_chot !== 'tu_dong_chot' && !r.is_completed);
+
+    const completedCount = completedRooms.length;
+    const pendingCount = pendingRooms.length;
+
+    // Tổng hợp số HS từ các phòng ĐÃ HOÀN THÀNH
+    const totalHsChot = completedRooms.reduce((acc, r) => acc + (r.total_hs || 0), 0);
+    const totalCoMat = completedRooms.reduce((acc, r) => acc + (r.stats?.comat || 0), 0);
+    const totalVang = completedRooms.reduce((acc, r) => acc + (r.stats?.vang || 0), 0);
+    const totalPhep = completedRooms.reduce((acc, r) => acc + (r.stats?.phep || 0), 0);
 
     // Phân quyền: chỉ admin, ban giám hiệu/quản lý và học vụ được xem giám sát chốt
     if (user && !user.is_admin && !user.is_superuser && !user.is_quan_ly && !user.is_hoc_vu) {
@@ -112,10 +120,10 @@ export default function GiamSatChot() {
                 <div>
                     <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
                         <i className="fas fa-tasks" style={{ color: '#009CFF' }}></i>
-                        Thống Kê Điểm Danh
+                        Tiến Độ Điểm Danh & Chốt Sổ
                     </h2>
                     <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.9rem' }}>
-                        Theo dõi tiến độ quét QR của giáo viên theo ca trực và tự động thu hồi dữ liệu nháp khi có sự cố.
+                        Theo dõi tình hình hoàn thành điểm danh theo ca trực. Dữ liệu học sinh chỉ được thống kê chính thức khi Giáo viên đã chốt.
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -130,7 +138,7 @@ export default function GiamSatChot() {
                             onChange={e => setAutoRefresh(e.target.checked)}
                             style={{ accentColor: '#009CFF' }}
                         />
-                        <span>Tự động cập nhật (20s)</span>
+                        <span>Tự động làm mới (20s)</span>
                     </label>
 
                     <button
@@ -146,59 +154,47 @@ export default function GiamSatChot() {
                 </div>
             </div>
 
-            {/* Banner Khung giờ & Đồng hồ Live */}
+            {/* Banner Khung giờ & Đồng hồ */}
             <div style={{
-                background: shiftInfo.status === 'dang_dien_ra'
-                    ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
-                    : shiftInfo.status === 'sap_den'
-                    ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-                    : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                border: `1.5px solid ${
-                    shiftInfo.status === 'dang_dien_ra' ? '#6ee7b7' : shiftInfo.status === 'sap_den' ? '#93c5fd' : '#fde68a'
-                }`,
-                borderRadius: 12, padding: '14px 20px', marginBottom: 20,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: 12, padding: '12px 18px', marginBottom: 20,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
             }}>
-                <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.98rem', color: shiftInfo.status === 'dang_dien_ra' ? '#065f46' : shiftInfo.status === 'sap_den' ? '#1e40af' : '#92400e', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: '1.2rem' }}>
-                            {shiftInfo.status === 'dang_dien_ra' ? '🟢' : shiftInfo.status === 'sap_den' ? '⏳' : '🔒'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#1e293b' }}>
+                        {shiftInfo.name.toUpperCase()} ({shiftInfo.startLabel} – {shiftInfo.endLabel})
+                    </span>
+                    {shiftInfo.status === 'dang_dien_ra' && (
+                        <span style={{ background: '#059669', color: '#fff', fontSize: '0.72rem', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+                            ĐANG DIỄN RA (Còn {shiftInfo.remaining} phút)
                         </span>
-                        <span>{shiftInfo.name.toUpperCase()} ({shiftInfo.startLabel} – {shiftInfo.endLabel})</span>
-                        {shiftInfo.status === 'dang_dien_ra' && (
-                            <span style={{ background: '#059669', color: '#fff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>
-                                ĐANG DIỄN RA (Còn {shiftInfo.remaining} phút)
-                            </span>
-                        )}
-                        {shiftInfo.status === 'sap_den' && (
-                            <span style={{ background: '#2563eb', color: '#fff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>
-                                CHƯA ĐẾN GIỜ
-                            </span>
-                        )}
-                        {shiftInfo.status === 'da_qua_gio' && (
-                            <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>
-                                ĐÃ HẾT GIỜ
-                            </span>
-                        )}
-                    </div>
-                    <div style={{ fontSize: '0.84rem', color: '#475569', marginTop: 4 }}>
-                        <i className="fas fa-info-circle" style={{ color: '#009CFF', marginRight: 6 }}></i>
-                        Ca trực kết thúc lúc <strong>{shiftInfo.endLabel}</strong>. Dữ liệu điểm danh luôn được hệ thống lưu trữ an toàn.
-                    </div>
+                    )}
+                    {shiftInfo.status === 'sap_den' && (
+                        <span style={{ background: '#2563eb', color: '#fff', fontSize: '0.72rem', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+                            CHƯA ĐẾN GIỜ
+                        </span>
+                    )}
+                    {shiftInfo.status === 'da_qua_gio' && (
+                        <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+                            ĐÃ HẾT GIỜ CA TRỰC
+                        </span>
+                    )}
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>ĐỒNG HỒ HỆ THỐNG</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Đồng hồ hệ thống:</span>
+                    <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontFamily: 'monospace' }}>
                         {currentTime.toLocaleTimeString('vi-VN')}
-                    </div>
+                    </strong>
                 </div>
             </div>
 
             {/* Thanh điều khiển Ngày & Ca */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap',
-                background: '#fff', padding: '14px 18px', borderRadius: 12, border: '1px solid #e2e8f0',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+                background: '#fff', padding: '12px 18px', borderRadius: 12, border: '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <label style={{ fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
@@ -252,7 +248,7 @@ export default function GiamSatChot() {
                 </div>
             </div>
 
-            {/* 4 Thẻ Thống Kê Tổng Quan */}
+            {/* 3 Thẻ Thống Kê Tinh Gọn: Tổng, Đã hoàn thành, Chưa hoàn thành */}
             <div className="stat-cards-row" style={{ marginBottom: 20 }}>
                 <div className="stat-card blue">
                     <div className="stat-card-icon"><i className="fas fa-door-open"></i></div>
@@ -262,34 +258,49 @@ export default function GiamSatChot() {
                     </div>
                 </div>
                 <div className="stat-card green">
-                    <div className="stat-card-icon"><i className="fas fa-check-circle"></i></div>
+                    <div className="stat-card-icon" style={{ background: '#ecfdf5', color: '#16a34a' }}>
+                        <i className="fas fa-check-circle"></i>
+                    </div>
                     <div className="stat-card-info">
-                        <p>GV đã chốt hợp lệ</p>
-                        <h3>{daChotCount}</h3>
+                        <p>Đã hoàn thành</p>
+                        <h3>{completedCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#64748b' }}>phòng</span></h3>
                     </div>
                 </div>
                 <div className="stat-card yellow">
-                    <div className="stat-card-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
-                        <i className="fas fa-robot"></i>
+                    <div className="stat-card-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+                        <i className="fas fa-clock"></i>
                     </div>
                     <div className="stat-card-info">
-                        <p>Hệ thống tự động chốt</p>
-                        <h3>{tuDongChotCount}</h3>
-                    </div>
-                </div>
-                <div className="stat-card red">
-                    <div className="stat-card-icon"><i className="fas fa-clock"></i></div>
-                    <div className="stat-card-info">
-                        <p>Chưa chốt / Đang trực</p>
-                        <h3>{chuaChotCount}</h3>
+                        <p>Chưa hoàn thành</p>
+                        <h3>{pendingCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#64748b' }}>phòng</span></h3>
                     </div>
                 </div>
             </div>
 
+            {/* Tóm tắt số liệu học sinh từ các phòng đã hoàn thành */}
+            {completedCount > 0 && (
+                <div style={{
+                    background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,
+                    padding: '10px 16px', marginBottom: 20, fontSize: '0.9rem', color: '#166534',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <i className="fas fa-check-double" style={{ color: '#16a34a' }}></i>
+                        <span>Thống kê từ <strong>{completedCount} phòng đã chốt</strong>:</span>
+                        <strong>{totalHsChot} học sinh</strong>
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, fontWeight: 700 }}>
+                        <span style={{ color: '#16a34a' }}><i className="fas fa-check"></i> Có mặt: {totalCoMat}</span>
+                        <span style={{ color: '#dc2626' }}><i className="fas fa-times"></i> Vắng: {totalVang}</span>
+                        <span style={{ color: '#d97706' }}><i className="fas fa-file-alt"></i> Phép: {totalPhep}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Bảng Giám Sát Chi Tiết Phòng */}
             <div style={{
                 background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden'
+                boxShadow: '0 2px 6px rgba(0,0,0,0.04)', overflow: 'hidden'
             }}>
                 <div style={{
                     padding: '14px 18px', borderBottom: '1px solid #e2e8f0',
@@ -297,7 +308,7 @@ export default function GiamSatChot() {
                 }}>
                     <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <i className="fas fa-list-check" style={{ color: '#009CFF' }}></i>
-                        Danh Sách Phòng Trực & Trạng Thái Điểm Danh
+                        Danh Sách Phòng Trực & Trạng Thái
                     </h3>
                     <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
                         Hạn chốt: <strong>{chotLoai === '0' ? '11:30' : '12:00'}</strong>
@@ -309,45 +320,34 @@ export default function GiamSatChot() {
                         <thead>
                             <tr>
                                 <th style={{ width: 44, textAlign: 'center' }}>STT</th>
-                                <th style={{ width: 110 }}>Phòng</th>
-                                <th>Giáo viên phân công trực</th>
-                                <th style={{ textAlign: 'center', width: 160 }}>Dữ liệu quét QR / Nháp</th>
-                                <th style={{ textAlign: 'center', width: 180 }}>Học sinh (Có mặt / Vắng / Phép)</th>
-                                <th style={{ width: 280 }}>Trạng thái chốt & Ghi chú sự cố</th>
-                                <th style={{ width: 120, textAlign: 'center' }}>Thao tác</th>
+                                <th style={{ width: 120 }}>Phòng</th>
+                                <th>Giáo viên trực</th>
+                                <th style={{ textAlign: 'center', width: 100 }}>Sĩ số</th>
+                                <th style={{ width: 180 }}>Trạng thái</th>
+                                <th style={{ textAlign: 'center', width: 220 }}>Kết quả điểm danh</th>
+                                <th style={{ width: 100, textAlign: 'center' }}>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
                             {chotData.map((r, i) => {
-                                const isDaChot = r.trang_thai_chot === 'da_chot';
-                                const isTuDongChot = r.trang_thai_chot === 'tu_dong_chot';
-                                const isChuaChot = r.trang_thai_chot === 'chua_chot';
+                                const isCompleted = r.trang_thai_chot === 'da_chot' || r.trang_thai_chot === 'tu_dong_chot' || r.is_completed;
 
                                 return (
-                                    <tr key={r.ma_phong} style={isTuDongChot ? { background: '#fffbeb' } : {}}>
+                                    <tr key={r.ma_phong}>
                                         <td style={{ textAlign: 'center', fontWeight: 600, color: '#64748b' }}>{i + 1}</td>
                                         <td>
                                             <strong style={{ fontSize: '0.95rem', color: '#1e293b' }}>
                                                 <i className={`fas ${chotLoai === '0' ? 'fa-utensils' : 'fa-bed'}`} style={{ color: chotLoai === '0' ? '#009CFF' : '#6c5ce7', marginRight: 6 }}></i>
                                                 {r.ma_phong}
                                             </strong>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Tổng: {r.total_hs} HS</div>
                                         </td>
                                         <td>
                                             {r.giao_vien && r.giao_vien.length > 0 ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                     {r.giao_vien.map((gv, gvIdx) => (
                                                         <div key={gvIdx} style={{ fontSize: '0.84rem' }}>
                                                             <strong>{gv.ho_ten}</strong>
                                                             {gv.so_dien_thoai && <span style={{ color: '#64748b', marginLeft: 6 }}>({gv.so_dien_thoai})</span>}
-                                                            <span style={{
-                                                                marginLeft: 6, fontSize: '0.72rem', padding: '1px 6px', borderRadius: 4,
-                                                                background: gv.nhiem_vu === 0 ? '#e0f2fe' : '#f1f5f9',
-                                                                color: gv.nhiem_vu === 0 ? '#0369a1' : '#475569',
-                                                                fontWeight: 600
-                                                            }}>
-                                                                {gv.nhiem_vu === 0 ? 'Điểm danh' : 'Giám sát'}
-                                                            </span>
                                                             {gv.is_truc_thay && <span style={{ marginLeft: 4, fontSize: '0.7rem', color: '#e11d48', fontWeight: 700 }}>(Trực thay)</span>}
                                                         </div>
                                                     ))}
@@ -356,59 +356,43 @@ export default function GiamSatChot() {
                                                 <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.84rem' }}>Chưa phân công</span>
                                             )}
                                         </td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <div style={{ fontWeight: 800, fontSize: '0.95rem', color: r.draft_count > 0 ? '#059669' : '#94a3b8' }}>
-                                                {r.draft_count} / {r.total_hs} em
-                                            </div>
-                                            {r.draft_count > 0 && (
-                                                <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#047857', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
-                                                    <i className="fas fa-shield-alt"></i> Đã lưu nháp an toàn
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700 }}>
-                                                <span style={{ color: '#16a34a' }} title="Có mặt"><i className="fas fa-check"></i> {r.stats?.comat || 0}</span>
-                                                <span style={{ color: '#dc2626' }} title="Vắng"><i className="fas fa-times"></i> {r.stats?.vang || 0}</span>
-                                                <span style={{ color: '#d97706' }} title="Phép"><i className="fas fa-file-alt"></i> {r.stats?.phep || 0}</span>
-                                            </div>
-                                            {(r.stats?.chua_diem_danh > 0) && (
-                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 2 }}>
-                                                    Chưa điểm: {r.stats.chua_diem_danh} em
-                                                </div>
-                                            )}
+                                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#334155' }}>
+                                            {r.total_hs} HS
                                         </td>
                                         <td>
-                                            {isDaChot && (
+                                            {isCompleted ? (
                                                 <div>
                                                     <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                        <i className="fas fa-check-circle"></i> ĐÃ CHỐT HỢP LỆ
+                                                        <i className="fas fa-check-circle"></i> ĐÃ HOÀN THÀNH
                                                     </span>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 3 }}>
-                                                        {r.thoi_gian_chot ? new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
-                                                        {r.ghi_chu_chot ? ` • ${r.ghi_chu_chot}` : ''}
+                                                    {r.thoi_gian_chot && (
+                                                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>
+                                                            Chốt lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                        <i className="fas fa-clock"></i> CHƯA HOÀN THÀNH
+                                                    </span>
+                                                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>
+                                                        Đang điểm danh (Chưa chốt)
                                                     </div>
                                                 </div>
                                             )}
-                                            {isTuDongChot && (
-                                                <div>
-                                                    <span style={{ background: '#fffbeb', color: '#b45309', border: '1.5px solid #fde68a', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                        <i className="fas fa-robot"></i> TỰ ĐỘNG CHỐT
-                                                    </span>
-                                                    <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: 3, fontWeight: 500 }}>
-                                                        ⚠️ {r.ghi_chu_chot || `Quá giờ quy định (${chotLoai === '0' ? '11:30' : '12:00'}). Hệ thống đã ghi nhận chốt theo giờ.`}
-                                                    </div>
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            {isCompleted && r.stats ? (
+                                                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 700 }}>
+                                                    <span style={{ color: '#16a34a' }} title="Có mặt"><i className="fas fa-check"></i> {r.stats.comat}</span>
+                                                    <span style={{ color: '#dc2626' }} title="Vắng"><i className="fas fa-times"></i> {r.stats.vang}</span>
+                                                    <span style={{ color: '#d97706' }} title="Phép"><i className="fas fa-file-alt"></i> {r.stats.phep}</span>
                                                 </div>
-                                            )}
-                                            {isChuaChot && (
-                                                <div>
-                                                    <span style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                        <i className="fas fa-clock"></i> CHƯA CHỐT
-                                                    </span>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 3 }}>
-                                                        Đang trong ca trực hoặc chưa thực hiện
-                                                    </div>
-                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                                    Chưa chốt sổ
+                                                </span>
                                             )}
                                         </td>
                                         <td style={{ textAlign: 'center' }}>

@@ -312,19 +312,6 @@ export default function DiemDanhNgu() {
             .catch(() => {});
     }, [selectedPhong, date]);
 
-    // Logic hiển thị học sinh theo phòng đang chọn - Luôn sort mã bán trú tăng dần
-    const students = useMemo(() => {
-        if (!selectedPhong) return [];
-        return getStudentsForRoom(selectedPhong.ma_phong)
-            .sort((a, b) => Number(a.id) - Number(b.id))
-            .map(s => ({
-                ...s,
-                trang_thai: overrides[s.id] ?? (diemDanhDb[s.id] != null ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'),
-            }));
-    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom]);
-
-    const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
-
     // Trạng thái chốt phòng hiện tại
     const currentPhongStatus = useMemo(() => {
         if (!selectedPhong) return null;
@@ -333,6 +320,29 @@ export default function DiemDanhNgu() {
 
     const isDaChot = currentPhongStatus?.trang_thai_chot === 'da_chot' || Boolean(currentPhongStatus?.da_diem_danh);
     const isTuDongChot = currentPhongStatus?.trang_thai_chot === 'tu_dong_chot';
+
+    // Logic hiển thị học sinh theo phòng đang chọn - Luôn sort mã bán trú tăng dần
+    const students = useMemo(() => {
+        if (!selectedPhong) return [];
+        return getStudentsForRoom(selectedPhong.ma_phong)
+            .sort((a, b) => Number(a.id) - Number(b.id))
+            .map(s => {
+                let st = overrides[s.id];
+                if (st === undefined) {
+                    if (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null) {
+                        st = STATUS_MAP[diemDanhDb[s.id]];
+                    } else {
+                        st = isDaChot ? 'comat' : 'chua_diem_danh';
+                    }
+                }
+                return {
+                    ...s,
+                    trang_thai: st,
+                };
+            });
+    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom, isDaChot]);
+
+    const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
     // Xác nhận học sinh từ camera quét mã QR (Zero data loss)
     const handleConfirmStudent = (student) => {
@@ -378,14 +388,26 @@ export default function DiemDanhNgu() {
     const handleChotPhong = async () => {
         if (!selectedPhong || students.length === 0) return;
 
-        // Gửi danh sách học sinh theo đúng trạng thái hiện tại (mặc định Có mặt, chỉ gửi Vắng khi bấm Vắng)
-        const danhSachHs = students.map(s => ({
-            id: s.id,
-            ho_ten: s.ho_ten,
-            lop: s.lop,
-            status: INV_STATUS_MAP[s.trang_thai] ?? 0,
-            phuong_thuc: 'thu_cong'
-        }));
+        // Những học sinh chưa điểm danh sẽ tự động ghi nhận là VẮNG (status: 1)
+        const updatedOverrides = {};
+        const danhSachHs = students.map(s => {
+            const isUnchecked = s.trang_thai === 'chua_diem_danh' || !s.trang_thai;
+            if (isUnchecked) {
+                updatedOverrides[s.id] = 'vang';
+            }
+            const finalSt = isUnchecked ? 1 : (INV_STATUS_MAP[s.trang_thai] ?? 1);
+            return {
+                id: s.id,
+                ho_ten: s.ho_ten,
+                lop: s.lop,
+                status: finalSt,
+                phuong_thuc: 'thu_cong'
+            };
+        });
+
+        if (Object.keys(updatedOverrides).length > 0) {
+            setOverrides(prev => ({ ...prev, ...updatedOverrides }));
+        }
 
         setChotting(true);
         try {
@@ -1290,14 +1312,26 @@ ${htmlPages}
                                         {isDaChot ? 'Quét bổ sung HS đến muộn' : 'Quét mã QR thẻ học sinh'}
                                     </button>
 
+                                    {!isDaChot && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            onClick={() => setAll('comat')}
+                                            style={{ fontWeight: 700, padding: '7px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#86efac', color: '#166534', background: '#f0fdf4' }}
+                                            title="Đánh dấu tất cả học sinh trong phòng có mặt"
+                                        >
+                                            <i className="fas fa-check-double"></i> Tất cả có mặt
+                                        </button>
+                                    )}
+
                                     <button
                                         type="button"
                                         className="dd-chot-btn"
-                                        onClick={handleChotPhong}
+                                        onClick={() => setShowChotConfirmModal(true)}
                                         disabled={chotting || (shiftTiming.state === 'da_qua_gio')}
                                     >
-                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
-                                        {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh lên Tổng'}
+                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                        {isDaChot ? ' Cập nhật lên Tổng' : ' Chốt điểm danh ca ngủ'}
                                     </button>
 
                                     {isDaChot && (
@@ -1553,56 +1587,73 @@ ${htmlPages}
                 scannedIds={scannedIds}
             />
 
-            {/* Modal Xác nhận Chốt điểm danh lên Tổng khi còn học sinh chưa quét */}
+            {/* Modal Xác nhận Chốt điểm danh lên Tổng có kiểm tra ràng buộc */}
             {showChotConfirmModal && (
                 <div className="dd-modal-backdrop">
                     <div className="dd-confirm-modal">
                         <div className="dd-modal-title">
-                            <i className="fas fa-exclamation-triangle" style={{ color: '#f59e0b' }}></i>
+                            <i className="fas fa-clipboard-check" style={{ color: '#6c5ce7' }}></i>
                             <span>Xác nhận chốt điểm danh ca ngủ</span>
                         </div>
                         <div className="dd-modal-body">
                             <p>
-                                Phòng ngủ <strong>{selectedPhong?.ma_phong}</strong> có <strong>{students.length} học sinh</strong>. Dữ liệu hiện tại:
+                                Phòng ngủ <strong>{selectedPhong?.ma_phong}</strong> có <strong>{students.length} học sinh</strong>. Kết quả điểm danh hiện tại:
                             </p>
                             <div className="dd-modal-stats-list">
                                 <div className="dd-modal-stats-item">
-                                    <span>✓ Đã quét Có mặt:</span>
+                                    <span>✓ Đã điểm danh Có mặt:</span>
                                     <strong style={{ color: '#16a34a' }}>{students.filter(s => s.trang_thai === 'comat').length} em</strong>
                                 </div>
                                 <div className="dd-modal-stats-item">
-                                    <span>🏷️ Nghỉ có phép (Admin duyệt):</span>
+                                    <span>📄 Nghỉ có phép (Báo phép trước):</span>
                                     <strong style={{ color: '#d97706' }}>{students.filter(s => s.trang_thai === 'phep').length} em</strong>
                                 </div>
                                 <div className="dd-modal-stats-item">
-                                    <span>⏳ CHƯA QUÉT THẺ:</span>
-                                    <strong style={{ color: '#dc2626' }}>
-                                        {students.length - students.filter(s => s.trang_thai === 'comat').length - students.filter(s => s.trang_thai === 'phep').length} em
+                                    <span>✕ Đã đánh dấu Vắng:</span>
+                                    <strong style={{ color: '#dc2626' }}>{students.filter(s => s.trang_thai === 'vang').length} em</strong>
+                                </div>
+                                <div className="dd-modal-stats-item" style={{ paddingTop: 6, borderTop: '1px dashed #cbd5e1' }}>
+                                    <span>⏳ CHƯA ĐIỂM DANH:</span>
+                                    <strong style={{ color: (students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length > 0) ? '#dc2626' : '#16a34a' }}>
+                                        {students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length} em
                                     </strong>
                                 </div>
                             </div>
-                            <p style={{ color: '#b91c1c', fontSize: '0.88rem', fontWeight: 600 }}>
-                                ⚠️ CẢNH BÁO: Tất cả các học sinh CHƯA QUÉT THẺ sẽ được hệ thống ghi nhận là VẮNG MẶT khi chốt lên Tổng!
-                            </p>
-                            <p style={{ fontSize: '0.88rem' }}>
-                                Thầy/Cô có muốn tiếp tục gửi chốt lên Tổng ngay bây giờ không?
+
+                            {students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length > 0 ? (
+                                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#991b1b', fontSize: '0.88rem' }}>
+                                    <i className="fas fa-exclamation-triangle" style={{ marginRight: 6 }}></i>
+                                    <strong>CẢNH BÁO RÀNG BUỘC:</strong> Có <strong>{students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length} học sinh chưa điểm danh</strong>. Khi xác nhận Chốt, hệ thống sẽ <strong>tự động ghi nhận các em này là VẮNG (Không phép)</strong> và hoàn tất chốt sổ ca trực.
+                                </div>
+                            ) : (
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#166534', fontSize: '0.88rem' }}>
+                                    <i className="fas fa-check-circle" style={{ marginRight: 6 }}></i>
+                                    Tất cả <strong>{students.length} học sinh</strong> trong phòng đã được điểm danh đầy đủ.
+                                </div>
+                            )}
+
+                            <p style={{ fontSize: '0.88rem', margin: 0, color: '#475569' }}>
+                                Thầy/Cô có chắc chắn muốn chốt điểm danh phòng này lên hệ thống không?
                             </p>
                         </div>
                         <div className="dd-modal-actions">
                             <button
-                                className="btn btn-outline-secondary"
+                                type="button"
+                                className="btn btn-outline"
                                 onClick={() => setShowChotConfirmModal(false)}
                                 disabled={chotting}
                             >
-                                Quay lại quét thẻ
+                                Quay lại kiểm tra
                             </button>
                             <button
-                                className="btn btn-danger"
+                                type="button"
+                                className="btn btn-success"
                                 onClick={handleChotPhong}
                                 disabled={chotting}
+                                style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff', fontWeight: 700 }}
                             >
                                 {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-check"></i>}
-                                Đồng ý chốt lên Tổng
+                                Xác nhận chốt danh sách
                             </button>
                         </div>
                     </div>
