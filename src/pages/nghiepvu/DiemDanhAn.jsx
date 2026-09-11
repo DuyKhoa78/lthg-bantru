@@ -1457,8 +1457,8 @@ ${htmlPages}
                                         <span className="dd-summary-item"><span className="dd-summary-dot dot-vang"></span> Vắng: <strong>{counts.vang || 0}</strong></span>
                                         <span className="dd-summary-item"><span className="dd-summary-dot dot-phep"></span> Có phép: <strong>{counts.phep || 0}</strong></span>
                                     </div>
-                                    <div className="dd-footer">
-                                        <div className="dd-footer-note">
+                                    <div className="dd-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                                        <div className="dd-footer-note" style={{ flex: '1 1 300px' }}>
                                             {isGiaoVien ? (
                                                 <span><i className="fas fa-shield-alt"></i> Dữ liệu điểm danh của Thầy/Cô được lưu tạm thời. Ban quản lý (Admin) sẽ kiểm tra và chốt danh sách chính thức.</span>
                                             ) : (
@@ -1467,19 +1467,7 @@ ${htmlPages}
                                         </div>
                                         
                                         {!isGiaoVien && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                                {!isDaChot && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-outline"
-                                                        onClick={() => setAll('comat')}
-                                                        style={{ fontWeight: 600, padding: '9px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#86efac', color: '#166534', background: '#f0fdf4' }}
-                                                        title="Đánh dấu tất cả học sinh trong phòng có mặt"
-                                                    >
-                                                        <i className="fas fa-check-double"></i> Tất cả có mặt
-                                                    </button>
-                                                )}
-
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
                                                 <button
                                                     type="button"
                                                     className="btn btn-outline"
