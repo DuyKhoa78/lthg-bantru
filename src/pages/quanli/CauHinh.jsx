@@ -42,7 +42,7 @@ export default function CauHinh() {
             ten_truong:        he_thong.ten_truong         || '',
             ma_bao_mat_gv:     he_thong.ma_bao_mat_gv      || 'BT789',
             bao_tri:           Boolean(he_thong.bao_tri),
-            thong_bao_bao_tri: he_thong.thong_bao_bao_tri  || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô và Học sinh vui lòng quay lại sau ít phút!',
+            thong_bao_bao_tri: he_thong.thong_bao_bao_tri  || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô vui lòng quay lại sau ít phút!',
             thoi_gian_bao_tri: he_thong.thoi_gian_bao_tri  || 'Dự kiến hoàn tất trong 15-30 phút',
           });
           if (gia_an) setGiaAn(parseInt(gia_an.don_gia) || '');
@@ -329,7 +329,7 @@ export default function CauHinh() {
                   </div>
                 </div>
                 <p style={{ fontSize: '.84rem', color: '#64748b', marginTop: 8, lineHeight: 1.5 }}>
-                  Khi bật, toàn bộ người dùng khác (kể cả admin thường, quản lý, học vụ, giáo viên và học sinh) khi vào web sẽ thấy màn hình <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ duy nhất tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
+                  Khi bật, toàn bộ người dùng khác (kể cả admin thường, quản lý, học vụ, giáo viên) khi vào web sẽ thấy màn hình <strong>"Hệ thống đang bảo trì vui lòng quay lại sau"</strong>. Chỉ duy nhất tài khoản <strong>Super Admin</strong> mới có thể đăng nhập để kiểm tra và cấu hình.
                 </p>
               </div>
 
@@ -343,7 +343,7 @@ export default function CauHinh() {
                       disabled={!canEdit}
                       value={heThong.thong_bao_bao_tri}
                       onChange={(e) => setHeThong({ ...heThong, thong_bao_bao_tri: e.target.value })}
-                      placeholder="Nhập lời nhắn gửi đến phụ huynh, học sinh và giáo viên..."
+                      placeholder="Nhập lời nhắn gửi đến Thầy Cô và cán bộ quản lý..."
                     />
                   </div>
                   <div className="form-group" style={{ marginTop: 12 }}>

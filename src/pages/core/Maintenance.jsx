@@ -17,7 +17,7 @@ export default function Maintenance({ status, onRetry }) {
 
   const [systemInfo, setSystemInfo] = useState(status || {
     bao_tri: true,
-    thong_bao: 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô và Học sinh vui lòng quay lại sau ít phút!',
+    thong_bao: 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô vui lòng quay lại sau ít phút!',
     thoi_gian: 'Dự kiến hoàn tất trong 15-30 phút',
     ten_truong: 'LÊ THỊ HỒNG GẤM',
     nam_hoc: '2026-2027',
@@ -228,7 +228,7 @@ export default function Maintenance({ status, onRetry }) {
           marginBottom: '22px',
           padding: '0 8px',
         }}>
-          {systemInfo?.thong_bao || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ để nâng cao trải nghiệm dịch vụ. Quý Thầy Cô và Học sinh vui lòng quay lại sau!'}
+          {systemInfo?.thong_bao || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ để nâng cao trải nghiệm dịch vụ. Quý Thầy Cô vui lòng quay lại sau!'}
         </p>
 
         {/* Estimated Time Box */}
