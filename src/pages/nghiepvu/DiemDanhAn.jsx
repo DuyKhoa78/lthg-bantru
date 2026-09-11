@@ -258,6 +258,7 @@ export default function DiemDanhAn() {
     }, [phongList, phongTamAn, cauhinhNgay, extraHsList, getStudentsForRoom, isGiaoVien, assignedRoomCodes]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDiemDanh(date);
     }, [date, fetchDiemDanh]);
 

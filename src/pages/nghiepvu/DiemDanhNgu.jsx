@@ -194,6 +194,7 @@ export default function DiemDanhNgu() {
     }, []);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDiemDanh(date);
     }, [date, fetchDiemDanh]);
 
