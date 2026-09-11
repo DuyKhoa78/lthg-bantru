@@ -14,134 +14,93 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justifyContent: center;
       align-items: center;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      background: #ffffff;
       font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #f8fafc;
-      padding: 24px 16px;
-      position: relative;
-      overflow: hidden;
-    }
-    .bg-blob-1 {
-      position: absolute; top: -10%; right: -5%; width: 450px; height: 450px;
-      background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(0,0,0,0) 70%);
-      border-radius: 50%; pointer-events: none;
-    }
-    .bg-blob-2 {
-      position: absolute; bottom: -10%; left: -5%; width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, rgba(0,0,0,0) 70%);
-      border-radius: 50%; pointer-events: none;
+      color: #1e293b;
+      padding: 32px 16px;
     }
     .card {
-      max-width: 560px; width: 100%;
-      background: rgba(30, 41, 59, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      padding: 40px 32px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      max-width: 520px; width: 100%;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 28px 24px;
       text-align: center;
-      z-index: 1;
     }
-    .badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 16px;
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid rgba(245, 158, 11, 0.35);
-      border-radius: 9999px;
-      color: #fbbf24; font-size: 0.85rem; font-weight: 600;
-      margin-bottom: 28px;
+    .img-wrap {
+      max-width: 340px; width: 100%; margin: 0 auto 16px;
+      display: flex; justify-content: center; align-items: center;
     }
-    .dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #f59e0b; display: inline-block;
-      box-shadow: 0 0 10px #f59e0b;
-    }
-    .icon-wrap {
-      width: 96px; height: 96px; margin: 0 auto 24px;
-      display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(245, 158, 11, 0.2));
-      border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.15);
-    }
-    .icon-wrap i {
-      font-size: 2.5rem; color: #38bdf8;
-      filter: drop-shadow(0 4px 10px rgba(56, 189, 248, 0.4));
+    .img-wrap img {
+      max-width: 100%; max-height: 220px; object-fit: contain; display: block;
     }
     .school-name {
-      font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px;
-      color: #94a3b8; font-weight: 600; margin-bottom: 6px;
+      font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
+      color: #64748b; font-weight: 700; margin-bottom: 6px;
     }
     .title {
-      font-size: 1.75rem; font-weight: 800; line-height: 1.3;
-      color: #ffffff; margin-bottom: 16px; letter-spacing: -0.5px;
+      font-size: 1.6rem; font-weight: 800; line-height: 1.35;
+      color: #0f172a; margin-bottom: 12px;
     }
     .desc {
-      font-size: 1rem; line-height: 1.6; color: #cbd5e1;
-      margin-bottom: 24px; padding: 0 8px;
+      font-size: 0.98rem; line-height: 1.6; color: #475569;
+      margin-bottom: 20px;
     }
     .time-box {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px; padding: 14px 18px; margin-bottom: 28px;
-      display: flex; align-items: center; justify-content: center;
-      gap: 10px; font-size: 0.95rem; color: #e2e8f0;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px; padding: 10px 18px; margin-bottom: 22px;
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-size: 0.9rem; color: #475569;
     }
     .btn {
-      width: 100%; max-width: 320px; padding: 12px 24px;
-      border-radius: 10px; border: none;
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      width: 100%; max-width: 280px; padding: 11px 22px;
+      border-radius: 8px; border: none;
+      background: #009CFF;
       color: #ffffff; font-size: 0.95rem; font-weight: 700;
       cursor: pointer; display: inline-flex; align-items: center;
-      justify-content: center; gap: 10px;
-      box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.5);
+      justify-content: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0, 156, 255, 0.25);
       transition: all 0.2s ease;
       text-decoration: none;
     }
     .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 24px -5px rgba(37, 99, 235, 0.65);
+      background: #0088e0;
     }
     .footer {
-      margin-top: 28px; font-size: 0.8rem; color: #64748b;
-      text-align: center; z-index: 1;
+      margin-top: 24px; font-size: 0.82rem; color: #94a3b8;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="bg-blob-1"></div>
-  <div class="bg-blob-2"></div>
-
   <div class="card">
-    <div class="badge">
-      <span class="dot"></span>
-      CHẾ ĐỘ BẢO TRÌ NÂNG CẤP
-    </div>
-
-    <div style="max-width: 380px; width: 100%; margin: 0 auto 20px; border-radius: 16px; overflow: hidden; background: #ffffff; padding: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.15); display: flex; justify-content: center; align-items: center;">
-      <img src="/bao-tri.jpg" alt="Bảo trì" style="max-width: 100%; max-height: 220px; object-fit: contain; display: block; border-radius: 8px;">
+    <div class="img-wrap">
+      <img src="/bao-tri.jpg" alt="Hệ thống đang bảo trì">
     </div>
 
     <div class="school-name">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
     <h1 class="title">Hệ thống đang bảo trì vui lòng quay lại sau.</h1>
 
     <p class="desc">
-      Hệ thống Quản lý Bán trú đang được tiến hành cập nhật và tối ưu hóa định kỳ để nâng cao chất lượng dịch vụ. Quý Thầy Cô vui lòng quay lại sau ít phút. Xin chân thành cảm ơn!
+      Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô vui lòng quay lại sau ít phút!
     </p>
 
     <div class="time-box">
-      <i class="far fa-clock" style="color: #f59e0b;"></i>
-      <span>Thời gian dự kiến: <strong style="color: #fbbf24;">15 - 30 phút</strong></span>
+      <i class="far fa-clock" style="color: #d97706;"></i>
+      <span>Thời gian dự kiến: <strong style="color: #b45309;">15 - 30 phút</strong></span>
     </div>
 
-    <button class="btn" onclick="window.location.reload();">
-      <i class="fas fa-sync-alt"></i> Tải lại trang web
-    </button>
+    <div>
+      <button class="btn" onclick="window.location.reload();">
+        <i class="fas fa-sync-alt"></i> Tải lại trang
+      </button>
+    </div>
   </div>
 
   <div class="footer">
-    Bộ phận Quản lý Bán trú • THPT Lê Thị Hồng Gấm
+    Bộ phận Quản lý Bán trú • Năm học 2026-2027
   </div>
 </body>
 </html>

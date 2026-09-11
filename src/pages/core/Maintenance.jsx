@@ -98,90 +98,28 @@ export default function Maintenance({ status, onRetry }) {
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+      background: '#ffffff',
       fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      color: '#f8fafc',
-      padding: '24px 16px',
-      position: 'relative',
-      overflow: 'hidden',
+      color: '#1e293b',
+      padding: '32px 16px',
     }}>
-      {/* Background decoration elements */}
+      {/* Container Card */}
       <div style={{
-        position: 'absolute',
-        top: '-10%',
-        right: '-5%',
-        width: '400px',
-        height: '400px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, rgba(0,0,0,0) 70%)',
-        filter: 'blur(40px)',
-        pointerEvents: 'none',
-      }}></div>
-      <div style={{
-        position: 'absolute',
-        bottom: '-10%',
-        left: '-5%',
-        width: '450px',
-        height: '450px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(0,0,0,0) 70%)',
-        filter: 'blur(40px)',
-        pointerEvents: 'none',
-      }}></div>
-
-      {/* Main Container Card */}
-      <div style={{
-        maxWidth: '560px',
+        maxWidth: '520px',
         width: '100%',
-        background: 'rgba(30, 41, 59, 0.75)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '24px',
-        padding: '36px 28px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        background: '#ffffff',
+        borderRadius: '16px',
+        padding: '28px 24px',
         textAlign: 'center',
-        zIndex: 1,
       }}>
-        {/* Animated Badge */}
+        {/* Hình ảnh bảo trì */}
         <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 16px',
-          background: 'rgba(245, 158, 11, 0.15)',
-          border: '1px solid rgba(245, 158, 11, 0.35)',
-          borderRadius: '9999px',
-          color: '#fbbf24',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          marginBottom: '20px',
-        }}>
-          <span style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: '#f59e0b',
-            display: 'inline-block',
-            boxShadow: '0 0 10px #f59e0b',
-          }}></span>
-          CHẾ ĐỘ BẢO TRÌ NÂNG CẤP
-        </div>
-
-        {/* Hero Maintenance Image from /public/bao-tri.jpg */}
-        <div style={{
-          maxWidth: '420px',
+          maxWidth: '340px',
           width: '100%',
-          margin: '0 auto 20px',
-          borderRadius: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 14px 34px -6px rgba(0, 0, 0, 0.5)',
-          background: '#ffffff',
-          padding: '12px',
+          margin: '0 auto 16px',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          border: '2px solid rgba(255, 255, 255, 0.2)'
         }}>
           <img
             src={`${import.meta.env.BASE_URL}bao-tri.jpg`}
@@ -190,68 +128,65 @@ export default function Maintenance({ status, onRetry }) {
             style={{
               maxWidth: '100%',
               height: 'auto',
-              maxHeight: '260px',
+              maxHeight: '220px',
               objectFit: 'contain',
               display: 'block',
-              borderRadius: '10px',
             }}
           />
         </div>
 
-        {/* School Name & Title */}
+        {/* Tên trường & Tiêu đề */}
         <div style={{
-          fontSize: '0.88rem',
+          fontSize: '0.85rem',
           textTransform: 'uppercase',
-          letterSpacing: '1.5px',
-          color: '#94a3b8',
-          fontWeight: 600,
-          marginBottom: '8px',
+          letterSpacing: '1px',
+          color: '#64748b',
+          fontWeight: 700,
+          marginBottom: '6px',
         }}>
           {systemInfo?.ten_truong || 'TRƯỜNG THPT LÊ THỊ HỒNG GẤM'}
         </div>
         <h1 style={{
-          fontSize: '1.65rem',
+          fontSize: '1.6rem',
           fontWeight: 800,
           lineHeight: 1.35,
-          color: '#ffffff',
-          marginBottom: '14px',
-          letterSpacing: '-0.5px'
+          color: '#0f172a',
+          marginBottom: '12px',
         }}>
           Hệ thống đang bảo trì vui lòng quay lại sau.
         </h1>
 
-        {/* Announcement Text */}
+        {/* Nội dung thông báo */}
         <p style={{
-          fontSize: '0.96rem',
+          fontSize: '0.98rem',
           lineHeight: 1.6,
-          color: '#cbd5e1',
-          marginBottom: '22px',
-          padding: '0 8px',
+          color: '#475569',
+          marginBottom: '20px',
         }}>
-          {systemInfo?.thong_bao || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ để nâng cao trải nghiệm dịch vụ. Quý Thầy Cô vui lòng quay lại sau!'}
+          {systemInfo?.thong_bao || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô vui lòng quay lại sau ít phút!'}
         </p>
 
-        {/* Estimated Time Box */}
+        {/* Thời gian dự kiến (nếu có) */}
         {systemInfo?.thoi_gian && (
           <div style={{
-            background: 'rgba(15, 23, 42, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '12px',
-            padding: '12px 18px',
-            marginBottom: '24px',
-            display: 'flex',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '10px 18px',
+            marginBottom: '22px',
+            display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '10px',
-            fontSize: '0.92rem',
-            color: '#e2e8f0',
+            gap: '8px',
+            fontSize: '0.9rem',
+            color: '#475569',
           }}>
-            <i className="far fa-clock" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i>
-            <span>Thời gian dự kiến: <strong style={{ color: '#fbbf24' }}>{systemInfo.thoi_gian}</strong></span>
+            <i className="far fa-clock" style={{ color: '#d97706', fontSize: '1rem' }}></i>
+            <span>Thời gian dự kiến: <strong style={{ color: '#b45309' }}>{systemInfo.thoi_gian}</strong></span>
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Nút bấm thao tác */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
           <button
             type="button"
@@ -259,11 +194,11 @@ export default function Maintenance({ status, onRetry }) {
             disabled={checking}
             style={{
               width: '100%',
-              maxWidth: '320px',
-              padding: '12px 24px',
-              borderRadius: '10px',
+              maxWidth: '280px',
+              padding: '11px 22px',
+              borderRadius: '8px',
               border: 'none',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              background: '#009CFF',
               color: '#ffffff',
               fontSize: '0.95rem',
               fontWeight: 700,
@@ -271,53 +206,52 @@ export default function Maintenance({ status, onRetry }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px',
-              boxShadow: '0 10px 20px -5px rgba(37, 99, 235, 0.5)',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(0, 156, 255, 0.25)',
               transition: 'all 0.2s ease',
               opacity: checking ? 0.7 : 1,
             }}
           >
             <i className={`fas fa-sync-alt ${checking ? 'fa-spin' : ''}`}></i>
-            {checking ? 'Đang kiểm tra...' : 'Kiểm tra lại trạng thái'}
+            {checking ? 'Đang kiểm tra...' : 'Tải lại trang'}
           </button>
 
           {/* 1. Nếu đã đăng nhập và LÀ Super Admin */}
           {isSuperAdmin ? (
             <div style={{
-              background: 'rgba(245, 158, 11, 0.15)',
-              border: '1px solid rgba(245, 158, 11, 0.4)',
-              borderRadius: '12px',
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              borderRadius: '10px',
               padding: '14px 18px',
-              color: '#fef08a',
+              color: '#166534',
               marginTop: '16px',
               textAlign: 'center',
               width: '100%',
               maxWidth: '440px',
             }}>
-              <div style={{ fontWeight: 700, fontSize: '0.94rem', marginBottom: '6px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', marginBottom: '4px' }}>
                 👑 Super Admin: <strong>{user.fullname || user.username}</strong>
               </div>
-              <div style={{ fontSize: '0.82rem', color: '#fde68a', marginBottom: '14px' }}>
-                Chế độ bảo trì đang bật. Bạn có quyền vào hệ thống quản trị hoặc tắt bảo trì ngay.
+              <div style={{ fontSize: '0.82rem', color: '#15803d', marginBottom: '12px' }}>
+                Chế độ bảo trì đang bật. Bạn có quyền vào hệ thống hoặc tắt bảo trì ngay.
               </div>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Link
                   to="/"
                   style={{
-                    background: '#2563eb',
+                    background: '#009CFF',
                     color: '#ffffff',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
                     fontWeight: 700,
-                    fontSize: '0.86rem',
+                    fontSize: '0.85rem',
                     textDecoration: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.4)',
                   }}
                 >
-                  <i className="fas fa-desktop"></i> Vào Hệ thống Quản trị
+                  <i className="fas fa-desktop"></i> Vào Hệ thống
                 </Link>
                 <button
                   type="button"
@@ -326,16 +260,15 @@ export default function Maintenance({ status, onRetry }) {
                   style={{
                     background: '#16a34a',
                     color: '#ffffff',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
                     fontWeight: 700,
-                    fontSize: '0.86rem',
+                    fontSize: '0.85rem',
                     border: 'none',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.4)',
                   }}
                 >
                   <i className="fas fa-check-circle"></i> {turningOff ? 'Đang tắt...' : 'Tắt bảo trì ngay'}
@@ -343,21 +276,21 @@ export default function Maintenance({ status, onRetry }) {
               </div>
             </div>
           ) : user ? (
-            /* 2. Nếu đã đăng nhập nhưng KHÔNG PHẢI Super Admin (ví dụ admin thường, giáo viên) */
+            /* 2. Nếu đã đăng nhập nhưng KHÔNG PHẢI Super Admin */
             <div style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '10px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
               padding: '12px 16px',
               fontSize: '0.85rem',
-              color: '#fca5a5',
+              color: '#991b1b',
               marginTop: '12px',
               textAlign: 'center',
               lineHeight: 1.5,
               width: '100%',
               maxWidth: '380px'
             }}>
-              <i className="fas fa-lock" style={{ marginRight: 6, color: '#f87171' }}></i>
+              <i className="fas fa-lock" style={{ marginRight: 6, color: '#dc2626' }}></i>
               Tài khoản <strong>{user.username}</strong> ({user.fullname || user.role_display || user.role}) không có quyền truy cập khi đang bảo trì.<br />
               Chỉ <strong>Super Admin</strong> mới có thể truy cập lúc này.
               <div style={{ marginTop: 10 }}>
@@ -365,9 +298,9 @@ export default function Maintenance({ status, onRetry }) {
                   type="button"
                   onClick={logout}
                   style={{
-                    background: 'transparent',
-                    border: '1px solid #f87171',
-                    color: '#fca5a5',
+                    background: '#ffffff',
+                    border: '1px solid #dc2626',
+                    color: '#dc2626',
                     borderRadius: '6px',
                     padding: '5px 14px',
                     fontSize: '0.8rem',
@@ -380,7 +313,7 @@ export default function Maintenance({ status, onRetry }) {
               </div>
             </div>
           ) : (
-            /* 3. Nếu chưa đăng nhập (khách, người dùng ngoài): Có form ẩn cho Super Admin đăng nhập */
+            /* 3. Nếu chưa đăng nhập: Nút ẩn kín đáo cho Super Admin */
             !showAdminLogin ? (
               <button
                 type="button"
@@ -391,41 +324,41 @@ export default function Maintenance({ status, onRetry }) {
                   color: '#94a3b8',
                   fontSize: '0.82rem',
                   cursor: 'pointer',
-                  marginTop: '12px',
+                  marginTop: '16px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
                   textDecoration: 'underline',
                 }}
               >
-                <i className="fas fa-user-shield"></i> Dành cho Super Admin (Đăng nhập quản trị)
+                <i className="fas fa-user-shield"></i> Dành cho Super Admin (Đăng nhập)
               </button>
             ) : (
               <form
                 onSubmit={handleAdminLogin}
                 style={{
                   marginTop: '16px',
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  borderRadius: '12px',
-                  padding: '18px 20px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '16px 18px',
                   width: '100%',
                   maxWidth: '340px',
                   textAlign: 'left',
                 }}
               >
-                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#e2e8f0', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span><i className="fas fa-key" style={{ color: '#f59e0b', marginRight: 6 }}></i> Đăng nhập Super Admin</span>
+                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span><i className="fas fa-key" style={{ color: '#d97706', marginRight: 6 }}></i> Đăng nhập Super Admin</span>
                   <button
                     type="button"
                     onClick={() => { setShowAdminLogin(false); setAdminLoginError(''); }}
-                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}
+                    style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}
                   >
                     &times;
                   </button>
                 </div>
                 {adminLoginError && (
-                  <div style={{ background: '#7f1d1d', color: '#fecaca', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', marginBottom: '10px' }}>
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', marginBottom: '10px' }}>
                     {adminLoginError}
                   </div>
                 )}
@@ -439,9 +372,9 @@ export default function Maintenance({ status, onRetry }) {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      border: '1px solid #475569',
-                      background: '#1e293b',
-                      color: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#1e293b',
                       fontSize: '0.86rem',
                       outline: 'none',
                     }}
@@ -457,9 +390,9 @@ export default function Maintenance({ status, onRetry }) {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      border: '1px solid #475569',
-                      background: '#1e293b',
-                      color: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#1e293b',
                       fontSize: '0.86rem',
                       outline: 'none',
                     }}
@@ -471,9 +404,9 @@ export default function Maintenance({ status, onRetry }) {
                   style={{
                     width: '100%',
                     padding: '9px 16px',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     border: 'none',
-                    background: '#d97706',
+                    background: '#009CFF',
                     color: '#ffffff',
                     fontWeight: 700,
                     fontSize: '0.88rem',
@@ -490,11 +423,10 @@ export default function Maintenance({ status, onRetry }) {
 
       {/* Footer */}
       <div style={{
-        marginTop: '28px',
-        fontSize: '0.8rem',
-        color: '#64748b',
+        marginTop: '24px',
+        fontSize: '0.82rem',
+        color: '#94a3b8',
         textAlign: 'center',
-        zIndex: 1,
       }}>
         Bộ phận Quản lý Bán trú • Năm học {systemInfo?.nam_hoc || '2026-2027'}
       </div>
