@@ -37,6 +37,25 @@ function compareVietnameseNames(nameA, nameB) {
   return a.middle.localeCompare(b.middle, 'vi');
 }
 
+// Tính ngày vào mặc định: Sau 9h sáng VN tính ngày hôm sau, trước hoặc đúng 9h sáng tính hôm nay
+function getDefaultNgayVao() {
+  const now = new Date();
+  const vnStr = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const vnNow = new Date(vnStr);
+  const hours = vnNow.getHours();
+  const minutes = vnNow.getMinutes();
+  const seconds = vnNow.getSeconds();
+  
+  const isAfter9AM = hours > 9 || (hours === 9 && (minutes > 0 || seconds > 0));
+  if (isAfter9AM) {
+    vnNow.setDate(vnNow.getDate() + 1);
+  }
+  const yyyy = vnNow.getFullYear();
+  const mm = String(vnNow.getMonth() + 1).padStart(2, '0');
+  const dd = String(vnNow.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function HocSinh() {
   const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
@@ -184,7 +203,13 @@ export default function HocSinh() {
   };
 
   // ── CRUD ──
-  const openAdd  = () => { setForm(EMPTY_FORM); setModal('add'); };
+  const openAdd  = () => { 
+    setForm({ 
+      ...EMPTY_FORM, 
+      ngay_vao: getDefaultNgayVao() 
+    }); 
+    setModal('add'); 
+  };
   const openEdit = (hs) => {
     setForm({ 
       ...hs, 
@@ -210,24 +235,43 @@ export default function HocSinh() {
   };
 
   const handleSave = async () => {
-    if (!form.ho_ten.trim() || !form.lop || form.gioi_tinh === '') return showAlert('Vui lòng điền đầy đủ thông tin!', 'warning');
+    if (!form.ho_ten.trim() || !form.lop || form.gioi_tinh === '') {
+      return showAlert('Vui lòng điền đầy đủ thông tin bắt buộc (*)!', 'warning');
+    }
+
+    // Ràng buộc: Nếu rút bán trú thì bắt buộc phải nhập ngày rút
+    if (!form.dang_hoc && !form.ngay_rut) {
+      return showAlert('Học sinh rút bán trú bắt buộc phải nhập Ngày rút bán trú!', 'warning');
+    }
+
+    // Ràng buộc: Thêm mới học sinh nếu để trống ngày vào thì mặc định theo quy tắc (sau 9h sáng tính ngày mai)
+    let finalNgayVao = form.ngay_vao || null;
+    if (modal === 'add' && !finalNgayVao) {
+      finalNgayVao = getDefaultNgayVao();
+    }
+
     setSaving(true);
     try {
       await api.post('/api/hocsinh/save/', {
         id: modal === 'add' ? undefined : modal.edit.id,
-        ho_ten: form.ho_ten, lop: form.lop,
+        ho_ten: form.ho_ten, 
+        lop: form.lop,
         gioi_tinh: Number(form.gioi_tinh),
         ma_phong_an: form.ma_phong_an || null,
         ma_phong_ngu: form.ma_phong_ngu || null,
         dang_hoc: form.dang_hoc, 
-        ngay_vao: form.ngay_vao || null,
-        ngay_rut: form.ngay_rut || null,
+        ngay_vao: finalNgayVao,
+        ngay_rut: !form.dang_hoc ? form.ngay_rut : null,
         ghi_chu: form.ghi_chu,
       });
       cacheInvalidateStudents();
-      setModal(null); fetchData(true);
-    } catch (err) { showAlert(err.response?.data?.error || 'Lưu thất bại'); }
-    finally { setSaving(false); }
+      setModal(null); 
+      fetchData(true);
+    } catch (err) { 
+      showAlert(err.response?.data?.error || 'Lưu thất bại'); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   // ── Import CSV helpers ──
@@ -893,7 +937,7 @@ export default function HocSinh() {
                           setForm({ 
                             ...form, 
                             dang_hoc: isChecked, 
-                            ngay_rut: isChecked ? '' : (form.ngay_rut || new Date().toISOString().split('T')[0])
+                            ngay_rut: isChecked ? '' : form.ngay_rut
                           });
                         }} 
                       />
@@ -907,27 +951,44 @@ export default function HocSinh() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Ngày vào bán trú</label>
+                  <label className="form-label">
+                    Ngày vào bán trú <span style={{ fontSize: '.75rem', fontWeight: 'normal', color: '#64748b' }}>(Tùy chọn)</span>
+                  </label>
                   <input 
                     type="date" 
                     className="form-control" 
                     value={form.ngay_vao || ''} 
                     onChange={(e) => setForm({ ...form, ngay_vao: e.target.value })} 
                   />
-                  <small style={{ color: '#64748b', fontSize: '.75rem' }}>Để trống nếu vào từ đầu năm học hoặc chọn ngày bắt đầu</small>
+                  <small style={{ color: '#64748b', fontSize: '.75rem', display: 'block', marginTop: 4 }}>
+                    💡 {modal === 'add' 
+                      ? 'Có thể chọn hoặc để trống. Mặc định: thêm trước 9h sáng tính từ hôm nay, sau 9h sáng tính từ ngày mai.' 
+                      : 'Để trống nếu vào từ đầu năm học hoặc chọn ngày bắt đầu.'}
+                  </small>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Ngày rút bán trú</label>
+                  <label className="form-label">
+                    Ngày rút bán trú {!form.dang_hoc && <span className="required" style={{ color: '#dc2626' }}>*</span>}
+                  </label>
                   <input 
                     type="date" 
                     className="form-control" 
+                    style={!form.dang_hoc && !form.ngay_rut ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}
                     value={form.ngay_rut || ''} 
                     onChange={(e) => {
                       const val = e.target.value;
-                      setForm({ ...form, ngay_rut: val, dang_hoc: !val });
+                      setForm({ 
+                        ...form, 
+                        ngay_rut: val, 
+                        dang_hoc: val ? false : form.dang_hoc 
+                      });
                     }} 
                   />
-                  <small style={{ color: '#64748b', fontSize: '.75rem' }}>Chỉ điền khi học sinh rút bán trú giữa chừng</small>
+                  <small style={{ color: !form.dang_hoc ? '#dc2626' : '#64748b', fontSize: '.75rem', display: 'block', marginTop: 4, fontWeight: !form.dang_hoc ? 600 : 400 }}>
+                    {!form.dang_hoc 
+                      ? '⚠️ Bắt buộc nhập ngày rút bán trú khi học sinh đã rút.' 
+                      : 'Chỉ điền khi học sinh rút bán trú (sẽ tự động chuyển sang Đã rút bán trú).'}
+                  </small>
                 </div>
               </div>
               <div className="form-row">
