@@ -96,8 +96,8 @@ export default function GiamSatChot() {
         return () => clearInterval(interval);
     }, [autoRefresh, chotDate, chotLoai, fetchChotData]);
 
-    const completedRooms = chotData.filter(r => r.trang_thai_chot === 'da_chot' || r.trang_thai_chot === 'tu_dong_chot' || r.is_completed);
-    const pendingRooms = chotData.filter(r => r.trang_thai_chot !== 'da_chot' && r.trang_thai_chot !== 'tu_dong_chot' && !r.is_completed);
+    const completedRooms = chotData.filter(r => r.trang_thai_chot === 'da_chot' || r.is_completed);
+    const pendingRooms = chotData.filter(r => r.trang_thai_chot !== 'da_chot' && !r.is_completed);
 
     const completedCount = completedRooms.length;
     const pendingCount = pendingRooms.length;
@@ -168,7 +168,7 @@ export default function GiamSatChot() {
                     </span>
                     {shiftInfo.status === 'dang_dien_ra' && (
                         <span style={{ background: '#059669', color: '#fff', fontSize: '0.72rem', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
-                            ĐANG DIỄN RA (Còn {shiftInfo.remaining} phút)
+                            ĐANG DIỄN RA
                         </span>
                     )}
                     {shiftInfo.status === 'sap_den' && (
@@ -177,8 +177,8 @@ export default function GiamSatChot() {
                         </span>
                     )}
                     {shiftInfo.status === 'da_qua_gio' && (
-                        <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
-                            ĐÃ HẾT GIỜ CA TRỰC
+                        <span style={{ background: '#64748b', color: '#fff', fontSize: '0.72rem', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+                            HẾT GIỜ CA TRỰC
                         </span>
                     )}
                 </div>
@@ -310,9 +310,6 @@ export default function GiamSatChot() {
                         <i className="fas fa-list-check" style={{ color: '#009CFF' }}></i>
                         Danh Sách Phòng Trực & Trạng Thái
                     </h3>
-                    <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                        Hạn chốt: <strong>{chotLoai === '0' ? '11:30' : '12:00'}</strong>
-                    </span>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
@@ -330,7 +327,7 @@ export default function GiamSatChot() {
                         </thead>
                         <tbody>
                             {chotData.map((r, i) => {
-                                const isCompleted = r.trang_thai_chot === 'da_chot' || r.trang_thai_chot === 'tu_dong_chot' || r.is_completed;
+                                const isCompleted = r.trang_thai_chot === 'da_chot' || r.is_completed;
 
                                 return (
                                     <tr key={r.ma_phong}>

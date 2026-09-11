@@ -95,7 +95,6 @@ export default function GvDashboard() {
 
                             const state = item.khung_gio.state; // 'sap_den' | 'dang_dien_ra' | 'da_qua_gio'
                             const isChot = item.trang_thai_chot === 'da_chot';
-                            const isAutoChot = item.trang_thai_chot === 'tu_dong_chot';
 
                             return (
                                 <div key={item.id} className={`gv-duty-card ${isAn ? 'card-an' : 'card-ngu'}`}>
@@ -147,16 +146,8 @@ export default function GvDashboard() {
                                                 <div className="status-badge success">
                                                     <i className="fas fa-check-circle"></i>
                                                     <div>
-                                                        <strong>ĐÃ CHỐT LÊN TỔNG</strong>
+                                                        <strong>ĐÃ CHỐT SỔ LÊN TỔNG</strong>
                                                         <small>{item.ghi_chu_chot || 'Hoàn thành'}</small>
-                                                    </div>
-                                                </div>
-                                            ) : isAutoChot ? (
-                                                <div className="status-badge warning">
-                                                    <i className="fas fa-exclamation-triangle"></i>
-                                                    <div>
-                                                        <strong>HỆ THỐNG TỰ ĐỘNG CHỐT</strong>
-                                                        <small>Thu hồi bản nháp lúc {item.khung_gio.end}</small>
                                                     </div>
                                                 </div>
                                             ) : item.draft_count > 0 ? (
@@ -164,7 +155,7 @@ export default function GvDashboard() {
                                                     <i className="fas fa-edit"></i>
                                                     <div>
                                                         <strong>ĐANG LƯU BẢN NHÁP</strong>
-                                                        <small>Đã quét {item.draft_count}/{item.total_students} học sinh</small>
+                                                        <small>Đã ghi nhận {item.draft_count}/{item.total_students} học sinh</small>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -172,7 +163,7 @@ export default function GvDashboard() {
                                                     <i className="fas fa-clock"></i>
                                                     <div>
                                                         <strong>CHƯA ĐIỂM DANH</strong>
-                                                        <small>Chưa ghi nhận dữ liệu quét thẻ</small>
+                                                        <small>Chưa ghi nhận dữ liệu</small>
                                                     </div>
                                                 </div>
                                             )}

@@ -312,7 +312,6 @@ export default function DiemDanhAn() {
     }, [phongStatuses, selectedPhong]);
 
     const isDaChot = currentPhongStatus?.trang_thai_chot === 'da_chot' || Boolean(currentPhongStatus?.da_diem_danh);
-    const isTuDongChot = currentPhongStatus?.trang_thai_chot === 'tu_dong_chot';
 
     // Danh sách học sinh trong phòng: Sắp xếp theo cấu hình phòng (HT.A: DS1 -> DS2 -> DS3, phòng khác: MSBT)
     const students = useMemo(() => {
@@ -1302,25 +1301,13 @@ ${htmlPages}
                             {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
                             {selectedPhong && isGiaoVien && (
                                 <>
-                                    <div className={`dd-shift-banner ${shiftTiming.state === 'dang_dien_ra' ? 'active' : shiftTiming.state === 'sap_den' ? 'pending' : 'expired'}`}>
+                                    <div className={`dd-shift-banner ${shiftTiming.state === 'dang_dien_ra' ? 'active' : 'pending'}`}>
                                         <div>
                                             <div className="dd-shift-banner-title">
-                                                {shiftTiming.state === 'dang_dien_ra' ? (
-                                                    <span>🟢 CA TRỰC ĂN ĐANG DIỄN RA ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
-                                                ) : shiftTiming.state === 'sap_den' ? (
-                                                    <span>⏳ CHƯA ĐẾN GIỜ ĐIỂM DANH ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
-                                                ) : (
-                                                    <span>🔒 ĐÃ QUÁ GIỜ ĐIỂM DANH CA ĂN (Hết hạn lúc {shiftTiming.endLabel})</span>
-                                                )}
+                                                <span>🟢 CA TRỰC ĂN ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
                                             </div>
                                             <div className="dd-shift-banner-time">
-                                                {shiftTiming.state === 'dang_dien_ra' ? (
-                                                    <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Còn lại <strong>{shiftTiming.remainingMins} phút</strong> trước khi hệ thống chốt lúc 11:30.</span>
-                                                ) : shiftTiming.state === 'sap_den' ? (
-                                                    <span>Hệ thống sẽ mở camera điểm danh lúc 10:55. Vui lòng chuẩn bị.</span>
-                                                ) : (
-                                                    <span>Dữ liệu nháp đã được hệ thống tự động thu hồi và chốt lên Tổng lúc 11:30.</span>
-                                                )}
+                                                <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Khung giờ ca trực: <strong>{shiftTiming.startLabel} – {shiftTiming.endLabel}</strong></span>
                                             </div>
                                         </div>
 
@@ -1353,7 +1340,7 @@ ${htmlPages}
                                         type="button"
                                         className="dd-qr-scan-btn"
                                         onClick={() => setShowQRModal(true)}
-                                        disabled={isGiamSatOnly || (shiftTiming.state === 'da_qua_gio' && !isDaChot)}
+                                        disabled={isGiamSatOnly}
                                     >
                                         <i className="fas fa-qrcode"></i>
                                         {isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR thẻ HS'}
@@ -1375,13 +1362,6 @@ ${htmlPages}
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
                                             ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
-                                        </span>
-                                    )}
-
-                                    {isTuDongChot && (
-                                        <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                            <i className="fas fa-clock"></i>
-                                            HỆ THỐNG ĐÃ TỰ ĐỘNG CHỐT (11:30)
                                         </span>
                                     )}
                                 </div>

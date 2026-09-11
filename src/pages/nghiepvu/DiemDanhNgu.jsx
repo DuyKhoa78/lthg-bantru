@@ -319,7 +319,6 @@ export default function DiemDanhNgu() {
     }, [phongStatuses, selectedPhong]);
 
     const isDaChot = currentPhongStatus?.trang_thai_chot === 'da_chot' || Boolean(currentPhongStatus?.da_diem_danh);
-    const isTuDongChot = currentPhongStatus?.trang_thai_chot === 'tu_dong_chot';
 
     // Logic hiển thị học sinh theo phòng đang chọn - Luôn sort mã bán trú tăng dần
     const students = useMemo(() => {
@@ -1261,25 +1260,13 @@ ${htmlPages}
                             </div>                            {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
                             {selectedPhong && isGiaoVien && (
                                 <>
-                                    <div className={`dd-shift-banner ${shiftTiming.state === 'dang_dien_ra' ? 'active' : shiftTiming.state === 'sap_den' ? 'pending' : 'expired'}`}>
+                                    <div className={`dd-shift-banner ${shiftTiming.state === 'dang_dien_ra' ? 'active' : 'pending'}`}>
                                         <div>
                                             <div className="dd-shift-banner-title">
-                                                {shiftTiming.state === 'dang_dien_ra' ? (
-                                                    <span>🟢 CA TRỰC NGỦ ĐANG DIỄN RA ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
-                                                ) : shiftTiming.state === 'sap_den' ? (
-                                                    <span>⏳ CHƯA ĐẾN GIỜ ĐIỂM DANH ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
-                                                ) : (
-                                                    <span>🔒 ĐÃ QUÁ GIỜ ĐIỂM DANH CA NGỦ (Hết hạn lúc {shiftTiming.endLabel})</span>
-                                                )}
+                                                <span>🟢 CA TRỰC NGỦ ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
                                             </div>
                                             <div className="dd-shift-banner-time">
-                                                {shiftTiming.state === 'dang_dien_ra' ? (
-                                                    <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Còn lại <strong>{shiftTiming.remainingMins} phút</strong> trước khi hệ thống chốt lúc 12:00.</span>
-                                                ) : shiftTiming.state === 'sap_den' ? (
-                                                    <span>Hệ thống sẽ mở camera điểm danh lúc 11:30. Vui lòng chuẩn bị.</span>
-                                                ) : (
-                                                    <span>Dữ liệu nháp đã được hệ thống tự động thu hồi và chốt lên Tổng lúc 12:00.</span>
-                                                )}
+                                                <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Khung giờ ca trực: <strong>{shiftTiming.startLabel} – {shiftTiming.endLabel}</strong></span>
                                             </div>
                                         </div>
 
@@ -1298,7 +1285,7 @@ ${htmlPages}
                                 </>
                             )}
 
-                            {/* ── NÚT QUÉT QR & CHỐT ĐIỂM DANH LÊN TỔNG DÀNH RIÊNG CHO GIÁO VIÊN ── */}
+                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN ── */}
                             {selectedPhong && isGiaoVien && (
                                 <div className="dd-teacher-actions-bar">
                                     <button
@@ -1306,7 +1293,6 @@ ${htmlPages}
                                         className="dd-qr-scan-btn"
                                         style={{ background: 'linear-gradient(135deg,#6c5ce7,#a29bfe)', boxShadow: '0 4px 14px rgba(108,92,231,0.35)' }}
                                         onClick={() => setShowQRModal(true)}
-                                        disabled={shiftTiming.state === 'da_qua_gio' && !isDaChot}
                                     >
                                         <i className="fas fa-qrcode"></i>
                                         {isDaChot ? 'Quét bổ sung HS đến muộn' : 'Quét mã QR thẻ học sinh'}
@@ -1340,13 +1326,6 @@ ${htmlPages}
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
                                             ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
-                                        </span>
-                                    )}
-
-                                    {isTuDongChot && (
-                                        <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                            <i className="fas fa-robot"></i>
-                                            TỰ ĐỘNG CHỐT DO QUÁ GIỜ (12:00)
                                         </span>
                                     )}
                                 </div>
