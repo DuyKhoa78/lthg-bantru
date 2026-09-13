@@ -471,9 +471,7 @@ export default function BaoCaoTrucGV() {
 
     const renderGiamSatRows = (list) => {
       if (!list || list.length === 0) return '';
-      return list.map((r, i) => {
-        const cleanNote = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
-        return `
+      return list.map((r, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
           <td style="text-align:center; font-size:8.5pt;">
@@ -492,11 +490,7 @@ export default function BaoCaoTrucGV() {
           <td style="font-size:9pt; color:#334155;">
             ${r.tinh_hinh && r.tinh_hinh.trim() ? r.tinh_hinh : 'Ổn định, trật tự'}
           </td>
-          <td style="font-size:8.5pt; color:#475569;">
-            ${cleanNote || '<span style="color:#94a3b8; font-style:italic;">—</span>'}
-          </td>
-        </tr>`;
-      }).join('');
+        </tr>`).join('');
     };
 
     // Bảng chi tiết học sinh vi phạm trọng tâm
@@ -686,8 +680,7 @@ export default function BaoCaoTrucGV() {
         <th style="width:125px;">Cán bộ giám sát</th>
         <th style="width:85px;">Khu vực kiểm tra</th>
         <th>Ghi nhận Vệ sinh An toàn Thực phẩm &amp; Bếp ăn</th>
-        <th style="width:115px;">Tình hình chung</th>
-        <th style="width:110px;">Ghi chú / Kiến nghị</th>
+        <th style="width:130px;">Tình hình chung</th>
       </tr>
     </thead>
     <tbody>
@@ -981,9 +974,7 @@ export default function BaoCaoTrucGV() {
 
     const renderGiamSatRows = (list) => {
       if (!list || list.length === 0) return '';
-      return list.map((r, i) => {
-        const cleanNote = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
-        return `
+      return list.map((r, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
           <td style="text-align:center; font-weight:600;">${formatDateVN(r.ngay)}</td>
@@ -991,10 +982,8 @@ export default function BaoCaoTrucGV() {
           <td style="text-align:center; font-weight:bold;">${r.ma_phong || 'Toàn trường'}</td>
           <td style="font-weight:600; color:#0f766e;">${r.vsat_thuc_pham || 'Đạt tiêu chuẩn, lưu mẫu đúng quy định'}</td>
           <td>${r.tinh_hinh || 'Tốt, ổn định'}</td>
-          <td>${cleanNote || '—'}</td>
         </tr>
-      `;
-      }).join('');
+      `).join('');
     };
 
     // Khối phòng chưa nộp (nếu xem theo ngày)
@@ -1116,9 +1105,8 @@ export default function BaoCaoTrucGV() {
         <th style="width:90px;">Ngày trực</th>
         <th style="width:160px;">Cán bộ giám sát</th>
         <th style="width:85px;">Khu vực quan sát</th>
-        <th>Ghi nhận Vệ sinh ATTP & Bếp ăn</th>
-        <th style="width:130px;">Tình hình chung</th>
-        <th style="width:140px;">Ghi chú / Kiến nghị</th>
+        <th>Ghi nhận Vệ sinh ATTP &amp; Bếp ăn</th>
+        <th style="width:160px;">Tình hình chung</th>
       </tr>
     </thead>
     <tbody>
@@ -2441,7 +2429,7 @@ function tuDongTaoFormBaoCao() {
                           <th style={{ minWidth: 200 }}>Học sinh vi phạm</th>
                         )}
                         <th style={{ width: 110 }}>Tình hình</th>
-                        <th style={{ minWidth: 140 }}>Ghi chú / Kiến nghị</th>
+                        {type !== 'giamsat' && <th style={{ minWidth: 140 }}>Ghi chú / Kiến nghị</th>}
                         {(user?.is_admin || user?.is_superuser) && <th style={{ width: 44, textAlign: 'center' }}>Xóa</th>}
                       </tr>
                     </thead>
@@ -2533,20 +2521,22 @@ function tuDongTaoFormBaoCao() {
                             </span>
                           </td>
 
-                          {/* Ghi chú */}
-                          <td>
-                            {(() => {
-                              const clean = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
-                              return clean ? (
-                                <div className="bctruc-ghichu-text">
-                                  <i className="far fa-comment-dots" style={{ marginRight: 4 }}></i>
-                                  {clean}
-                                </div>
-                              ) : (
-                                <span style={{ color: '#cbd5e1' }}>—</span>
-                              );
-                            })()}
-                          </td>
+                          {/* Ghi chú (Chỉ hiển thị ở Ca Ăn và Ca Ngủ, Ca Giám sát không có cột này) */}
+                          {type !== 'giamsat' && (
+                            <td>
+                              {(() => {
+                                const clean = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
+                                return clean ? (
+                                  <div className="bctruc-ghichu-text">
+                                    <i className="far fa-comment-dots" style={{ marginRight: 4 }}></i>
+                                    {clean}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#cbd5e1' }}>—</span>
+                                );
+                              })()}
+                            </td>
+                          )}
 
                           {/* Nút xóa */}
                           {(user?.is_admin || user?.is_superuser) && (
