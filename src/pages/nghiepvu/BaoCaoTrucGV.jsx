@@ -10,6 +10,7 @@ import './BaoCaoTrucGV.css';
 
 export default function BaoCaoTrucGV() {
   const { user } = useAuth();
+  const isSuperAdmin = Boolean(user && (user.is_superuser === true || user.role === 'super_admin'));
   const { showAlert, AlertUI } = useAlert();
   const [confirmDel, setConfirmDel] = useState(null);
 
@@ -64,6 +65,8 @@ export default function BaoCaoTrucGV() {
     stats: { total: 0, caAnCount: 0, caNguCount: 0, giamSatCount: 0, totalVang: 0, gvSummary: [] },
     phongChuaBaoCaoAn: [],
     phongChuaBaoCaoNgu: [],
+    giamSatChuaBaoCao: [],
+    tongGiamSatPhanCong: 0,
     ma_bao_mat_hien_tai: 'BT789',
     ten_truong: 'LÊ THỊ HỒNG GẤM',
     nam_hoc: '2026-2027',
@@ -409,10 +412,14 @@ export default function BaoCaoTrucGV() {
 
     // Khối phòng chưa nộp (nếu xem theo ngày)
     let pendingRoomsHtml = '';
-    if (viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0)) {
+    if (viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0 || data.giamSatChuaBaoCao?.length > 0)) {
+      const parts = [];
+      if (data.phongChuaBaoCaoAn?.length > 0) parts.push(`Ca Ăn (${data.phongChuaBaoCaoAn.join(', ')})`);
+      if (data.phongChuaBaoCaoNgu?.length > 0) parts.push(`Ca Nghỉ (${data.phongChuaBaoCaoNgu.join(', ')})`);
+      if (data.giamSatChuaBaoCao?.length > 0) parts.push(`Giám sát chưa nộp (${data.giamSatChuaBaoCao.join(', ')})`);
       pendingRoomsHtml = `
         <div style="font-size:9pt; font-style:italic; margin-top:4px; color:#b91c1c;">
-          * Lưu ý các phòng chưa gửi báo cáo: ${data.phongChuaBaoCaoAn?.length > 0 ? `Ca Ăn (${data.phongChuaBaoCaoAn.join(', ')})` : ''} ${data.phongChuaBaoCaoNgu?.length > 0 ? `Ca Nghỉ (${data.phongChuaBaoCaoNgu.join(', ')})` : ''}
+          * Lưu ý chưa gửi báo cáo: ${parts.join(' | ')}
         </div>
       `;
     }
@@ -988,10 +995,14 @@ export default function BaoCaoTrucGV() {
 
     // Khối phòng chưa nộp (nếu xem theo ngày)
     let pendingRoomsHtml = '';
-    if (viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0)) {
+    if (viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0 || data.giamSatChuaBaoCao?.length > 0)) {
+      const parts = [];
+      if (data.phongChuaBaoCaoAn?.length > 0) parts.push(`Ca Ăn (${data.phongChuaBaoCaoAn.join(', ')})`);
+      if (data.phongChuaBaoCaoNgu?.length > 0) parts.push(`Ca Nghỉ (${data.phongChuaBaoCaoNgu.join(', ')})`);
+      if (data.giamSatChuaBaoCao?.length > 0) parts.push(`Giám sát chưa nộp (${data.giamSatChuaBaoCao.join(', ')})`);
       pendingRoomsHtml = `
         <div style="font-size:9.5pt; font-style:italic; margin-bottom:12px; color:#1e293b;">
-          * Lưu ý các phòng chưa gửi báo cáo: ${data.phongChuaBaoCaoAn?.length > 0 ? `Ca Ăn (${data.phongChuaBaoCaoAn.join(', ')})` : ''} ${data.phongChuaBaoCaoNgu?.length > 0 ? `Ca Nghỉ (${data.phongChuaBaoCaoNgu.join(', ')})` : ''}
+          * Lưu ý chưa gửi báo cáo: ${parts.join(' | ')}
         </div>
       `;
     }
@@ -1602,11 +1613,11 @@ function tuDongTaoFormBaoCao() {
             <span>Xuất Excel</span>
           </button>
 
-          {(user?.is_admin || user?.is_superuser) && data.records?.length > 0 && (
+          {isSuperAdmin && data.records?.length > 0 && (
             <button
               className="bctruc-btn bctruc-btn-danger-ghost"
               onClick={handleClearRange}
-              title="Xóa toàn bộ dữ liệu báo cáo sau khi đã xuất báo cáo"
+              title="Xóa toàn bộ dữ liệu báo cáo sau khi đã xuất báo cáo (Chỉ Super Admin)"
             >
               <i className="fas fa-trash-alt"></i>
               <span>Xóa dữ liệu</span>
@@ -1920,18 +1931,22 @@ function tuDongTaoFormBaoCao() {
         </div>
       </div>
 
-      {/* TIẾN ĐỘ NỘP BÁO CÁO CÁC PHÒNG (HIỆN ĐẠI, GỌN GÀNG, TINH TẾ) */}
+      {/* TIẾN ĐỘ NỘP BÁO CÁO CÁC PHÒNG & GIÁM SÁT (HIỆN ĐẠI, GỌN GÀNG, TINH TẾ) */}
       {viewMode === 'day' && (() => {
         const totalRoomsAn = 9;
         const totalRoomsNgu = 16;
-        const totalExpected = totalRoomsAn + totalRoomsNgu; // 25
         const missingAn = data.phongChuaBaoCaoAn?.length || 0;
         const missingNgu = data.phongChuaBaoCaoNgu?.length || 0;
-        const missingTotal = missingAn + missingNgu;
+        const missingGS = data.giamSatChuaBaoCao?.length || 0;
+        const totalGS = data.tongGiamSatPhanCong || (data.stats?.giamSatCount + missingGS) || 0;
+
+        const totalExpected = totalRoomsAn + totalRoomsNgu + totalGS;
+        const missingTotal = missingAn + missingNgu + missingGS;
         const doneAn = Math.max(0, totalRoomsAn - missingAn);
         const doneNgu = Math.max(0, totalRoomsNgu - missingNgu);
-        const doneTotal = doneAn + doneNgu;
-        const percent = Math.min(100, Math.round((doneTotal / totalExpected) * 100));
+        const doneGS = Math.max(0, totalGS - missingGS);
+        const doneTotal = doneAn + doneNgu + doneGS;
+        const percent = totalExpected > 0 ? Math.min(100, Math.round((doneTotal / totalExpected) * 100)) : 100;
 
         return (
           <div className="bctruc-progress-card">
@@ -1939,13 +1954,19 @@ function tuDongTaoFormBaoCao() {
               <div className="bctruc-progress-left">
                 <span className={`bctruc-status-pill ${missingTotal === 0 ? 'success' : 'warning'}`}>
                   <i className={`fas ${missingTotal === 0 ? 'fa-check-circle' : 'fa-clock'}`}></i>
-                  {missingTotal === 0 ? 'Đã thu đủ 100%' : `Tiến độ: ${doneTotal}/${totalExpected} phòng (${percent}%)`}
+                  {missingTotal === 0 ? 'Đã thu đủ 100%' : `Tiến độ: ${doneTotal}/${totalExpected} mục (${percent}%)`}
                 </span>
                 <div className="bctruc-progress-meta-text">
                   <span>Ngày <strong>{formatDateVN(selectedDate)}</strong>:</span>
                   <span>Ca Ăn: <strong>{doneAn}/{totalRoomsAn}</strong></span>
                   <span className="bctruc-dot">•</span>
                   <span>Ca Ngủ: <strong>{doneNgu}/{totalRoomsNgu}</strong></span>
+                  {totalGS > 0 && (
+                    <>
+                      <span className="bctruc-dot">•</span>
+                      <span>Giám sát: <strong>{doneGS}/{totalGS}</strong></span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1959,7 +1980,7 @@ function tuDongTaoFormBaoCao() {
                     className={`bctruc-btn-toggle-pending ${showPendingRooms ? 'active' : ''}`}
                     onClick={() => setShowPendingRooms(!showPendingRooms)}
                   >
-                    <span>{showPendingRooms ? 'Thu gọn' : `Xem ${missingTotal} phòng thiếu`}</span>
+                    <span>{showPendingRooms ? 'Thu gọn' : `Xem ${missingTotal} mục thiếu`}</span>
                     <i className={`fas fa-chevron-${showPendingRooms ? 'up' : 'down'}`}></i>
                   </button>
                 )}
@@ -1989,6 +2010,18 @@ function tuDongTaoFormBaoCao() {
                     <div className="bctruc-pending-tags">
                       {data.phongChuaBaoCaoNgu.map(p => (
                         <span key={p} className="bctruc-pending-tag-modern">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {missingGS > 0 && (
+                  <div className="bctruc-pending-row">
+                    <span className="bctruc-pending-label">
+                      <i className="fas fa-shield-alt"></i> Giám sát ({missingGS} GV chưa nộp):
+                    </span>
+                    <div className="bctruc-pending-tags">
+                      {data.giamSatChuaBaoCao.map(gv => (
+                        <span key={gv} className="bctruc-pending-tag-modern">{gv}</span>
                       ))}
                     </div>
                   </div>
@@ -2430,7 +2463,7 @@ function tuDongTaoFormBaoCao() {
                         )}
                         <th style={{ width: 110 }}>Tình hình</th>
                         {type !== 'giamsat' && <th style={{ minWidth: 140 }}>Ghi chú / Kiến nghị</th>}
-                        {(user?.is_admin || user?.is_superuser) && <th style={{ width: 44, textAlign: 'center' }}>Xóa</th>}
+                        {isSuperAdmin && <th style={{ width: 44, textAlign: 'center' }}>Xóa</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -2538,13 +2571,13 @@ function tuDongTaoFormBaoCao() {
                             </td>
                           )}
 
-                          {/* Nút xóa */}
-                          {(user?.is_admin || user?.is_superuser) && (
+                          {/* Nút xóa (Chỉ Super Admin được quyền thấy và thực hiện) */}
+                          {isSuperAdmin && (
                             <td style={{ textAlign: 'center' }}>
                               <button
                                 type="button"
                                 className="bctruc-btn-del"
-                                title="Xóa bản ghi báo cáo này"
+                                title="Xóa bản ghi báo cáo này (Chỉ Super Admin)"
                                 onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
                               >
                                 <i className="fas fa-trash-alt"></i>
