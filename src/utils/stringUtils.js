@@ -43,7 +43,7 @@ export const formatLopList = (lopList) => {
 // ── Cấu hình & Helper sắp xếp học sinh phòng ăn HT.A ───────────────
 export const isHTARoom = (roomCode) => {
   if (!roomCode) return false;
-  const clean = String(roomCode).replace(/[\.\s_-]/g, '').toUpperCase();
+  const clean = String(roomCode).replace(/[.\s_-]/g, '').toUpperCase();
   return clean === 'HTA';
 };
 
@@ -156,4 +156,12 @@ export const splitStudentsByTeachers = (students, numTeachers, roomCode) => {
   }
   return groups.filter(g => g.length > 0);
 };
-
+export const escapeHtml = (str) => {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};

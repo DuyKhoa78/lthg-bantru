@@ -90,7 +90,6 @@ export default function LichTrucKhung() {
     }, [showAlert]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         loadData();
     }, [loadData]);
 
@@ -253,16 +252,7 @@ export default function LichTrucKhung() {
                 </div>
                 {canEdit && (
                     <div className="page-header-actions">
-                        <button
-                            className="btn btn-success"
-                            onClick={() => setConfirmAuto(true)}
-                            disabled={autoLoading || loading}
-                        >
-                            {autoLoading
-                                ? <><i className="fas fa-spinner fa-spin"></i> Đang xếp...</>
-                                : <><i className="fas fa-magic"></i> Xếp lịch Tự Động</>
-                            }
-                        </button>
+                        {/* Nút xếp lịch tự động đã ẩn vì lịch phân công cố định do Admin xếp thủ công */}
                         <button
                             className="btn btn-primary"
                             onClick={() => setShowApply(true)}

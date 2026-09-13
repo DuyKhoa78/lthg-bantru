@@ -64,7 +64,6 @@ export default function TaiKhoan() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     api.get('/api/giaovien/?limit=500')
       .then(res => { if (res.data?.ok) setGvList(res.data.giaovien || []); })

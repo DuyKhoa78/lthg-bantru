@@ -54,14 +54,14 @@ export default function BaoCaoTrucGV() {
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
 
-  const [caTruc, setCaTruc] = useState('all'); // 'all', '0', '1'
-  const [filterType, setFilterType] = useState('all'); // 'all', 'vi_pham'
+  const [caTruc, setCaTruc] = useState('all'); // 'all', '0', '1', '2'
+  const [activeSection, setActiveSection] = useState('all'); // 'all' | 'ca_an' | 'ca_ngu' | 'giam_sat' | 'vi_pham' | 'giao_vien'
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [data, setData] = useState({
     records: [],
-    stats: { total: 0, caAnCount: 0, caNguCount: 0, totalVang: 0, gvSummary: [] },
+    stats: { total: 0, caAnCount: 0, caNguCount: 0, giamSatCount: 0, totalVang: 0, gvSummary: [] },
     phongChuaBaoCaoAn: [],
     phongChuaBaoCaoNgu: [],
     ma_bao_mat_hien_tai: 'BT789',
@@ -74,6 +74,7 @@ export default function BaoCaoTrucGV() {
 
   const [showGuide, setShowGuide] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showPendingRooms, setShowPendingRooms] = useState(false);
 
   // Load danh sách báo cáo theo viewMode
   const loadReports = useCallback(async () => {
@@ -328,10 +329,16 @@ export default function BaoCaoTrucGV() {
     return result;
   }, [allParsedViolations]);
 
-  // Lọc dữ liệu theo search và filterType
+  // Lọc dữ liệu theo search và activeSection (chia từng phần)
   const filteredRecords = useMemo(() => {
     let list = data.records || [];
-    if (filterType === 'vi_pham') {
+    if (activeSection === 'ca_an') {
+      list = list.filter(r => r.ca_truc === 0);
+    } else if (activeSection === 'ca_ngu') {
+      list = list.filter(r => r.ca_truc === 1);
+    } else if (activeSection === 'giam_sat') {
+      list = list.filter(r => r.ca_truc === 2 || Boolean(r.vsat_thuc_pham));
+    } else if (activeSection === 'vi_pham') {
       list = list.filter(r => r.hs_vi_pham && r.hs_vi_pham.trim());
     }
 
@@ -342,12 +349,14 @@ export default function BaoCaoTrucGV() {
         (r.ma_phong || '').toLowerCase().includes(q) ||
         (r.si_so || '').toLowerCase().includes(q) ||
         (r.hs_vi_pham || '').toLowerCase().includes(q) ||
+        (r.vsat_thuc_pham || '').toLowerCase().includes(q) ||
+        (r.tinh_hinh || '').toLowerCase().includes(q) ||
         (r.ghi_chu || '').toLowerCase().includes(q) ||
         (r.ngay || '').includes(q)
       );
     }
     return list;
-  }, [data.records, filterType, searchTerm]);
+  }, [data.records, activeSection, searchTerm]);
 
   // Điều hướng Ngày
   const changeDateBy = (offsetDays) => {
@@ -408,49 +417,134 @@ export default function BaoCaoTrucGV() {
       `;
     }
 
-    const rowsHtml = sortedRecords.map((r, i) => {
-      const hasViPham = Boolean(r.hs_vi_pham && r.hs_vi_pham.trim());
-      const soVang = Number(r.so_hs_vang) || 0;
+    // Phân loại 3 nhóm ca trực riêng biệt
+    const isGiamSat = (r) => r.ca_truc === 2 || String(r.ca_truc).toLowerCase().includes('giám sát') || String(r.ca_truc).toLowerCase().includes('giamsat') || Boolean(r.vsat_thuc_pham) || (r.ghi_chu && r.ghi_chu.includes('VSATTP:'));
+    const isCaNgu = (r) => !isGiamSat(r) && (r.ca_truc === 1 || String(r.ca_truc).toLowerCase().includes('ngủ') || String(r.ca_truc).toLowerCase().includes('nghi') || String(r.ca_truc).toLowerCase().includes('nghỉ'));
+    const isCaAn = (r) => !isGiamSat(r) && !isCaNgu(r);
 
-      return `
-      <tr>
-        <td style="text-align:center;">${i + 1}</td>
-        <td style="text-align:center; font-size:8.5pt;">
-          <div style="font-weight:600;">${formatDateVN(r.ngay)}</div>
-          ${r.created_at ? `<div style="font-size:8pt; color:#64748b; margin-top:2px;">(Lúc ${formatTime(r.created_at)})</div>` : ''}
-        </td>
-        <td style="text-align:center; font-size:9pt;">
-          <div>${r.ca_truc === 0 ? 'Ăn trưa' : 'Nghỉ trưa'}</div>
-          <div style="font-weight:bold; color:#1e3a8a;">Phòng ${r.ma_phong}</div>
-        </td>
-        <td style="font-size:9pt;">
-          <div style="font-weight:600; color:#1e293b;">${r.ho_ten_gv || '—'}</div>
-          ${r.sdt_xac_nhan ? `<div style="font-size:8pt; color:#64748b;">${r.sdt_xac_nhan}</div>` : ''}
-        </td>
-        <td style="text-align:center; font-size:8.5pt;">
-          <div style="font-weight:600; color:#0f172a;">Sĩ số: <strong style="font-size:9.5pt;">${r.si_so || '—'}</strong></div>
-          ${soVang > 0 
-            ? `<div style="color:#dc2626; font-weight:bold; margin-top:2px;">Vắng: ${soVang}</div>` 
-            : '<div style="color:#16a34a; font-size:8pt; margin-top:2px;">0 vắng</div>'}
-          ${r.danh_sach_vang ? `<div style="font-size:7.5pt; color:#b91c1c; font-style:italic; margin-top:1px;">(${r.danh_sach_vang})</div>` : ''}
-        </td>
-        <td style="font-size:9pt; color:#334155;">
-          ${r.tinh_hinh && r.tinh_hinh.trim() ? r.tinh_hinh : 'Tốt, trật tự'}
-        </td>
-        <td style="font-size:9pt;">
-          ${hasViPham 
-            ? `<div style="font-weight:bold; color:#b91c1c;">${r.hs_vi_pham}</div>` 
-            : '<span style="color:#16a34a; font-weight:600;">✓ Không có</span>'}
-        </td>
-        <td style="font-size:8.5pt; color:#475569;">
-          ${r.ghi_chu && r.ghi_chu.trim() ? r.ghi_chu : '<span style="color:#94a3b8; font-style:italic;">—</span>'}
-        </td>
-      </tr>
+    const anRecords = sortedRecords.filter(isCaAn);
+    const nguRecords = sortedRecords.filter(isCaNgu);
+    const giamSatRecords = sortedRecords.filter(isGiamSat);
+
+    const renderRoomRows = (list) => {
+      if (!list || list.length === 0) return '';
+      return list.map((r, i) => {
+        const hasViPham = Boolean(r.hs_vi_pham && r.hs_vi_pham.trim());
+        const soVang = Number(r.so_hs_vang) || 0;
+        const notes = [r.vsat_thuc_pham ? `ATTP: ${r.vsat_thuc_pham}` : '', r.ghi_chu].filter(Boolean).join(' | ');
+
+        return `
+        <tr>
+          <td style="text-align:center;">${i + 1}</td>
+          <td style="text-align:center; font-size:8.5pt;">
+            <div style="font-weight:600;">${formatDateVN(r.ngay)}</div>
+            ${r.created_at ? `<div style="font-size:8pt; color:#64748b; margin-top:2px;">(Lúc ${formatTime(r.created_at)})</div>` : ''}
+          </td>
+          <td style="text-align:center; font-size:9.5pt; font-weight:bold; color:#1e3a8a;">
+            Phòng ${r.ma_phong}
+          </td>
+          <td style="font-size:9pt;">
+            <div style="font-weight:600; color:#1e293b;">${r.ho_ten_gv || '—'}</div>
+            ${r.sdt_xac_nhan ? `<div style="font-size:8pt; color:#64748b;">${r.sdt_xac_nhan}</div>` : ''}
+          </td>
+          <td style="text-align:center; font-size:8.5pt;">
+            <div style="font-weight:600; color:#0f172a;">Sĩ số: <strong style="font-size:9.5pt;">${r.si_so || '—'}</strong></div>
+            ${soVang > 0 
+              ? `<div style="color:#dc2626; font-weight:bold; margin-top:2px;">Vắng: ${soVang}</div>` 
+              : '<div style="color:#16a34a; font-size:8pt; margin-top:2px;">0 vắng</div>'}
+            ${r.danh_sach_vang ? `<div style="font-size:7.5pt; color:#b91c1c; font-style:italic; margin-top:1px;">(${r.danh_sach_vang})</div>` : ''}
+          </td>
+          <td style="font-size:9pt; color:#334155;">
+            ${r.tinh_hinh && r.tinh_hinh.trim() ? r.tinh_hinh : 'Tốt, trật tự'}
+          </td>
+          <td style="font-size:9pt;">
+            ${hasViPham 
+              ? `<div style="font-weight:bold; color:#b91c1c;">${r.hs_vi_pham}</div>` 
+              : '<span style="color:#16a34a; font-weight:600;">✓ Không có</span>'}
+          </td>
+          <td style="font-size:8.5pt; color:#475569;">
+            ${notes ? notes : '<span style="color:#94a3b8; font-style:italic;">—</span>'}
+          </td>
+        </tr>`;
+      }).join('');
+    };
+
+    const renderGiamSatRows = (list) => {
+      if (!list || list.length === 0) return '';
+      return list.map((r, i) => {
+        const cleanNote = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
+        return `
+        <tr>
+          <td style="text-align:center;">${i + 1}</td>
+          <td style="text-align:center; font-size:8.5pt;">
+            <div style="font-weight:600;">${formatDateVN(r.ngay)}</div>
+            ${r.created_at ? `<div style="font-size:8pt; color:#64748b; margin-top:2px;">(Lúc ${formatTime(r.created_at)})</div>` : ''}
+          </td>
+          <td style="font-size:9pt; font-weight:600; color:#0f766e;">
+            ${r.ho_ten_gv || '—'}
+          </td>
+          <td style="text-align:center; font-weight:bold; font-size:9pt;">
+            ${r.ma_phong || 'Toàn trường'}
+          </td>
+          <td style="font-size:9pt; font-weight:600; color:#0f766e;">
+            ${r.vsat_thuc_pham || 'Đạt tiêu chuẩn, lưu mẫu đúng quy định'}
+          </td>
+          <td style="font-size:9pt; color:#334155;">
+            ${r.tinh_hinh && r.tinh_hinh.trim() ? r.tinh_hinh : 'Ổn định, trật tự'}
+          </td>
+          <td style="font-size:8.5pt; color:#475569;">
+            ${cleanNote || '<span style="color:#94a3b8; font-style:italic;">—</span>'}
+          </td>
+        </tr>`;
+      }).join('');
+    };
+
+    // Bảng chi tiết học sinh vi phạm trọng tâm
+    let viPhamTableHtml = '';
+    if (allParsedViolations.length > 0) {
+      viPhamTableHtml = `
+        <div style="font-weight:bold; font-size:10pt; text-transform:uppercase; margin-top:14px; margin-bottom:6px; color:#b91c1c;">
+          II. DANH SÁCH HỌC SINH VI PHẠM NỀ NẾP CẦN CHỈ ĐẠO XỬ LÝ (TRỌNG TÂM):
+        </div>
+        <table class="data-table" style="margin-bottom:10px;">
+          <thead>
+            <tr>
+              <th style="width:30px;">STT</th>
+              <th style="width:70px;">Lớp</th>
+              <th style="width:75px;">Thời gian</th>
+              <th style="width:80px;">Phòng & Ca</th>
+              <th>Họ tên học sinh & Nội dung vi phạm cụ thể</th>
+              <th style="width:125px;">GV phát hiện</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allParsedViolations.map((v, idx) => `
+              <tr>
+                <td style="text-align:center;">${idx + 1}</td>
+                <td style="text-align:center; font-weight:bold; color:#1e3a8a;">${v.lop}</td>
+                <td style="text-align:center; font-size:8.5pt;">
+                  <div>${v.ngay_str}</div>
+                  ${v.thoi_gian_vi_pham ? `<div style="color:#b91c1c; font-weight:bold;">${v.thoi_gian_vi_pham}</div>` : ''}
+                </td>
+                <td style="text-align:center; font-size:8.5pt;">
+                  <div>Phòng ${v.ma_phong}</div>
+                  <div style="color:#64748b;">${v.ca_str}</div>
+                </td>
+                <td style="font-weight:bold; color:#b91c1c; font-size:9.5pt;">
+                  ${v.raw}
+                </td>
+                <td style="font-size:8.5pt; color:#334155;">
+                  ${v.ho_ten_gv || '—'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       `;
-    }).join('');
+    }
 
+    const sectionFinalIndex = allParsedViolations.length > 0 ? 'III' : 'II';
     const mainTitle = 'BÁO CÁO TỔNG HỢP TÌNH HÌNH TRỰC BÁN TRÚ';
-    const section2Title = 'II. BẢNG TỔNG HỢP CHI TIẾT CÁC CA TRỰC / PHÒNG BÁN TRÚ';
 
     const printHtml = `<!DOCTYPE html>
 <html lang="vi">
@@ -480,6 +574,8 @@ export default function BaoCaoTrucGV() {
     table.data-table tr { page-break-inside: avoid; }
     thead { display: table-header-group; }
     
+    .sec-part-title { font-weight:bold; font-size:10pt; text-transform:uppercase; margin-top:14px; margin-bottom:5px; color:#000; }
+    .sub-part-title { font-weight:bold; font-size:9.5pt; margin-top:10px; margin-bottom:4px; }
     .note-box { font-style:italic; font-size:9pt; margin-top:8px; margin-bottom:12px; color:#1e293b; line-height:1.45; }
     .sig-section { display:flex; justify-content:space-between; align-items:flex-start; margin-top:20px; page-break-inside:avoid; break-inside:avoid; }
     .sig-box { width:42%; text-align:center; }
@@ -512,7 +608,7 @@ export default function BaoCaoTrucGV() {
   <div style="font-size:10pt; margin-bottom:10px; line-height:1.45;">
     <strong>I. TÌNH HÌNH TỔNG QUÁT:</strong>
     <div style="margin-left:15px; margin-top:3px;">
-      - Tổng số ca trực tiếp nhận báo cáo: <strong>${tot} lượt</strong> (Ca Ăn trưa: ${data.stats?.caAnCount || 0} lượt, Ca Nghỉ trưa: ${data.stats?.caNguCount || 0} lượt).<br />
+      - Tổng số ca trực tiếp nhận báo cáo: <strong>${tot} lượt</strong> (Ca Ăn trưa: ${anRecords.length} lượt, Ca Nghỉ trưa: ${nguRecords.length} lượt, Ca Giám sát: ${giamSatRecords.length} lượt).<br />
       - Nề nếp chung: <strong>${okCount}/${tot} phòng (${okPercent}%)</strong> học sinh chấp hành tốt nội quy.<br />
       - Tình hình học sinh vắng trong ca trực: <strong>${totalHsVang} lượt</strong> học sinh vắng.<br />
       - Học sinh vi phạm nề nếp / bất thường: ${viPhamRoomsCount > 0 
@@ -521,17 +617,25 @@ export default function BaoCaoTrucGV() {
     </div>
   </div>
 
-  <div style="font-weight:bold; font-size:10pt; text-transform:uppercase; margin-bottom:6px; color:#000;">
-    ${section2Title}
+  ${viPhamTableHtml}
+
+  <div class="sec-part-title">
+    ${sectionFinalIndex}. BẢNG TỔNG HỢP CHI TIẾT CÁC CA TRỰC / PHÒNG BÁN TRÚ:
   </div>
 
+  <!-- PHẦN 1: CA TRỰC ĂN -->
+  <div class="sub-part-title" style="color:#b45309; display:flex; justify-content:space-between; align-items:center;">
+    <span>1. CA TRỰC ĂN (${anRecords.length} phòng đã nộp):</span>
+    ${data.phongChuaBaoCaoAn?.length > 0 ? `<span style="font-style:italic; font-size:8.5pt; color:#b91c1c; font-weight:normal;">* Chưa nộp (${data.phongChuaBaoCaoAn.length} phòng): ${data.phongChuaBaoCaoAn.join(', ')}</span>` : ''}
+  </div>
+  ${anRecords.length > 0 ? `
   <table class="data-table">
     <thead>
       <tr>
         <th style="width:30px;">STT</th>
         <th style="width:75px;">Thời gian</th>
-        <th style="width:75px;">Ca & Phòng</th>
-        <th style="width:105px;">Giáo viên trực</th>
+        <th style="width:75px;">Phòng ăn</th>
+        <th style="width:115px;">Giáo viên trực</th>
         <th style="width:70px;">Sĩ số / Vắng</th>
         <th style="width:115px;">Tình hình nề nếp</th>
         <th>Học sinh vi phạm / Bất thường</th>
@@ -539,13 +643,62 @@ export default function BaoCaoTrucGV() {
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml}
+      ${renderRoomRows(anRecords, 'Ăn')}
     </tbody>
   </table>
+  ` : `<div style="font-style:italic; font-size:9pt; color:#64748b; margin-bottom:8px; margin-left:12px;">(Chưa có dữ liệu báo cáo ca trực ăn)</div>`}
+
+  <!-- PHẦN 2: CA TRỰC NGỦ -->
+  <div class="sub-part-title" style="color:#6d28d9; display:flex; justify-content:space-between; align-items:center;">
+    <span>2. CA TRỰC NGỦ (NGHỈ TRƯA) (${nguRecords.length} phòng đã nộp):</span>
+    ${data.phongChuaBaoCaoNgu?.length > 0 ? `<span style="font-style:italic; font-size:8.5pt; color:#b91c1c; font-weight:normal;">* Chưa nộp (${data.phongChuaBaoCaoNgu.length} phòng): ${data.phongChuaBaoCaoNgu.join(', ')}</span>` : ''}
+  </div>
+  ${nguRecords.length > 0 ? `
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:30px;">STT</th>
+        <th style="width:75px;">Thời gian</th>
+        <th style="width:75px;">Phòng ngủ</th>
+        <th style="width:115px;">Giáo viên trực</th>
+        <th style="width:70px;">Sĩ số / Vắng</th>
+        <th style="width:115px;">Tình hình nề nếp</th>
+        <th>Học sinh vi phạm / Bất thường</th>
+        <th style="width:110px;">Ghi chú / Kiến nghị</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${renderRoomRows(nguRecords, 'Ngủ')}
+    </tbody>
+  </table>
+  ` : `<div style="font-style:italic; font-size:9pt; color:#64748b; margin-bottom:8px; margin-left:12px;">(Chưa có dữ liệu báo cáo ca trực ngủ)</div>`}
+
+  <!-- PHẦN 3: GIÁM SÁT BÁN TRÚ -->
+  <div class="sub-part-title" style="color:#0f766e;">
+    3. GIÁM SÁT BÁN TRÚ &amp; VỆ SINH AN TOÀN THỰC PHẨM (${giamSatRecords.length} lượt):
+  </div>
+  ${giamSatRecords.length > 0 ? `
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:30px;">STT</th>
+        <th style="width:75px;">Thời gian</th>
+        <th style="width:125px;">Cán bộ giám sát</th>
+        <th style="width:85px;">Khu vực kiểm tra</th>
+        <th>Ghi nhận Vệ sinh An toàn Thực phẩm &amp; Bếp ăn</th>
+        <th style="width:115px;">Tình hình chung</th>
+        <th style="width:110px;">Ghi chú / Kiến nghị</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${renderGiamSatRows(giamSatRecords)}
+    </tbody>
+  </table>
+  ` : `<div style="font-style:italic; font-size:9pt; color:#64748b; margin-bottom:8px; margin-left:12px;">- Nhà bếp bán trú hoạt động bình thường, đảm bảo lưu mẫu và vệ sinh ATTP theo quy định.</div>`}
 
   <div class="note-box">
     ${viPhamRoomsCount > 0 
-      ? `* Ghi chú: Toàn bộ các trường hợp học sinh có hành vi bất thường / vi phạm nề nếp đã được bôi đỏ đậm trong danh sách trên.
+      ? `* Ghi chú: Toàn bộ các trường hợp học sinh có hành vi bất thường / vi phạm nề nếp đã được liệt kê chi tiết trong danh sách trên.
          <br />** Kính đề nghị Ban Giám Thị và Giáo viên Chủ nhiệm liên hệ phụ huynh, làm việc với các học sinh có tên nêu trên để răn đe, giáo dục.`
       : `* Ghi chú: Toàn bộ các phòng trong ca trực đều sinh hoạt nghiêm túc, học sinh chấp hành tốt nội quy, không có học sinh vi phạm.`}
     ${pendingRoomsHtml}
@@ -802,19 +955,47 @@ export default function BaoCaoTrucGV() {
       ? `Tuần từ ngày <strong>${formatDateVN(data.tu_ngay)}</strong> đến ngày <strong>${formatDateVN(data.den_ngay)}</strong> (Năm học: ${data.nam_hoc || '2026-2027'})`
       : `Tháng <strong>${selectedMonth}/${selectedYear}</strong> (Năm học: ${data.nam_hoc || '2026-2027'})`;
 
-    // Danh sách các phòng
-    const rowsHtml = data.records.map((r, i) => `
-      <tr>
-        <td style="text-align:center;">${i + 1}</td>
-        <td style="text-align:center; font-weight:600;">${formatDateVN(r.ngay)}</td>
-        <td style="text-align:center;">${r.ca_truc === 0 ? 'Ăn trưa' : 'Nghỉ trưa'}</td>
-        <td style="text-align:center; font-weight:bold;">${r.ma_phong}</td>
-        <td style="text-align:center; font-weight:600;">${r.si_so || '—'}</td>
-        <td style="font-weight:600;">${r.ho_ten_gv || ''}</td>
-        <td>${r.hs_vi_pham ? `<div style="color:#b91c1c; font-weight:bold;">${r.hs_vi_pham}</div>` : 'Bình thường, trật tự'}</td>
-        <td>${[r.tinh_hinh, r.ghi_chu].filter(Boolean).join(' - ') || 'Bình thường'}</td>
-      </tr>
-    `).join('');
+    // Phân loại 3 nhóm ca trực riêng biệt
+    const isGiamSat = (r) => r.ca_truc === 2 || String(r.ca_truc).toLowerCase().includes('giám sát') || String(r.ca_truc).toLowerCase().includes('giamsat') || Boolean(r.vsat_thuc_pham) || (r.ghi_chu && r.ghi_chu.includes('VSATTP:'));
+    const isCaNgu = (r) => !isGiamSat(r) && (r.ca_truc === 1 || String(r.ca_truc).toLowerCase().includes('ngủ') || String(r.ca_truc).toLowerCase().includes('nghi') || String(r.ca_truc).toLowerCase().includes('nghỉ'));
+    const isCaAn = (r) => !isGiamSat(r) && !isCaNgu(r);
+
+    const anRecords = data.records.filter(isCaAn);
+    const nguRecords = data.records.filter(isCaNgu);
+    const giamSatRecords = data.records.filter(isGiamSat);
+
+    const renderRoomRows = (list) => {
+      if (!list || list.length === 0) return '';
+      return list.map((r, i) => `
+        <tr>
+          <td style="text-align:center;">${i + 1}</td>
+          <td style="text-align:center; font-weight:600;">${formatDateVN(r.ngay)}</td>
+          <td style="text-align:center; font-weight:bold; color:#1e3a8a;">Phòng ${r.ma_phong}</td>
+          <td style="text-align:center; font-weight:600;">${r.si_so || '—'}</td>
+          <td style="font-weight:600;">${r.ho_ten_gv || ''}</td>
+          <td>${r.hs_vi_pham ? `<div style="color:#b91c1c; font-weight:bold;">${r.hs_vi_pham}</div>` : 'Bình thường, trật tự'}</td>
+          <td>${[r.tinh_hinh, r.ghi_chu].filter(Boolean).join(' - ') || 'Bình thường'}</td>
+        </tr>
+      `).join('');
+    };
+
+    const renderGiamSatRows = (list) => {
+      if (!list || list.length === 0) return '';
+      return list.map((r, i) => {
+        const cleanNote = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
+        return `
+        <tr>
+          <td style="text-align:center;">${i + 1}</td>
+          <td style="text-align:center; font-weight:600;">${formatDateVN(r.ngay)}</td>
+          <td style="font-weight:600; color:#0f766e;">${r.ho_ten_gv || '—'}</td>
+          <td style="text-align:center; font-weight:bold;">${r.ma_phong || 'Toàn trường'}</td>
+          <td style="font-weight:600; color:#0f766e;">${r.vsat_thuc_pham || 'Đạt tiêu chuẩn, lưu mẫu đúng quy định'}</td>
+          <td>${r.tinh_hinh || 'Tốt, ổn định'}</td>
+          <td>${cleanNote || '—'}</td>
+        </tr>
+      `;
+      }).join('');
+    };
 
     // Khối phòng chưa nộp (nếu xem theo ngày)
     let pendingRoomsHtml = '';
@@ -852,6 +1033,7 @@ export default function BaoCaoTrucGV() {
     table.data-table th, table.data-table td { border:1px solid #000; padding:5px 6px; vertical-align:middle; }
     table.data-table th { background:#f5f5f5 !important; text-align:center; font-weight:bold; }
     
+    .sec-header { font-weight:bold; font-size:10pt; text-transform:uppercase; margin-top:10px; margin-bottom:5px; }
     .sig-section { display:flex; justify-content:space-between; margin-top:20px; page-break-inside:avoid; break-inside:avoid; }
     .sig-box { width:45%; text-align:center; }
     .sig-date { font-style:italic; font-size:10pt; margin-bottom:4px; }
@@ -882,27 +1064,68 @@ export default function BaoCaoTrucGV() {
 
   ${pendingRoomsHtml}
 
-  <div style="font-weight:bold; font-size:10.5pt; text-transform:uppercase; margin-bottom:6px; color:#000;">
-    BẢNG CHI TIẾT CÁC LƯỢT BÁO CÁO CA TRỰC
-  </div>
-
+  <!-- PHẦN 1: CA TRỰC ĂN -->
+  <div class="sec-header" style="color:#b45309;">1. BẢNG CHI TIẾT CA TRỰC ĂN (${anRecords.length} phòng):</div>
+  ${anRecords.length > 0 ? `
   <table class="data-table">
     <thead>
       <tr>
         <th style="width:35px;">STT</th>
         <th style="width:90px;">Ngày trực</th>
-        <th style="width:75px;">Ca trực</th>
-        <th style="width:60px;">Phòng</th>
-        <th style="width:55px;">Sỉ số</th>
-        <th style="width:140px;">Giáo viên trực</th>
-        <th style="width:300px;">Học sinh bất thường / Quậy phá / Sự cố</th>
-        <th>Tình hình nề nếp & CSVC</th>
+        <th style="width:75px;">Phòng ăn</th>
+        <th style="width:65px;">Sỉ số</th>
+        <th style="width:150px;">Giáo viên trực</th>
+        <th>Học sinh vi phạm nề nếp / Bất thường</th>
+        <th style="width:160px;">Tình hình nề nếp & CSVC</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml}
+      ${renderRoomRows(anRecords, 'Ăn')}
     </tbody>
   </table>
+  ` : `<div style="font-style:italic; font-size:9pt; color:#64748b; margin-bottom:10px;">(Chưa có dữ liệu ca trực ăn)</div>`}
+
+  <!-- PHẦN 2: CA TRỰC NGỦ -->
+  <div class="sec-header" style="color:#6d28d9;">2. BẢNG CHI TIẾT CA TRỰC NGỦ (${nguRecords.length} phòng):</div>
+  ${nguRecords.length > 0 ? `
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:35px;">STT</th>
+        <th style="width:90px;">Ngày trực</th>
+        <th style="width:75px;">Phòng ngủ</th>
+        <th style="width:65px;">Sỉ số</th>
+        <th style="width:150px;">Giáo viên trực</th>
+        <th>Học sinh vi phạm nề nếp / Bất thường</th>
+        <th style="width:160px;">Tình hình nề nếp & CSVC</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${renderRoomRows(nguRecords, 'Ngủ')}
+    </tbody>
+  </table>
+  ` : `<div style="font-style:italic; font-size:9pt; color:#64748b; margin-bottom:10px;">(Chưa có dữ liệu ca trực ngủ)</div>`}
+
+  <!-- PHẦN 3: GIÁM SÁT BÁN TRÚ -->
+  <div class="sec-header" style="color:#0f766e;">3. BẢNG CHI TIẾT GIÁM SÁT BÁN TRÚ & VỆ SINH ATTP (${giamSatRecords.length} lượt):</div>
+  ${giamSatRecords.length > 0 ? `
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:35px;">STT</th>
+        <th style="width:90px;">Ngày trực</th>
+        <th style="width:160px;">Cán bộ giám sát</th>
+        <th style="width:85px;">Khu vực quan sát</th>
+        <th>Ghi nhận Vệ sinh ATTP & Bếp ăn</th>
+        <th style="width:130px;">Tình hình chung</th>
+        <th style="width:140px;">Ghi chú / Kiến nghị</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${renderGiamSatRows(giamSatRecords)}
+    </tbody>
+  </table>
+  ` : `<div style="font-style:italic; font-size:9pt; color:#64748b; margin-bottom:10px;">(Chưa có dữ liệu ca giám sát bán trú)</div>`}
 
   <div class="sig-section" style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:24px; page-break-inside:avoid;">
     <div class="sig-box" style="width:40%; text-align:center;">
@@ -1076,10 +1299,10 @@ export default function BaoCaoTrucGV() {
   // Code mẫu Apps Script
   const sampleScript = `/**
  * GOOGLE APPS SCRIPT - BÁO CÁO CA TRỰC THPT LÊ THI HỒNG GẤM
- * Hỗ trợ Form chia 2 phần (Trực ăn & Trực ngủ) hoặc Google Sheets 13 cột chuẩn.
+ * Hỗ trợ Form chia 3 phần (Trực ăn, Trực ngủ & Giám sát) hoặc Google Sheets 16 cột chuẩn.
  * Dán code này vào Google Form hoặc Google Sheets -> Tiện ích mở rộng -> Apps Script
  */
-const WEBHOOK_URL = "${window.location.origin.includes('localhost') ? 'https://lthg-bantru.vercel.app' : window.location.origin}/api/webhook/google-form-baocao";
+const WEBHOOK_URL = "\${window.location.origin.includes('localhost') ? 'https://lthg-bantru.vercel.app' : window.location.origin}/api/webhook/google-form-baocao";
 const WEBHOOK_SECRET = "bantru-lthg-secret-key-2025";
 
 /**
@@ -1096,29 +1319,41 @@ function onFormSubmit(e) {
     let si_so = "";
     let hs_vi_pham = "";
     let tinh_hinh = "Tốt", ghi_chu = "";
+    let vsat_thuc_pham = "";
 
     for (let i = 0; i < itemResponses.length; i++) {
       const title = itemResponses[i].getItem().getTitle().toLowerCase().trim();
       const answer = String(itemResponses[i].getResponse() || "").trim();
       if (!answer) continue;
 
-      if (title.includes("ca")) {
+      if (title.includes("ca trực") || title === "ca") {
         ca_truc = answer;
       } else if (title.includes("phòng") || title.includes("phong")) {
         ma_phong = answer;
-        if (title.includes("ăn")) ca_truc = "Trực ăn";
-        else if (title.includes("ngủ") || title.includes("nghi")) ca_truc = "Trực ngủ";
       } else if (title.includes("giáo viên") || title.includes("họ và tên") || title.includes("họ tên") || title.includes("tên gv")) {
         ho_ten_gv = answer;
       } else if (title.includes("sỉ số") || title.includes("sĩ số") || title.includes("số lượng") || title.includes("số hs")) {
         si_so = answer;
       } else if (title.includes("vi phạm") || title.includes("bất thường") || title.includes("quậy") || title.includes("mất trật tự") || title.includes("sự cố")) {
         hs_vi_pham = answer;
+      } else if (title.includes("vệ sinh") || title.includes("thực phẩm") || title.includes("an toàn thực phẩm") || title.includes("vsattp")) {
+        vsat_thuc_pham = answer;
       } else if (title.includes("tình hình") || title.includes("nề nếp") || title.includes("nền nếp") || title.includes("trật tự")) {
         tinh_hinh = answer;
       } else if (title.includes("ghi chú") || title.includes("góp ý") || title.includes("đề xuất") || title.includes("phản ánh")) {
         ghi_chu = answer;
       }
+    }
+
+    const caLower = String(ca_truc).toLowerCase();
+    const isGiamSat = caLower.includes("giám sát") || caLower.includes("gám sát") || caLower.includes("giamsat") || Boolean(vsat_thuc_pham);
+    if (isGiamSat) {
+      ca_truc = "Giám sát";
+      if (!ma_phong) ma_phong = "GIÁM SÁT";
+    } else if (caLower.includes("ngủ") || caLower.includes("nghi") || caLower.includes("nghỉ")) {
+      ca_truc = "Trực ngủ";
+    } else {
+      ca_truc = "Trực ăn";
     }
 
     const payload = {
@@ -1131,6 +1366,7 @@ function onFormSubmit(e) {
       hs_vi_pham: hs_vi_pham,
       tinh_hinh: tinh_hinh,
       ghi_chu: ghi_chu,
+      vsat_thuc_pham: vsat_thuc_pham,
       nguon: "google_form"
     };
 
@@ -1152,24 +1388,85 @@ function onFormSubmit(e) {
 function onSheetSubmit(e) {
   try {
     const row = e.values || [];
-    // Thứ tự 13 cột theo Google Sheets mới:
-    // 0: Dấu thời gian | 1: Ca trực 
-    // Ca ăn: 2: Họ và tên giáo viên | 3: Phòng ăn | 4: Tình hình chung | 5: Sỉ số | 6: Ghi chú/Góp ý
-    // Ca ngủ: 7: Họ và tên | 8: Phòng ngủ | 9: Sỉ số | 10: Tình hình chung | 11: Ghi nhận HS vi phạm nề nếp (Nếu có) | 12: Ghi chú/Góp ý
+    // Thứ tự 17 cột chuẩn (mới nhất):
+    // [0] Dấu thời gian | [1] Ca trực
+    // Phần 3. Giám sát: [2] Họ tên | [3] Phòng ăn | [4] Tình hình nề nếp | [5] Vệ sinh an toàn thực phẩm
+    // Phần 1. Ca ăn:    [6] Họ và tên giáo viên | [7] Phòng ăn | [8] Tình hình chung | [9] Sỉ số | [10] Ghi chú/Góp ý
+    // Phần 2. Ca ngủ:   [11] Họ và tên | [12] Phòng ngủ | [13] Sỉ số | [14] Tình hình chung | [15] Ghi nhận HS vi phạm nề nếp (Nếu có) | [16] Ghi chú/Góp ý
     const timestamp = row[0] || new Date();
-    const ca_truc_raw = row[1] || "";
-    const isCaNgu = String(ca_truc_raw).toLowerCase().includes("ngủ") || String(ca_truc_raw).toLowerCase().includes("nghi") || (Boolean(row[8]) && !row[3]);
+    const ca_truc_raw = String(row[1] || "").toLowerCase().trim();
+
+    let ca_truc = "Trực ăn";
+    let ho_ten_gv = "";
+    let ma_phong = "";
+    let si_so = "";
+    let tinh_hinh = "Tốt";
+    let hs_vi_pham = "";
+    let ghi_chu = "";
+    let vsat_thuc_pham = "";
+
+    const is17Col = row.length >= 17 || Boolean(row[12]) || Boolean(row[11]) || (Boolean(row[6]) && Boolean(row[7])) || (Boolean(row[2]) && Boolean(row[3]) && Boolean(row[5]));
+
+    if (ca_truc_raw.includes("giám sát") || ca_truc_raw.includes("gám sát") || ca_truc_raw.includes("giamsat") || (Boolean(row[2]) && !row[6] && !row[11])) {
+      ca_truc = "Giám sát";
+      ho_ten_gv = row[2] || "";
+      if (is17Col) {
+        ma_phong = row[3] || "GIÁM SÁT";
+        tinh_hinh = row[4] || "Tốt";
+        vsat_thuc_pham = row[5] || "";
+        ghi_chu = "";
+      } else {
+        ma_phong = "GIÁM SÁT";
+        tinh_hinh = row[3] || "Tốt";
+        vsat_thuc_pham = row[4] || "";
+        ghi_chu = "";
+      }
+    } else if (ca_truc_raw.includes("ngủ") || ca_truc_raw.includes("nghi") || ca_truc_raw.includes("nghỉ") || Boolean(row[12]) || Boolean(row[11])) {
+      ca_truc = "Trực ngủ";
+      if (is17Col) {
+        ho_ten_gv = row[11] || "";
+        ma_phong = row[12] || "";
+        si_so = row[13] || "";
+        tinh_hinh = row[14] || "Tốt";
+        hs_vi_pham = row[15] || "";
+        ghi_chu = row[16] || "";
+      } else {
+        ho_ten_gv = row[10] || "";
+        ma_phong = row[11] || "";
+        si_so = row[12] || "";
+        tinh_hinh = row[13] || "Tốt";
+        hs_vi_pham = row[14] || "";
+        ghi_chu = row[15] || "";
+      }
+    } else {
+      ca_truc = "Trực ăn";
+      if (is17Col) {
+        ho_ten_gv = row[6] || "";
+        ma_phong = row[7] || "";
+        tinh_hinh = row[8] || "Tốt";
+        si_so = row[9] || "";
+        ghi_chu = row[10] || "";
+      } else {
+        ho_ten_gv = row[5] || "";
+        ma_phong = row[6] || "";
+        tinh_hinh = row[7] || "Tốt";
+        si_so = row[8] || "";
+        ghi_chu = row[9] || "";
+      }
+    }
 
     const payload = {
       token: WEBHOOK_SECRET,
       thoi_gian_nop: timestamp,
-      ca_truc: isCaNgu ? "Trực ngủ" : "Trực ăn",
-      ho_ten_gv: isCaNgu ? (row[7] || "") : (row[2] || ""),
-      ma_phong: isCaNgu ? (row[8] || "") : (row[3] || ""),
-      si_so: isCaNgu ? (row[9] || "") : (row[5] || ""),
-      tinh_hinh: isCaNgu ? (row[10] || "Tốt") : (row[4] || "Tốt"),
-      hs_vi_pham: isCaNgu ? (row[11] || "") : "",
-      ghi_chu: isCaNgu ? (row[12] || "") : (row[6] || ""),
+      ca_truc: ca_truc,
+      ho_ten_gv: ho_ten_gv,
+      ma_phong: ma_phong,
+      si_so: si_so,
+      tinh_hinh: tinh_hinh,
+      hs_vi_pham: hs_vi_pham,
+      ghi_chu: ghi_chu,
+      vsat_thuc_pham: vsat_thuc_pham,
+      raw_data: row,
       nguon: "google_sheet"
     };
 
@@ -1185,7 +1482,7 @@ function onSheetSubmit(e) {
 }
 
 /**
- * ⚡ TỰ ĐỘNG TẠO GOOGLE FORM PHÂN NHÁNH 2 PHẦN (ĂN & NGỦ) CHỈ 1 CLICK:
+ * ⚡ TỰ ĐỘNG TẠO GOOGLE FORM PHÂN NHÁNH 3 PHẦN (ĂN, NGỦ & GIÁM SÁT) CHỈ 1 CLICK:
  * Chọn hàm 'tuDongTaoFormBaoCao' ở thanh trên cùng và bấm 'Chạy' (Run).
  */
 function tuDongTaoFormBaoCao() {
@@ -1223,17 +1520,24 @@ function tuDongTaoFormBaoCao() {
   form.addParagraphTextItem().setTitle("Ghi nhận HS vi phạm nề nếp (Nếu có)").setHelpText("Ghi rõ Họ tên HS, Lớp, thời gian vi phạm nếu có. Nếu không có để trống.");
   form.addParagraphTextItem().setTitle("Ghi chú/Góp ý");
 
+  // PHẦN 3: Giám sát bán trú
+  const pageGiamSat = form.addPageBreakItem().setTitle("PHẦN 3: BÁO CÁO GIÁM SÁT BÁN TRÚ");
+  form.addListItem().setTitle("Họ tên").setChoiceValues(teachers).setRequired(true);
+  form.addMultipleChoiceItem().setTitle("Tình hình nề nếp").setChoiceValues(["Toàn trường nề nếp tốt", "Bình thường", "Một số phòng còn ồn ào", "Khác"]).showOtherOption(true);
+  form.addParagraphTextItem().setTitle("Vệ sinh an toàn thực phẩm").setHelpText("Ghi nhận chất lượng bữa ăn, lưu mẫu thực phẩm, vệ sinh nhà bếp/khay ăn...").setRequired(true);
+
   // ĐIỀU HƯỚNG TRANG ĐẦU: Ca trực
   const itemCa = form.addMultipleChoiceItem();
   itemCa.setTitle("Ca trực")
         .setChoices([
            itemCa.createChoice("Trực ăn", pageAn),
-           itemCa.createChoice("Trực ngủ", pageNgu)
+           itemCa.createChoice("Trực ngủ", pageNgu),
+           itemCa.createChoice("Giám sát", pageGiamSat)
         ])
         .setRequired(true);
   form.moveItem(itemCa.getIndex(), 0);
 
-  Logger.log("✅ Đã tự động tạo xong Biểu mẫu Form 2 nhánh (Trực ăn & Trực ngủ) chuẩn xác 100%!");
+  Logger.log("✅ Đã tự động tạo xong Biểu mẫu Form 3 nhánh (Trực ăn, Trực ngủ & Giám sát) chuẩn xác 100%!");
 }`;
 
   const handleCopy = () => {
@@ -1309,8 +1613,6 @@ function tuDongTaoFormBaoCao() {
             <i className="fas fa-file-excel"></i>
             <span>Xuất Excel</span>
           </button>
-
-
 
           {(user?.is_admin || user?.is_superuser) && data.records?.length > 0 && (
             <button
@@ -1447,6 +1749,7 @@ function tuDongTaoFormBaoCao() {
             <option value="all">Tất cả ca trực</option>
             <option value="0">Ca Ăn trưa</option>
             <option value="1">Ca Nghỉ trưa</option>
+            <option value="2">Ca Giám sát</option>
           </select>
 
           <button
@@ -1460,9 +1763,14 @@ function tuDongTaoFormBaoCao() {
         </div>
       </div>
 
-      {/* 5 Hero Stat Cards */}
+      {/* 6 Hero Stat Cards (Bấm vào để chuyển ngay sang phần tương ứng) */}
       <div className="bctruc-stats-grid">
-        <div className="bctruc-stat-card theme-blue">
+        <div 
+          className={`bctruc-stat-card theme-blue ${activeSection === 'all' ? 'bctruc-card-active' : ''}`}
+          onClick={() => setActiveSection('all')}
+          style={{ cursor: 'pointer' }}
+          title="Bấm để xem tất cả các lượt báo cáo"
+        >
           <div className="bctruc-stat-top">
             <div className="bctruc-stat-icon">
               <i className="fas fa-file-signature"></i>
@@ -1477,22 +1785,27 @@ function tuDongTaoFormBaoCao() {
           </div>
           <div className="bctruc-stat-footer">
             <span className="bctruc-stat-badge blue">
-              <i className="fas fa-check-circle"></i> Đã đồng bộ
+              <i className="fas fa-check-circle"></i> Đã đồng bộ 100%
             </span>
           </div>
         </div>
 
-        <div className="bctruc-stat-card theme-amber">
+        <div 
+          className={`bctruc-stat-card theme-amber ${activeSection === 'ca_an' ? 'bctruc-card-active' : ''}`}
+          onClick={() => setActiveSection('ca_an')}
+          style={{ cursor: 'pointer' }}
+          title="Bấm để xem riêng Phần 1: Ca Trực ăn"
+        >
           <div className="bctruc-stat-top">
             <div className="bctruc-stat-icon">
               <i className="fas fa-utensils"></i>
             </div>
             <div className="bctruc-stat-meta">
-              <div className="bctruc-stat-label">Ca Ăn trưa</div>
+              <div className="bctruc-stat-label">Phần 1: Ca Ăn trưa</div>
               <div className="bctruc-stat-value">
                 {data.stats?.caAnCount || 0}
                 {viewMode === 'day' && data.stats?.totalPhongAn ? (
-                  <span className="bctruc-stat-value-unit">/ {data.stats.totalPhongAn}</span>
+                  <span className="bctruc-stat-value-unit">/ {data.stats.totalPhongAn} phòng</span>
                 ) : (
                   <span className="bctruc-stat-value-unit">lượt</span>
                 )}
@@ -1506,17 +1819,22 @@ function tuDongTaoFormBaoCao() {
           </div>
         </div>
 
-        <div className="bctruc-stat-card theme-purple">
+        <div 
+          className={`bctruc-stat-card theme-purple ${activeSection === 'ca_ngu' ? 'bctruc-card-active' : ''}`}
+          onClick={() => setActiveSection('ca_ngu')}
+          style={{ cursor: 'pointer' }}
+          title="Bấm để xem riêng Phần 2: Ca Trực ngủ"
+        >
           <div className="bctruc-stat-top">
             <div className="bctruc-stat-icon">
               <i className="fas fa-bed"></i>
             </div>
             <div className="bctruc-stat-meta">
-              <div className="bctruc-stat-label">Ca Nghỉ trưa</div>
+              <div className="bctruc-stat-label">Phần 2: Ca Nghỉ trưa</div>
               <div className="bctruc-stat-value">
                 {data.stats?.caNguCount || 0}
                 {viewMode === 'day' && data.stats?.totalPhongNgu ? (
-                  <span className="bctruc-stat-value-unit">/ {data.stats.totalPhongNgu}</span>
+                  <span className="bctruc-stat-value-unit">/ {data.stats.totalPhongNgu} phòng</span>
                 ) : (
                   <span className="bctruc-stat-value-unit">lượt</span>
                 )}
@@ -1530,21 +1848,47 @@ function tuDongTaoFormBaoCao() {
           </div>
         </div>
 
+        <div 
+          className={`bctruc-stat-card theme-teal ${activeSection === 'giam_sat' ? 'bctruc-card-active' : ''}`}
+          onClick={() => setActiveSection('giam_sat')}
+          style={{ cursor: 'pointer' }}
+          title="Bấm để xem riêng Phần 3: Giám sát bán trú"
+        >
+          <div className="bctruc-stat-top">
+            <div className="bctruc-stat-icon">
+              <i className="fas fa-user-shield"></i>
+            </div>
+            <div className="bctruc-stat-meta">
+              <div className="bctruc-stat-label">Phần 3: Giám sát bán trú</div>
+              <div className="bctruc-stat-value" style={{ color: '#0f766e' }}>
+                {data.stats?.giamSatCount || 0}
+                <span className="bctruc-stat-value-unit" style={{ color: '#0f766e' }}>lượt</span>
+              </div>
+            </div>
+          </div>
+          <div className="bctruc-stat-footer">
+            <span className="bctruc-stat-badge teal">
+              <i className="fas fa-shield-alt"></i> ATVSTP & Nề nếp
+            </span>
+          </div>
+        </div>
+
         <div
-          className="bctruc-stat-card theme-red"
-          onClick={() => setFilterType(filterType === 'vi_pham' ? 'all' : 'vi_pham')}
-          title="Bấm để lọc danh sách học sinh vi phạm gửi BGH"
+          className={`bctruc-stat-card theme-red ${activeSection === 'vi_pham' ? 'bctruc-card-active' : ''}`}
+          onClick={() => setActiveSection('vi_pham')}
+          style={{ cursor: 'pointer' }}
+          title="Bấm để xem chi tiết học sinh vi phạm gửi BGH & GVCN"
         >
           <div className="bctruc-stat-top">
             <div className="bctruc-stat-icon">
               <i className={`fas ${(data.stats?.coViPhamCount || 0) > 0 ? 'fa-bullhorn' : 'fa-check-circle'}`}></i>
             </div>
             <div className="bctruc-stat-meta">
-              <div className="bctruc-stat-label">HS Vi phạm / Bất thường</div>
+              <div className="bctruc-stat-label">Học sinh vi phạm</div>
               <div className="bctruc-stat-value" style={{ color: (data.stats?.coViPhamCount || 0) > 0 ? '#dc2626' : '#16a34a' }}>
-                {data.stats?.coViPhamCount || 0}
+                {allParsedViolations.length > 0 ? allParsedViolations.length : (data.stats?.coViPhamCount || 0)}
                 <span className="bctruc-stat-value-unit" style={{ color: (data.stats?.coViPhamCount || 0) > 0 ? '#dc2626' : '#16a34a' }}>
-                  phòng
+                  {allParsedViolations.length > 0 ? 'học sinh' : 'phòng'}
                 </span>
               </div>
             </div>
@@ -1552,130 +1896,244 @@ function tuDongTaoFormBaoCao() {
           <div className="bctruc-stat-footer">
             {(data.stats?.coViPhamCount || 0) > 0 ? (
               <span className="bctruc-stat-badge red">
-                <i className="fas fa-exclamation-triangle"></i> Cần xử lý • Xem ngay ➔
+                <i className="fas fa-exclamation-triangle"></i> Cần xử lý • Xem chi tiết ➔
               </span>
             ) : (
               <span className="bctruc-stat-badge green">
-                <i className="fas fa-check"></i> Không có vi phạm
+                <i className="fas fa-check"></i> 100% trật tự, tốt
               </span>
             )}
           </div>
         </div>
 
-        <div className="bctruc-stat-card theme-green">
+        <div 
+          className={`bctruc-stat-card theme-green ${activeSection === 'giao_vien' ? 'bctruc-card-active' : ''}`}
+          onClick={() => setActiveSection('giao_vien')}
+          style={{ cursor: 'pointer' }}
+          title="Bấm để xem Bảng công tổng hợp Giáo viên trực"
+        >
           <div className="bctruc-stat-top">
             <div className="bctruc-stat-icon">
-              <i className="fas fa-shield-alt"></i>
+              <i className="fas fa-chalkboard-teacher"></i>
             </div>
             <div className="bctruc-stat-meta">
-              <div className="bctruc-stat-label">Phòng nề nếp tốt</div>
+              <div className="bctruc-stat-label">Bảng công Giáo viên</div>
               <div className="bctruc-stat-value" style={{ color: '#16a34a' }}>
-                {Math.max(0, (data.records?.length || 0) - (data.stats?.coViPhamCount || 0))}
-                <span className="bctruc-stat-value-unit" style={{ color: '#16a34a' }}>phòng</span>
+                {data.stats?.gvSummary?.length || 0}
+                <span className="bctruc-stat-value-unit" style={{ color: '#16a34a' }}>thầy/cô</span>
               </div>
             </div>
           </div>
           <div className="bctruc-stat-footer">
             <span className="bctruc-stat-badge green">
-              <i className="fas fa-smile"></i> Chấp hành tốt
+              <i className="fas fa-user-check"></i> Xem bảng công ➔
             </span>
           </div>
         </div>
       </div>
 
-      {/* Cảnh báo phòng chưa gửi (chỉ khi xem theo ngày) */}
-      {viewMode === 'day' && (data.phongChuaBaoCaoAn?.length > 0 || data.phongChuaBaoCaoNgu?.length > 0) && (
-        <div className="bctruc-pending-banner">
-          <div className="bctruc-pending-icon">
-            <i className="fas fa-exclamation-triangle"></i>
-          </div>
-          <div className="bctruc-pending-content">
-            <div className="bctruc-pending-title">
-              Tiến độ nộp báo cáo ngày {formatDateVN(selectedDate)}: Chưa đủ 100% các phòng
-            </div>
-            <div className="bctruc-pending-rooms-wrap">
-              {data.phongChuaBaoCaoAn?.length > 0 && (
-                <div className="bctruc-pending-group">
-                  <span className="bctruc-pending-group-label">Ca Ăn ({data.phongChuaBaoCaoAn.length} phòng):</span>
-                  <div className="bctruc-pending-tags">
-                    {data.phongChuaBaoCaoAn.map(p => (
-                      <span key={p} className="bctruc-pending-tag">{p}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {data.phongChuaBaoCaoNgu?.length > 0 && (
-                <div className="bctruc-pending-group">
-                  <span className="bctruc-pending-group-label">Ca Ngủ ({data.phongChuaBaoCaoNgu.length} phòng):</span>
-                  <div className="bctruc-pending-tags">
-                    {data.phongChuaBaoCaoNgu.map(p => (
-                      <span key={p} className="bctruc-pending-tag">{p}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* TIẾN ĐỘ NỘP BÁO CÁO CÁC PHÒNG (HIỆN ĐẠI, GỌN GÀNG, TINH TẾ) */}
+      {viewMode === 'day' && (() => {
+        const totalRoomsAn = 9;
+        const totalRoomsNgu = 16;
+        const totalExpected = totalRoomsAn + totalRoomsNgu; // 25
+        const missingAn = data.phongChuaBaoCaoAn?.length || 0;
+        const missingNgu = data.phongChuaBaoCaoNgu?.length || 0;
+        const missingTotal = missingAn + missingNgu;
+        const doneAn = Math.max(0, totalRoomsAn - missingAn);
+        const doneNgu = Math.max(0, totalRoomsNgu - missingNgu);
+        const doneTotal = doneAn + doneNgu;
+        const percent = Math.min(100, Math.round((doneTotal / totalExpected) * 100));
 
-      {/* Danh sách báo cáo chi tiết */}
+        return (
+          <div className="bctruc-progress-card">
+            <div className="bctruc-progress-main">
+              <div className="bctruc-progress-left">
+                <span className={`bctruc-status-pill ${missingTotal === 0 ? 'success' : 'warning'}`}>
+                  <i className={`fas ${missingTotal === 0 ? 'fa-check-circle' : 'fa-clock'}`}></i>
+                  {missingTotal === 0 ? 'Đã thu đủ 100%' : `Tiến độ: ${doneTotal}/${totalExpected} phòng (${percent}%)`}
+                </span>
+                <div className="bctruc-progress-meta-text">
+                  <span>Ngày <strong>{formatDateVN(selectedDate)}</strong>:</span>
+                  <span>Ca Ăn: <strong>{doneAn}/{totalRoomsAn}</strong></span>
+                  <span className="bctruc-dot">•</span>
+                  <span>Ca Ngủ: <strong>{doneNgu}/{totalRoomsNgu}</strong></span>
+                </div>
+              </div>
+
+              <div className="bctruc-progress-right">
+                <div className="bctruc-progress-meter">
+                  <div className="bctruc-progress-meter-fill" style={{ width: `${percent}%` }}></div>
+                </div>
+                {missingTotal > 0 && (
+                  <button
+                    type="button"
+                    className={`bctruc-btn-toggle-pending ${showPendingRooms ? 'active' : ''}`}
+                    onClick={() => setShowPendingRooms(!showPendingRooms)}
+                  >
+                    <span>{showPendingRooms ? 'Thu gọn' : `Xem ${missingTotal} phòng thiếu`}</span>
+                    <i className={`fas fa-chevron-${showPendingRooms ? 'up' : 'down'}`}></i>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Khối trượt mở xem chi tiết các phòng chưa nộp */}
+            {showPendingRooms && missingTotal > 0 && (
+              <div className="bctruc-pending-expanded">
+                {missingAn > 0 && (
+                  <div className="bctruc-pending-row">
+                    <span className="bctruc-pending-label">
+                      <i className="fas fa-utensils"></i> Ca Ăn ({missingAn} phòng):
+                    </span>
+                    <div className="bctruc-pending-tags">
+                      {data.phongChuaBaoCaoAn.map(p => (
+                        <span key={p} className="bctruc-pending-tag-modern">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {missingNgu > 0 && (
+                  <div className="bctruc-pending-row">
+                    <span className="bctruc-pending-label">
+                      <i className="fas fa-bed"></i> Ca Ngủ ({missingNgu} phòng):
+                    </span>
+                    <div className="bctruc-pending-tags">
+                      {data.phongChuaBaoCaoNgu.map(p => (
+                        <span key={p} className="bctruc-pending-tag-modern">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* KHỐI BẢNG CHÍNH ĐƯỢC PHÂN CHIA RÕ RÀNG TỪNG PHẦN */}
       <div className="bctruc-card">
-        <div className="bctruc-table-header">
-          <h3 className="bctruc-table-title">
-            Chi tiết các lượt báo cáo ({filteredRecords.length} lượt)
-            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500, marginLeft: 8 }}>
-              (Từ {formatDateVN(data.tu_ngay)} đến {formatDateVN(data.den_ngay)})
-            </span>
-          </h3>
+        {/* THANH TAB PHÂN CHIA TỪNG PHẦN GỌN GÀNG & HIỆN ĐẠI */}
+        <div className="bctruc-section-nav">
+          <div className="bctruc-section-tabs">
+            <button
+              className={`bctruc-sec-tab ${activeSection === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveSection('all')}
+            >
+              <i className="fas fa-th-large"></i>
+              <span>Tất cả</span>
+              <span className="bctruc-sec-count">{data.records?.length || 0}</span>
+            </button>
 
-          {/* Filter tabs & Search */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="bctruc-view-switch" style={{ padding: 2 }}>
-              <button
-                className={`bctruc-view-btn ${filterType === 'all' ? 'active' : ''}`}
-                onClick={() => setFilterType('all')}
-                style={{ fontSize: '0.8rem', padding: '5px 12px' }}
-              >
-                Tất cả ({data.records?.length || 0})
-              </button>
-              <button
-                className={`bctruc-view-btn ${filterType === 'vi_pham' ? 'active' : ''}`}
-                onClick={() => setFilterType('vi_pham')}
-                style={{
-                  fontSize: '0.8rem',
-                  padding: '5px 12px',
-                  color: filterType === 'vi_pham' ? '#dc2626' : '#b91c1c',
-                  fontWeight: 700
-                }}
-                title="Lọc riêng các phòng có học sinh vi phạm để báo cáo Ban Giám Hiệu"
-              >
-                <i className="fas fa-bullhorn" style={{ marginRight: 4 }}></i>
-                Chỉ HS vi phạm ({data.stats?.coViPhamCount || 0})
-              </button>
-            </div>
+            <button
+              className={`bctruc-sec-tab tab-an ${activeSection === 'ca_an' ? 'active' : ''}`}
+              onClick={() => setActiveSection('ca_an')}
+            >
+              <i className="fas fa-utensils"></i>
+              <span>Ca Ăn</span>
+              <span className="bctruc-sec-count">{data.stats?.caAnCount || 0}</span>
+            </button>
 
-            <div className="bctruc-search-box">
-              <i className="fas fa-search bctruc-search-icon"></i>
-              <input
-                type="text"
-                className="bctruc-search-input"
-                placeholder="Tìm ngày, GV, phòng, HS..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+            <button
+              className={`bctruc-sec-tab tab-ngu ${activeSection === 'ca_ngu' ? 'active' : ''}`}
+              onClick={() => setActiveSection('ca_ngu')}
+            >
+              <i className="fas fa-bed"></i>
+              <span>Ca Ngủ</span>
+              <span className="bctruc-sec-count">{data.stats?.caNguCount || 0}</span>
+            </button>
+
+            <button
+              className={`bctruc-sec-tab tab-giamsat ${activeSection === 'giam_sat' ? 'active' : ''}`}
+              onClick={() => setActiveSection('giam_sat')}
+            >
+              <i className="fas fa-user-shield"></i>
+              <span>Giám sát</span>
+              <span className="bctruc-sec-count">{data.stats?.giamSatCount || 0}</span>
+            </button>
+
+            <button
+              className={`bctruc-sec-tab tab-vipham ${activeSection === 'vi_pham' ? 'active' : ''}`}
+              onClick={() => setActiveSection('vi_pham')}
+            >
+              <i className="fas fa-exclamation-circle"></i>
+              <span>HS Vi phạm</span>
+              <span className="bctruc-sec-count danger">{allParsedViolations.length}</span>
+            </button>
+
+            <button
+              className={`bctruc-sec-tab tab-gv ${activeSection === 'giao_vien' ? 'active' : ''}`}
+              onClick={() => setActiveSection('giao_vien')}
+            >
+              <i className="fas fa-user-check"></i>
+              <span>Bảng công GV</span>
+              <span className="bctruc-sec-count">{data.stats?.gvSummary?.length || 0}</span>
+            </button>
+          </div>
+
+          {/* Ô tìm kiếm nhanh */}
+          <div className="bctruc-search-box">
+            <i className="fas fa-search bctruc-search-icon"></i>
+            <input
+              type="text"
+              className="bctruc-search-input"
+              placeholder="Tìm tên GV, phòng, ngày, HS..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button 
+                type="button" 
+                onClick={() => setSearchTerm('')} 
+                style={{ position: 'absolute', right: 8, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem' }}
+                title="Xóa tìm kiếm"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Banner chế độ Báo cáo Lãnh đạo */}
-        {filterType === 'vi_pham' && (
+        {/* KHUNG TÓM TẮT TRỌNG TÂM CỦA TỪNG PHẦN */}
+        {activeSection === 'vi_pham' && (
           <div style={{
             background: '#fef2f2',
             border: '1.5px solid #fca5a5',
-            padding: '12px 16px',
-            margin: '0 20px 16px 20px',
-            borderRadius: 8,
+            padding: '14px 18px',
+            margin: '12px 18px',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            <div>
+              <div style={{ fontWeight: 800, color: '#991b1b', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <i className="fas fa-bullhorn"></i> PHẦN TRỌNG TÂM: DANH SÁCH HỌC SINH VI PHẠM NỀ NẾP (BGH &amp; GVCN)
+              </div>
+              <div style={{ fontSize: '0.86rem', color: '#7f1d1d', marginTop: 4 }}>
+                Ghi nhận <strong>{allParsedViolations.length} lượt vi phạm</strong> thuộc <strong>{Object.keys(violationsByClass).length} lớp</strong>. Dưới đây là danh sách phân theo từng lớp và từng học sinh để xử lý:
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="bctruc-btn bctruc-btn-danger" onClick={exportLeaderReportPdf} style={{ height: 35, fontSize: '0.84rem' }}>
+                <i className="fas fa-file-invoice"></i> In biên bản BGH (Khổ đứng)
+              </button>
+              <button className="bctruc-btn bctruc-btn-warning" onClick={exportGvcnReportPdf} style={{ height: 35, fontSize: '0.84rem' }}>
+                <i className="fas fa-chalkboard-teacher"></i> In báo cáo gửi GVCN (Cắt lớp)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'giam_sat' && (
+          <div style={{
+            background: '#f0fdfa',
+            border: '1.5px solid #99f6e4',
+            padding: '12px 18px',
+            margin: '12px 18px',
+            borderRadius: 10,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1683,201 +2141,486 @@ function tuDongTaoFormBaoCao() {
             gap: 10
           }}>
             <div>
-              <div style={{ fontWeight: 800, color: '#991b1b', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="fas fa-bullhorn"></i> CHẾ ĐỘ BÁO CÁO LÃNH ĐẠO: CÁC TRƯỜNG HỢP HỌC SINH VI PHẠM
+              <div style={{ fontWeight: 800, color: '#0f766e', fontSize: '0.94rem', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <i className="fas fa-shield-alt"></i> PHẦN 3: GIÁM SÁT BÁN TRÚ &amp; VỆ SINH AN TOÀN THỰC PHẨM
               </div>
-              <div style={{ fontSize: '0.84rem', color: '#7f1d1d', marginTop: 3 }}>
-                Đang ghi nhận <strong>{allParsedViolations.length} lượt vi phạm</strong> (thuộc {Object.keys(violationsByClass).length} lớp) cần Ban Giám Hiệu và GVCN phối hợp xử lý.
+              <div style={{ fontSize: '0.85rem', color: '#115e59', marginTop: 3 }}>
+                Ghi nhận công tác kiểm tra toàn trường, giám sát khay ăn, lưu mẫu thức ăn tại nhà bếp bán trú ({data.stats?.giamSatCount || 0} lượt báo cáo).
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="bctruc-btn bctruc-btn-danger" onClick={exportLeaderReportPdf} style={{ height: 34, fontSize: '0.82rem' }}>
-                <i className="fas fa-file-pdf"></i> In biên bản BGH (Khổ đứng)
-              </button>
-              <button className="bctruc-btn bctruc-btn-warning" onClick={exportGvcnReportPdf} style={{ height: 34, fontSize: '0.82rem' }}>
-                <i className="fas fa-chalkboard-teacher"></i> In danh sách gửi GVCN
-              </button>
-            </div>
+            <button className="bctruc-btn bctruc-btn-outline" onClick={exportLeaderReportPdf} style={{ height: 34, fontSize: '0.82rem' }}>
+              <i className="fas fa-print"></i> In báo cáo Giám sát gửi BGH
+            </button>
           </div>
         )}
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
-            <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#009CFF' }}></i>
-            <p style={{ marginTop: 12 }}>Đang tải báo cáo ca trực...</p>
+        {/* NỘI DUNG 1: PHẦN BẢNG CÔNG GIÁO VIÊN */}
+        {activeSection === 'giao_vien' ? (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <h4 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1rem' }}>
+                  <i className="fas fa-user-check" style={{ color: '#16a34a', marginRight: 8 }}></i>
+                  Bảng tổng hợp số ca trực của Giáo viên
+                </h4>
+                <div style={{ fontSize: '0.84rem', color: '#64748b', marginTop: 2 }}>
+                  Tổng cộng có <strong>{data.stats?.gvSummary?.length || 0} giáo viên</strong> đã thực hiện nhiệm vụ trực bán trú trong khoảng thời gian này
+                </div>
+              </div>
+              <button className="bctruc-btn bctruc-btn-excel" onClick={exportExcelDaily} style={{ height: 34, fontSize: '0.82rem' }}>
+                <i className="fas fa-file-excel"></i> Xuất Excel Bảng công
+              </button>
+            </div>
+
+            {(!data.stats?.gvSummary || data.stats.gvSummary.length === 0) ? (
+              <div className="bctruc-empty">
+                <i className="fas fa-user-clock"></i>
+                <h4>Chưa có dữ liệu ca trực giáo viên trong thời gian này</h4>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <table className="table table-hover" style={{ margin: 0 }}>
+                  <thead style={{ background: '#f8fafc' }}>
+                    <tr>
+                      <th style={{ width: 50, textAlign: 'center' }}>STT</th>
+                      <th style={{ minWidth: 200 }}>Họ và tên giáo viên</th>
+                      <th style={{ width: 130, textAlign: 'center', color: '#d97706' }}>
+                        <i className="fas fa-utensils" style={{ marginRight: 4 }}></i>Ca Ăn trưa
+                      </th>
+                      <th style={{ width: 130, textAlign: 'center', color: '#7c3aed' }}>
+                        <i className="fas fa-bed" style={{ marginRight: 4 }}></i>Ca Nghỉ trưa
+                      </th>
+                      <th style={{ width: 130, textAlign: 'center', color: '#0f766e' }}>
+                        <i className="fas fa-user-shield" style={{ marginRight: 4 }}></i>Giám sát
+                      </th>
+                      <th style={{ width: 120, textAlign: 'center', color: '#0284c7', fontWeight: 800 }}>
+                        <i className="fas fa-calculator" style={{ marginRight: 4 }}></i>Tổng ca
+                      </th>
+                      <th style={{ width: 180 }}>Đánh giá</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.stats.gvSummary.map((gv, idx) => (
+                      <tr key={gv.ho_ten || idx}>
+                        <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
+                        <td style={{ fontWeight: 700, color: '#1e293b' }}>
+                          <i className="fas fa-chalkboard-teacher" style={{ color: '#3b82f6', marginRight: 8 }}></i>
+                          {gv.ho_ten}
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#b45309' }}>
+                          {gv.so_ca_an || 0} ca
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#6d28d9' }}>
+                          {gv.so_ca_ngu || 0} ca
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#0f766e' }}>
+                          {gv.so_ca_giam_sat || 0} ca
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            fontWeight: 800,
+                            padding: '3px 10px',
+                            borderRadius: 6,
+                            border: '1px solid #bfdbfe',
+                            fontSize: '0.9rem'
+                          }}>
+                            {gv.tong_ca || 0} ca
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{
+                            color: '#16a34a',
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <i className="fas fa-check-circle"></i> Đã hoàn thành nhiệm vụ
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        ) : filteredRecords.length === 0 ? (
-          <div className="bctruc-empty">
-            <i className="fas fa-clipboard-list"></i>
-            <h4>{filterType === 'vi_pham' ? 'Không có học sinh nào vi phạm!' : 'Không có báo cáo nào trong khoảng thời gian này'}</h4>
-            <p style={{ fontSize: '0.88rem', color: '#64748b' }}>
-              {filterType === 'vi_pham'
-                ? 'Toàn bộ các phòng đều có nề nếp tốt, học sinh trật tự và không có sự cố nào cần báo cáo Lãnh đạo.'
-                : 'Khi giáo viên gửi biểu mẫu Google Form, thông tin sẽ hiển thị tự động tại đây theo thời gian thực.'}
-            </p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table table-hover" style={{ margin: 0 }}>
-              <thead style={{ background: '#f8fafc' }}>
-                <tr>
-                  <th style={{ width: 50, textAlign: 'center' }}>STT</th>
-                  {viewMode !== 'day' && <th style={{ width: 95 }}>Ngày</th>}
-                  <th style={{ width: 70 }}>Giờ gửi</th>
-                  <th style={{ width: 95 }}>Ca trực</th>
-                  <th style={{ width: 75 }}>Phòng</th>
-                  <th style={{ width: 70, textAlign: 'center' }}>Sỉ số</th>
-                  <th style={{ minWidth: 150 }}>Giáo viên trực</th>
-                  <th style={{ minWidth: 260 }}>
-                    <span style={{ color: '#dc2626', fontWeight: 700 }}>
-                      <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }}></i>
-                      Học sinh bất thường / Quậy phá / Sự cố
-                    </span>
-                  </th>
-                  <th style={{ minWidth: 130 }}>Tình hình trật tự</th>
-                  <th style={{ minWidth: 130 }}>Ghi chú / CSVC</th>
-                  {(user?.is_admin || user?.is_superuser) && <th style={{ width: 50, textAlign: 'center' }}>Xóa</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((r, idx) => (
-                  <tr key={r.id}>
-                    <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
-                    {viewMode !== 'day' && (
-                      <td style={{ fontWeight: 600, color: '#1e3a8a' }}>
-                        {formatDateVN(r.ngay)}
-                      </td>
-                    )}
-                    <td style={{ fontWeight: 600, color: '#475569' }}>
-                      {formatTime(r.created_at)}
-                    </td>
-                    <td>
-                      {r.ca_truc === 0 ? (
-                        <span className="bctruc-badge-an">
-                          <i className="fas fa-utensils"></i> Ăn trưa
-                        </span>
-                      ) : (
-                        <span className="bctruc-badge-ngu">
-                          <i className="fas fa-bed"></i> Nghỉ trưa
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="bctruc-phong-pill">{r.ma_phong}</span>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {r.si_so ? (
-                        <span style={{
-                          background: '#f1f5f9',
-                          color: '#0f172a',
-                          fontWeight: 700,
-                          fontSize: '0.84rem',
-                          padding: '2px 8px',
-                          borderRadius: 4,
-                          border: '1px solid #cbd5e1',
-                          display: 'inline-block'
-                        }}>
-                          {r.si_so}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ fontWeight: 600, color: '#1e293b' }}>
-                      {r.ho_ten_gv}
-                    </td>
-                    <td>
-                      {r.hs_vi_pham ? (
-                        <div style={{ background: '#fff1f2', border: '1.5px solid #fca5a5', padding: '8px 10px', borderRadius: 6 }}>
-                          <div style={{ color: '#b91c1c', fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 6 }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <i className="fas fa-exclamation-triangle"></i> Vi phạm / Bất thường ({parseStudentViolations(r.hs_vi_pham, r).length} HS):
-                            </span>
-                            {r.created_at && (
-                              <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '1px 7px', borderRadius: 4, fontSize: '0.74rem', fontWeight: 700 }}>
-                                <i className="far fa-clock" style={{ marginRight: 3 }}></i>Nộp lúc {formatTime(r.created_at)}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {parseStudentViolations(r.hs_vi_pham, r).map((item, i) => (
-                              <div key={i} style={{ fontSize: '0.84rem', color: '#991b1b', fontWeight: 600, background: '#fff', padding: '5px 8px', borderRadius: 4, border: '1px solid #fecaca' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
-                                  {item.lop !== 'Chưa rõ lớp' && (
-                                    <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 3, fontSize: '0.74rem', fontWeight: 800 }}>
-                                      Lớp {item.lop}
-                                    </span>
-                                  )}
-                                  {item.thoi_gian_vi_pham && (
-                                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: 3, fontSize: '0.74rem', fontWeight: 700 }}>
-                                      <i className="far fa-clock" style={{ marginRight: 2 }}></i>{item.thoi_gian_vi_pham}
-                                    </span>
-                                  )}
-                                </div>
-                                <div>{item.raw}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <span style={{ color: '#16a34a', fontSize: '0.82rem', fontWeight: 500 }}>
-                          <i className="fas fa-check-circle"></i> Bình thường, trật tự
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{ color: '#334155', fontSize: '0.86rem' }}>
-                        {r.tinh_hinh || 'Bình thường'}
-                      </span>
-                    </td>
-                    <td>
-                      {r.ghi_chu ? (
-                        <span style={{ color: '#d97706', fontWeight: 600, fontSize: '0.85rem' }}>
-                          <i className="fas fa-wrench" style={{ marginRight: 4 }}></i>
-                          {r.ghi_chu}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>—</span>
-                      )}
-                    </td>
-                    {(user?.is_admin || user?.is_superuser) && (
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          className="btn btn-ghost btn-sm text-danger"
-                          title="Xóa bản ghi báo cáo này"
-                          onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
-                        >
-                          <i className="fas fa-trash-alt"></i>
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        ) : activeSection === 'vi_pham' && allParsedViolations.length > 0 ? (
+          /* NỘI DUNG 2: PHẦN HỌC SINH VI PHẠM (HIỂN THỊ CẢ CARD THEO LỚP & BẢNG CHI TIẾT) */
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ marginBottom: 14, fontWeight: 700, color: '#1e293b', fontSize: '0.94rem' }}>
+              Danh sách học sinh vi phạm phân theo từng Lớp (Gửi Giáo viên Chủ nhiệm phối hợp phụ huynh):
+            </div>
+
+            {/* Grid các lớp có học sinh vi phạm */}
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 16px',
-              background: '#f8fafc',
-              borderTop: '1px solid #e2e8f0',
-              fontSize: '0.86rem',
-              color: '#475569',
-              flexWrap: 'wrap',
-              gap: 10
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: 14,
+              marginBottom: 20
             }}>
-              <div>
-                <i className="fas fa-user-edit" style={{ marginRight: 6, color: '#0284c7' }}></i>
-                <span>{(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'Kế toán:' : 'Người lập bảng:'} </span>
-                <strong style={{ color: '#0f172a' }}>{user?.fullname?.trim() || user?.username || '—'}</strong>
-              </div>
-              <div>
-                <span>Ký duyệt: </span>
-                <strong style={{ color: '#0f172a' }}>GIÁM ĐỐC - {data.nguoi_phu_trach || 'Vũ Quốc Phong'}</strong>
-              </div>
+              {Object.entries(violationsByClass).map(([lopName, students]) => (
+                <div key={lopName} style={{
+                  background: '#fff',
+                  border: '1.5px solid #fecaca',
+                  borderRadius: 10,
+                  padding: '14px',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.06)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        background: '#dc2626',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '0.82rem',
+                        padding: '2px 8px',
+                        borderRadius: 4
+                      }}>
+                        Lớp {lopName}
+                      </span>
+                      <span style={{ fontSize: '0.82rem', color: '#7f1d1d', fontWeight: 600 }}>
+                        ({students.length} học sinh)
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="bctruc-btn bctruc-btn-warning"
+                        onClick={() => exportGvcnReportPdf(lopName)}
+                        style={{ height: 28, fontSize: '0.74rem', padding: '0 8px' }}
+                        title="In biên bản A4 gửi GVCN lớp này"
+                      >
+                        <i className="fas fa-print"></i> In biên bản
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {students.map((st, i) => (
+                      <div key={i} style={{
+                        background: '#fef2f2',
+                        padding: '7px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #fee2e2',
+                        fontSize: '0.84rem'
+                      }}>
+                        <div style={{ fontWeight: 700, color: '#991b1b', marginBottom: 2 }}>
+                          {i + 1}. {st.raw}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: '#64748b', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <span><i className="far fa-calendar-alt"></i> {st.ngay_str}</span>
+                          <span><i className="fas fa-door-open"></i> Phòng {st.ma_phong} ({st.ca_str})</span>
+                          {st.thoi_gian_vi_pham && (
+                            <span style={{ color: '#b91c1c', fontWeight: 700 }}>
+                              <i className="far fa-clock"></i> Lúc {st.thoi_gian_vi_pham}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bảng chi tiết toàn bộ vi phạm */}
+            <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem', marginBottom: 10 }}>
+              Bảng danh sách chi tiết các trường hợp vi phạm:
+            </div>
+            <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <table className="table table-hover" style={{ margin: 0 }}>
+                <thead style={{ background: '#f8fafc' }}>
+                  <tr>
+                    <th style={{ width: 45, textAlign: 'center' }}>STT</th>
+                    <th style={{ width: 75, textAlign: 'center' }}>Lớp</th>
+                    <th style={{ width: 90, textAlign: 'center' }}>Thời gian</th>
+                    <th style={{ width: 85, textAlign: 'center' }}>Phòng &amp; Ca</th>
+                    <th style={{ minWidth: 260 }}>Họ tên học sinh &amp; Chi tiết vi phạm cụ thể</th>
+                    <th style={{ width: 140 }}>Giáo viên trực</th>
+                    <th style={{ width: 160 }}>Đề xuất phối hợp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allParsedViolations.map((v, idx) => (
+                    <tr key={v.id || idx}>
+                      <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{
+                          background: '#dbeafe',
+                          color: '#1e40af',
+                          fontWeight: 800,
+                          padding: '2px 7px',
+                          borderRadius: 4,
+                          fontSize: '0.8rem'
+                        }}>
+                          {v.lop}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center', fontSize: '0.82rem' }}>
+                        <div style={{ fontWeight: 600 }}>{v.ngay_str}</div>
+                        {v.thoi_gian_vi_pham ? (
+                          <div style={{ color: '#b91c1c', fontWeight: 700 }}>{v.thoi_gian_vi_pham}</div>
+                        ) : (
+                          <div style={{ color: '#94a3b8' }}>{formatTime(v.created_at)}</div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center', fontSize: '0.84rem' }}>
+                        <div style={{ fontWeight: 700, color: '#1e3a8a' }}>Phòng {v.ma_phong}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.78rem' }}>{v.ca_str}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 700, color: '#b91c1c', fontSize: '0.88rem' }}>
+                          {v.raw}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                        {v.ho_ten_gv}
+                      </td>
+                      <td style={{ fontSize: '0.84rem', color: '#475569' }}>
+                        {[v.tinh_hinh, v.ghi_chu].filter(Boolean).join(' - ') || 'Nhắc nhở, liên hệ phụ huynh'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
+        ) : (
+          /* NỘI DUNG 3: DANH SÁCH CHI TIẾT TẤT CẢ LƯỢT BÁO CÁO (ĂN, NGỦ, GIÁM SÁT) */
+          loading ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+              <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#009CFF' }}></i>
+              <p style={{ marginTop: 12 }}>Đang tải báo cáo ca trực...</p>
+            </div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="bctruc-empty">
+              <i className="fas fa-clipboard-list"></i>
+              <h4>Không có báo cáo nào trong khoảng thời gian này</h4>
+              <p style={{ fontSize: '0.88rem', color: '#64748b' }}>
+                Khi giáo viên gửi biểu mẫu Google Form, thông tin sẽ hiển thị tự động tại đây theo thời gian thực.
+              </p>
+            </div>
+          ) : (() => {
+            const isGiamSat = (r) => r.ca_truc === 2 || String(r.ca_truc).toLowerCase().includes('giám sát') || String(r.ca_truc).toLowerCase().includes('giamsat') || Boolean(r.vsat_thuc_pham) || (r.ghi_chu && r.ghi_chu.includes('VSATTP:'));
+            const isCaNgu = (r) => !isGiamSat(r) && (r.ca_truc === 1 || String(r.ca_truc).toLowerCase().includes('ngủ') || String(r.ca_truc).toLowerCase().includes('nghi') || String(r.ca_truc).toLowerCase().includes('nghỉ'));
+            const isCaAn = (r) => !isGiamSat(r) && !isCaNgu(r);
+
+            const anList = filteredRecords.filter(isCaAn);
+            const nguList = filteredRecords.filter(isCaNgu);
+            const giamSatList = filteredRecords.filter(isGiamSat);
+
+            const renderSubTable = (records, type) => {
+              if (!records || records.length === 0) {
+                return (
+                  <div style={{ padding: '16px 20px', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.86rem', background: '#fafbfc', border: '1px solid #e2e8f0', borderTop: 'none', borderBottomLeftRadius: 8, borderBottomRightRadius: 8 }}>
+                    Chưa có báo cáo nào cho ca này trong khoảng thời gian được chọn.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="bctruc-table-wrap" style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderBottomLeftRadius: 8, borderBottomRightRadius: 8 }}>
+                  <table className="bctruc-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 44, textAlign: 'center' }}>STT</th>
+                        <th style={{ width: 85, textAlign: 'center' }}>{viewMode === 'day' ? 'Giờ gửi' : 'Thời gian'}</th>
+                        <th style={{ width: 95, textAlign: 'center' }}>
+                          {type === 'an' ? 'Phòng ăn' : type === 'ngu' ? 'Phòng ngủ' : 'Khu vực'}
+                        </th>
+                        {type !== 'giamsat' && <th style={{ width: 60, textAlign: 'center' }}>Sỉ số</th>}
+                        <th style={{ minWidth: 140 }}>
+                          {type === 'giamsat' ? 'Cán bộ giám sát' : 'Giáo viên trực'}
+                        </th>
+                        {type === 'giamsat' ? (
+                          <th style={{ minWidth: 220 }}>Ghi nhận Vệ sinh ATTP &amp; Bếp ăn</th>
+                        ) : (
+                          <th style={{ minWidth: 200 }}>Học sinh vi phạm</th>
+                        )}
+                        <th style={{ width: 110 }}>Tình hình</th>
+                        <th style={{ minWidth: 140 }}>Ghi chú / Kiến nghị</th>
+                        {(user?.is_admin || user?.is_superuser) && <th style={{ width: 44, textAlign: 'center' }}>Xóa</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {records.map((r, idx) => (
+                        <tr key={r.id}>
+                          <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
+                          
+                          {/* Thời gian */}
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ fontWeight: 700, color: '#334155', fontSize: '0.86rem' }}>
+                              {formatTime(r.created_at)}
+                            </div>
+                            {viewMode !== 'day' && (
+                              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 2 }}>
+                                {formatDateVN(r.ngay)}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Phòng */}
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="bctruc-phong-pill" style={{ fontWeight: 800, color: '#1e3a8a' }}>
+                              {r.ma_phong || (type === 'giamsat' ? 'Toàn trường' : '—')}
+                            </span>
+                          </td>
+
+                          {/* Sỉ số */}
+                          {type !== 'giamsat' && (
+                            <td style={{ textAlign: 'center' }}>
+                              {r.si_so ? (
+                                <span className="bctruc-siso-pill">{r.si_so}</span>
+                              ) : (
+                                <span style={{ color: '#cbd5e1' }}>—</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* Giáo viên / Cán bộ giám sát */}
+                          <td>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
+                              {r.ho_ten_gv}
+                            </div>
+                          </td>
+
+                          {/* Nội dung kiểm tra hoặc vi phạm */}
+                          {type === 'giamsat' ? (
+                            <td>
+                              <span className="bctruc-attp-pill">
+                                <i className="fas fa-shield-alt"></i> {r.vsat_thuc_pham || 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ'}
+                              </span>
+                            </td>
+                          ) : (
+                            <td>
+                              {r.hs_vi_pham ? (
+                                <div className="bctruc-vp-cell-box">
+                                  <div className="bctruc-vp-cell-header">
+                                    <span><i className="fas fa-exclamation-circle"></i> {parseStudentViolations(r.hs_vi_pham, r).length} HS vi phạm</span>
+                                    {r.created_at && <span>Lúc {formatTime(r.created_at)}</span>}
+                                  </div>
+                                  <div className="bctruc-vp-cell-list">
+                                    {parseStudentViolations(r.hs_vi_pham, r).map((item, i) => (
+                                      <div key={i} className="bctruc-vp-cell-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                                          {item.lop !== 'Chưa rõ lớp' && (
+                                            <span className="bctruc-vp-lop-badge">Lớp {item.lop}</span>
+                                          )}
+                                          {item.thoi_gian_vi_pham && (
+                                            <span className="bctruc-vp-time-badge">{item.thoi_gian_vi_pham}</span>
+                                          )}
+                                        </div>
+                                        <div style={{ color: '#991b1b', fontWeight: 600 }}>{item.raw}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="bctruc-status-normal">
+                                  <i className="fas fa-check"></i> Bình thường
+                                </span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* Tình hình chung */}
+                          <td>
+                            <span style={{ color: '#334155', fontSize: '0.85rem', fontWeight: 500 }}>
+                              {r.tinh_hinh || 'Bình thường'}
+                            </span>
+                          </td>
+
+                          {/* Ghi chú */}
+                          <td>
+                            {(() => {
+                              const clean = (r.ghi_chu || '').replace(/^VSATTP:\s*[^|]*(\|\s*)?/i, '').trim();
+                              return clean ? (
+                                <div className="bctruc-ghichu-text">
+                                  <i className="far fa-comment-dots" style={{ marginRight: 4 }}></i>
+                                  {clean}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#cbd5e1' }}>—</span>
+                              );
+                            })()}
+                          </td>
+
+                          {/* Nút xóa */}
+                          {(user?.is_admin || user?.is_superuser) && (
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="bctruc-btn-del"
+                                title="Xóa bản ghi báo cáo này"
+                                onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
+                              >
+                                <i className="fas fa-trash-alt"></i>
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            };
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: '16px 18px' }}>
+                {/* PHẦN 1: CA TRỰC ĂN */}
+                {(activeSection === 'all' || activeSection === 'ca_an') && (
+                  <div className="bctruc-section-block">
+                    <div className="bctruc-section-block-header theme-an">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <i className="fas fa-utensils"></i>
+                        <span style={{ fontWeight: 800, fontSize: '0.94rem' }}>PHẦN 1: CA TRỰC ĂN</span>
+                        <span className="bctruc-sec-badge badge-an">{anList.length} phòng</span>
+                      </div>
+                    </div>
+                    {renderSubTable(anList, 'an')}
+                  </div>
+                )}
+
+                {/* PHẦN 2: CA TRỰC NGỦ */}
+                {(activeSection === 'all' || activeSection === 'ca_ngu') && (
+                  <div className="bctruc-section-block">
+                    <div className="bctruc-section-block-header theme-ngu">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <i className="fas fa-bed"></i>
+                        <span style={{ fontWeight: 800, fontSize: '0.94rem' }}>PHẦN 2: CA TRỰC NGỦ (NGHỈ TRƯA)</span>
+                        <span className="bctruc-sec-badge badge-ngu">{nguList.length} phòng</span>
+                      </div>
+                    </div>
+                    {renderSubTable(nguList, 'ngu')}
+                  </div>
+                )}
+
+                {/* PHẦN 3: GIÁM SÁT BÁN TRÚ */}
+                {(activeSection === 'all' || activeSection === 'giam_sat') && (
+                  <div className="bctruc-section-block">
+                    <div className="bctruc-section-block-header theme-giamsat">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <i className="fas fa-user-shield"></i>
+                        <span style={{ fontWeight: 800, fontSize: '0.94rem' }}>PHẦN 3: GIÁM SÁT BÁN TRÚ &amp; VỆ SINH ATTP</span>
+                        <span className="bctruc-sec-badge badge-giamsat">{giamSatList.length} lượt</span>
+                      </div>
+                    </div>
+                    {renderSubTable(giamSatList, 'giamsat')}
+                  </div>
+                )}
+
+                {/* Footer bảng web sạch sẽ, hiện đại */}
+                <div className="bctruc-table-footer-clean" style={{ borderRadius: 8 }}>
+                  <span>Tổng cộng hiển thị: <strong>{filteredRecords.length}</strong> lượt báo cáo</span>
+                  <span style={{ color: '#94a3b8' }}>Dữ liệu tự động phân loại rõ ràng theo 3 ca: Trực ăn, Trực ngủ và Giám sát</span>
+                </div>
+              </div>
+            );
+          })()
         )}
       </div>
 

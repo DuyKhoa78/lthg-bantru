@@ -73,7 +73,6 @@ export default function BaoCao() {
     // Lấy dữ liệu Báo cáo HS
     useEffect(() => {
         const [y, m] = monthHS.split('-');
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoadingHS(true);
         const ctrl = new AbortController();
         api.get(`/api/baocao/diemdanh/?thang=${m}&nam=${y}&lop=${lopFilter}`, { signal: ctrl.signal })
@@ -103,7 +102,6 @@ export default function BaoCao() {
     // Lấy dữ liệu Báo cáo GV
     useEffect(() => {
         if (!tuNgayGV || !denNgayGV || tuNgayGV > denNgayGV) return;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoadingGV(true);
         const ctrl = new AbortController();
         api.get(`/api/baocao/luong-gv/?tu_ngay=${tuNgayGV}&den_ngay=${denNgayGV}`, { signal: ctrl.signal })
@@ -185,7 +183,6 @@ export default function BaoCao() {
     }, [exportAnMonth, exportAnYear]);
     // Reset chọn tuần khi tháng/năm thay đổi
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportAnWeeksActive(weekLabelsAn.map((_, i) => i));
     }, [weekLabelsAn]);
 
@@ -199,7 +196,6 @@ export default function BaoCao() {
     }, [exportNguMonth, exportNguYear]);
     // Reset chọn tuần khi tháng/năm thay đổi
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setExportNguWeeksActive(weekLabelsNgu.map((_, i) => i));
     }, [weekLabelsNgu]);
 

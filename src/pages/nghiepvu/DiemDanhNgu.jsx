@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import { cachedFetch } from '../../utils/cache';
@@ -52,7 +52,8 @@ export default function DiemDanhNgu() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
     const { showAlert, AlertUI } = useAlert();
-    const [date, setDate] = useState(todayVN);
+    const [searchParams] = useSearchParams();
+    const [date, setDate] = useState(() => searchParams.get('ngay') || searchParams.get('date') || todayVN());
 
     // Live clock cho ca trực
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -111,6 +112,7 @@ export default function DiemDanhNgu() {
     const [lastLocalSaveTime, setLastLocalSaveTime] = useState(null);
     const [lastSyncedTime, setLastSyncedTime] = useState(null);
     const [assignedRoomCodes, setAssignedRoomCodes] = useState(null);
+    const [myAssignments, setMyAssignments] = useState(null);
     const [phongStatuses, setPhongStatuses] = useState([]);
 
     const [showActions, setShowActions] = useState(false);
@@ -185,6 +187,7 @@ export default function DiemDanhNgu() {
                 setExtraHsList(cfg?.hs_them_vao?.length > 0 ? cfg.hs_them_vao : []);
                 if (res.data.phong_statuses) setPhongStatuses(res.data.phong_statuses);
                 if (res.data.assigned_rooms !== undefined) setAssignedRoomCodes(res.data.assigned_rooms);
+                if (res.data.my_assignments !== undefined) setMyAssignments(res.data.my_assignments);
             }
         } catch (err) {
             if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') console.error(err);
@@ -343,6 +346,15 @@ export default function DiemDanhNgu() {
 
     const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
+    // Nhiệm vụ của GV trong phòng này
+    const currentDuty = useMemo(() => {
+        if (!isGiaoVien || !myAssignments || !selectedPhong) return 0;
+        const pc = myAssignments.find(a => a.ma_phong_id === selectedPhong.ma_phong);
+        return pc ? pc.nhiem_vu : 0; // 0=Điểm danh, 1=Giám sát
+    }, [isGiaoVien, myAssignments, selectedPhong]);
+
+    const isGiamSatOnly = isGiaoVien && currentDuty !== 0;
+
     // Xác nhận học sinh từ camera quét mã QR (Zero data loss)
     const handleConfirmStudent = (student) => {
         setOverrides(prev => {
@@ -352,9 +364,17 @@ export default function DiemDanhNgu() {
             if (selectedPhong) {
                 const localKey = `bantru_draft_${date}_ngu_${selectedPhong.ma_phong}`;
                 const draftList = students.map(s => {
-                    const st = (s.id === student.id) ? 'comat' : (next[s.id] ?? (diemDanhDb[s.id] !== undefined ? STATUS_MAP[diemDanhDb[s.id]] : 'comat'));
+                    const st = (s.id === student.id)
+                        ? 'comat'
+                        : (next[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh'));
                     if (st === 'comat') {
                         return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'qr' };
+                    }
+                    if (st === 'vang') {
+                        return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'manual' };
+                    }
+                    if (st === 'phep') {
+                        return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'manual' };
                     }
                     return null;
                 }).filter(Boolean);
@@ -1285,14 +1305,16 @@ ${htmlPages}
                                 </>
                             )}
 
-                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN ── */}
-                            {selectedPhong && isGiaoVien && (
+                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN & QUẢN TRỊ ── */}
+                            {selectedPhong && (isGiaoVien || user?.is_admin || user?.is_superuser) && (
                                 <div className="dd-teacher-actions-bar">
                                     <button
                                         type="button"
                                         className="dd-qr-scan-btn"
-                                        style={{ background: 'linear-gradient(135deg,#6c5ce7,#a29bfe)', boxShadow: '0 4px 14px rgba(108,92,231,0.35)' }}
+                                        style={{ background: isGiamSatOnly ? '#94a3b8' : 'linear-gradient(135deg, #6c5ce7, #a29bfe)', boxShadow: isGiamSatOnly ? 'none' : '0 4px 14px rgba(108,92,231,0.35)', color: '#fff', fontWeight: 700, borderRadius: 8, padding: '7px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: isGiamSatOnly ? 'not-allowed' : 'pointer' }}
                                         onClick={() => setShowQRModal(true)}
+                                        disabled={isGiamSatOnly}
+                                        title={isGiamSatOnly ? 'Nhiệm vụ giám sát: không thực hiện điểm danh' : 'Mở máy quét mã QR học sinh'}
                                     >
                                         <i className="fas fa-qrcode"></i>
                                         {isDaChot ? 'Quét bổ sung HS đến muộn' : 'Quét mã QR thẻ học sinh'}
@@ -1316,10 +1338,10 @@ ${htmlPages}
                                         style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#a78bfa', color: '#5b21b6', background: '#f5f3ff' }}
                                         onClick={handleSave}
                                         disabled={saving}
-                                        title="Lưu tạm thời dữ liệu điểm danh"
+                                        title="Lưu dữ liệu điểm danh"
                                     >
                                         {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                        {saved ? ' Đã lưu tạm!' : saving ? ' Đang lưu...' : ' Lưu tạm dữ liệu'}
+                                        {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
                                     </button>
 
                                     {isDaChot && (
@@ -1423,7 +1445,7 @@ ${htmlPages}
                                     <div className="dd-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
                                         <div className="dd-footer-note" style={{ flex: '1 1 300px' }}>
                                             {isGiaoVien ? (
-                                                <span><i className="fas fa-shield-alt"></i> Dữ liệu điểm danh của Thầy/Cô được lưu tạm thời. Ban quản lý (Admin) sẽ kiểm tra và chốt danh sách chính thức.</span>
+                                                <span><i className="fas fa-shield-alt"></i> Dữ liệu điểm danh của Thầy/Cô được lưu bảo toàn và tự động đồng bộ lên hệ thống máy chủ.</span>
                                             ) : (
                                                 <span><i className="fas fa-info-circle"></i> Bấm <strong>Chốt danh sách</strong> để hoàn tất điểm danh phòng này và tự động ghi nhận vắng cho học sinh chưa điểm danh.</span>
                                             )}

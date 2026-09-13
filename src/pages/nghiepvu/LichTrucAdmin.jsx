@@ -177,7 +177,6 @@ export default function LichTrucAdmin() {
   }, [showAlert]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadWeek(weekStart);
   }, [weekStart, loadWeek]);
 

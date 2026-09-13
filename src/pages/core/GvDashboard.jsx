@@ -79,8 +79,18 @@ export default function GvDashboard() {
                 </div>
             ) : (
                 <div className="gv-duty-section">
+                    {dutyData?.is_test_date && (
+                        <div style={{
+                            background: '#eff6ff', border: '1.5px solid #93c5fd', borderRadius: 10,
+                            padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10,
+                            color: '#1d4ed8', fontWeight: 600, fontSize: '0.9rem'
+                        }}>
+                            <i className="fas fa-vial" style={{ fontSize: '1.2rem', color: '#2563eb' }}></i>
+                            <span>Đang mở phân công <strong>ngày 10/09/2026</strong> để phục vụ kiểm thử quét mã QR và điểm danh.</span>
+                        </div>
+                    )}
                     <div className="gv-section-title">
-                        <h3><i className="fas fa-tasks"></i> Ca trực của Thầy/Cô hôm nay</h3>
+                        <h3><i className="fas fa-tasks"></i> {dutyData?.is_test_date ? 'Ca trực ngày 10/09/2026 (Đang mở kiểm thử)' : 'Ca trực của Thầy/Cô hôm nay'}</h3>
                         <span className="gv-total-assigned">{dutyData.assignments.length} nhiệm vụ</span>
                     </div>
 
@@ -179,7 +189,7 @@ export default function GvDashboard() {
                                     <div className="gv-card-footer">
                                         <button
                                             className={`btn w-100 ${state === 'dang_dien_ra' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                            onClick={() => navigate(path)}
+                                            onClick={() => navigate(`${path}?ngay=${item.ngay || dutyData.today}`)}
                                         >
                                             <i className="fas fa-qrcode"></i> Vào điểm danh phòng {item.ma_phong_id}
                                         </button>

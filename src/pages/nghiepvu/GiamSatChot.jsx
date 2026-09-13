@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import '../../styles/admin.css';
@@ -13,10 +13,12 @@ export default function GiamSatChot() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
-    const [chotDate, setChotDate] = useState(today);
+    const [searchParams] = useSearchParams();
+    const [chotDate, setChotDate] = useState(() => searchParams.get('ngay') || searchParams.get('date') || today());
     const [chotLoai, setChotLoai] = useState('0'); // '0' = Ăn, '1' = Ngủ
     const [chotData, setChotData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -102,6 +104,32 @@ export default function GiamSatChot() {
     const completedCount = completedRooms.length;
     const pendingCount = pendingRooms.length;
 
+    // Hàm mở chốt phòng (cho phép GV điểm danh hoặc kiểm thử lại)
+    const handleMoChot = async (maPhong) => {
+        const confirmMsg = maPhong
+            ? `Thầy/Cô có chắc chắn muốn mở lại chốt phòng ${maPhong} để cho phép điểm danh / kiểm thử lại?`
+            : `Thầy/Cô có chắc chắn muốn mở lại chốt toàn bộ các phòng đã chốt ngày ${chotDate}?`;
+        if (!window.confirm(confirmMsg)) return;
+
+        setActionLoading(true);
+        try {
+            const res = await api.post('/api/diemdanh/mo-chot/', {
+                ngay: chotDate,
+                loai_truc: chotLoai,
+                ma_phong_id: maPhong || undefined,
+                reset_hs: true
+            });
+            if (res.data?.ok) {
+                alert(res.data.message || 'Đã mở chốt thành công!');
+                await fetchChotData(chotDate, chotLoai, true);
+            }
+        } catch (err) {
+            alert(err.response?.data?.error || 'Lỗi khi mở chốt phòng');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     // Tổng hợp số HS từ các phòng ĐÃ HOÀN THÀNH
     const totalHsChot = completedRooms.reduce((acc, r) => acc + (r.total_hs || 0), 0);
     const totalCoMat = completedRooms.reduce((acc, r) => acc + (r.stats?.comat || 0), 0);
@@ -140,6 +168,20 @@ export default function GiamSatChot() {
                         />
                         <span>Tự động làm mới (20s)</span>
                     </label>
+
+                    {completedCount > 0 && (
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => handleMoChot()}
+                            disabled={actionLoading || loading}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                            title="Mở chốt tất cả các phòng trong ca này để điểm danh lại hoặc kiểm thử"
+                        >
+                            <i className="fas fa-lock-open"></i>
+                            {actionLoading ? 'Đang mở chốt...' : 'Mở chốt toàn ca'}
+                        </button>
+                    )}
 
                     <button
                         type="button"
@@ -208,7 +250,7 @@ export default function GiamSatChot() {
                     />
                     <button
                         type="button"
-                        className="btn btn-outline btn-sm"
+                        className={`btn btn-sm ${chotDate === today() ? 'btn-primary' : 'btn-outline'}`}
                         onClick={() => setChotDate(today())}
                         style={{ fontWeight: 700 }}
                     >
@@ -393,13 +435,27 @@ export default function GiamSatChot() {
                                             )}
                                         </td>
                                         <td style={{ textAlign: 'center' }}>
-                                            <Link
-                                                to={chotLoai === '0' ? '/diemdanh-an' : '/diemdanh-ngu'}
-                                                className="btn btn-outline btn-sm"
-                                                style={{ fontSize: '0.78rem', padding: '4px 8px' }}
-                                            >
-                                                <i className="fas fa-external-link-alt"></i> Vào xem
-                                            </Link>
+                                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                                <Link
+                                                    to={chotLoai === '0' ? `/diemdanh-an?ngay=${chotDate}` : `/diemdanh-ngu?ngay=${chotDate}`}
+                                                    className="btn btn-outline btn-sm"
+                                                    style={{ fontSize: '0.78rem', padding: '4px 8px' }}
+                                                >
+                                                    <i className="fas fa-external-link-alt"></i> Vào xem
+                                                </Link>
+                                                {isCompleted && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={() => handleMoChot(r.ma_phong)}
+                                                        disabled={actionLoading}
+                                                        style={{ fontSize: '0.78rem', padding: '4px 8px', color: '#b45309', borderColor: '#fde68a', background: '#fffbeb', fontWeight: 600 }}
+                                                        title="Mở chốt phòng này để điểm danh lại hoặc kiểm thử"
+                                                    >
+                                                        <i className="fas fa-lock-open"></i> Mở chốt
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 );

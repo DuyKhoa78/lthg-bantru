@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { parseStudentId, findStudentByCandidate } from '../utils/qrUtils';
 import './QRScannerModal.css';
 
 /**
- * Shared AudioContext singleton across scans
- * Prevents mobile audio engine latency/lag
+ * Audio Context quản lý âm thanh thông báo chuẩn Zalo (Zero latency)
  */
 let sharedAudioCtx = null;
 
@@ -21,7 +21,7 @@ function playChime(type = 'success') {
         const ctx = sharedAudioCtx;
 
         if (type === 'success') {
-            // Zalo-like crisp high ping (C6 -> E6)
+            // Crisp high ping (C6 -> E6)
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
 
@@ -70,67 +70,55 @@ function playChime(type = 'success') {
             osc1.stop(ctx.currentTime + 0.26);
         }
     } catch (e) {
-        console.warn('Audio error:', e);
+        if (import.meta.env.DEV) console.warn('Audio error:', e);
     }
 }
 
 /**
- * Parses raw scanned QR string
+ * Thuật toán chọn camera sau chính (tránh camera trước, ultrawide và macro)
  */
-function parseStudentId(decodedText) {
-    if (!decodedText) return null;
-    const text = String(decodedText).trim();
+function selectBestBackCamera(cameras) {
+    if (!Array.isArray(cameras) || cameras.length === 0) return null;
 
-    // 1. Format: MSBT: 26015 / MSBT:26015 / MSBT-26015
-    const msbtMatch = text.match(/MSBT[:\s_-]*(\d+)/i);
-    if (msbtMatch) {
-        return { rawText: text, idCandidate: msbtMatch[1] };
-    }
+    let bestCam = null;
+    let highestScore = -999;
 
-    // 2. Format JSON (e.g. {"id": 15})
-    try {
-        const parsed = JSON.parse(text);
-        if (parsed.id || parsed.ma_hs) {
-            return { rawText: text, idCandidate: String(parsed.id || parsed.ma_hs) };
+    cameras.forEach(cam => {
+        const label = String(cam.label || '').toLowerCase();
+        let score = 0;
+
+        // Ưu tiên camera sau
+        if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('sau')) {
+            score += 10;
         }
-    } catch {
-        // Not JSON
-    }
 
-    // 3. Format: 26xxx hoặc số nguyên bất kỳ
-    const numMatch = text.match(/\b(26\d{3,4}|\d+)\b/);
-    if (numMatch) {
-        return { rawText: text, idCandidate: numMatch[1] };
-    }
+        // Ưu tiên camera chính (main/0/primary)
+        if (label.includes('main') || label.includes('camera 0') || label.includes('chính')) {
+            score += 5;
+        }
 
-    return { rawText: text, idCandidate: text };
-}
+        // Tránh camera góc siêu rộng (ultrawide, 0.5x, 0.6x)
+        if (label.includes('wide') || label.includes('ultra') || label.includes('0.5') || label.includes('0.6')) {
+            score -= 15;
+        }
 
-/**
- * Tìm học sinh theo ID/mã quét
- */
-function findStudentByCandidate(students, candidateStr, rawText) {
-    let found = students.find(s => {
-        const sId = String(s.id);
-        const sCardId = `26${String(s.id).padStart(3, '0')}`;
-        return (
-            sId === candidateStr ||
-            sCardId === candidateStr ||
-            (s.ma_hs && String(s.ma_hs) === candidateStr) ||
-            (s.raw_id && String(s.raw_id) === candidateStr)
-        );
+        // Tránh camera macro
+        if (label.includes('macro')) {
+            score -= 15;
+        }
+
+        // Tránh camera trước (front, user, trước)
+        if (label.includes('front') || label.includes('user') || label.includes('trước') || label.includes('selfie')) {
+            score -= 30;
+        }
+
+        if (score > highestScore) {
+            highestScore = score;
+            bestCam = cam;
+        }
     });
 
-    if (!found && candidateStr.startsWith('26') && candidateStr.length > 2) {
-        const stripped = String(parseInt(candidateStr.slice(2), 10));
-        found = students.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
-    }
-
-    if (!found && rawText) {
-        found = students.find(s => rawText.includes(String(s.id)));
-    }
-
-    return found;
+    return highestScore > 0 ? bestCam : cameras[0];
 }
 
 export default function QRScannerModal({
@@ -144,6 +132,9 @@ export default function QRScannerModal({
 }) {
     const scannerRef = useRef(null);
     const html5QrCodeRef = useRef(null);
+    const sessionIdRef = useRef(0);
+    const fileInputRef = useRef(null);
+
     const [scannerActive, setScannerActive] = useState(false);
     const [cameraError, setCameraError] = useState(null);
     const [boxFlash, setBoxFlash] = useState(null); // 'success' | 'warning'
@@ -151,18 +142,28 @@ export default function QRScannerModal({
     const [hasTorch, setHasTorch] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(1);
     const [hasZoom, setHasZoom] = useState(false);
+    const [zoomLimits, setZoomLimits] = useState({ min: 1, max: 2, step: 0.1 });
+    const [focusRing, setFocusRing] = useState(null);
+    const [showIdleGuide, setShowIdleGuide] = useState(false);
+    const [hasAutoFocus, setHasAutoFocus] = useState(true);
+
+    // Camera Selector States
+    const [cameras, setCameras] = useState([]);
+    const [activeCamIndex, setActiveCamIndex] = useState(0);
+    const [currentCamLabel, setCurrentCamLabel] = useState('');
+
+    // Quick Manual & File Input States
+    const [showManualInput, setShowManualInput] = useState(false);
+    const [manualText, setManualText] = useState('');
+    const [isScanningFile, setIsScanningFile] = useState(false);
 
     // === TRẠNG THÁI XÁC NHẬN (Zalo-style) ===
-    // pendingStudent: HS đang chờ GV xác nhận (camera vẫn chạy, quét tạm dừng)
     const [pendingStudent, setPendingStudent] = useState(null);
-    // pendingType: 'new' | 'already' | 'wrong_room' | 'invalid'
-    const [pendingType, setPendingType] = useState(null);
-    // pendingExtra: thông tin phụ (vd: phòng thật khi sai phòng, rawText khi invalid)
+    const [pendingType, setPendingType] = useState(null); // 'new' | 'already' | 'wrong_room' | 'invalid'
     const [pendingExtra, setPendingExtra] = useState(null);
-    // Thông báo nhỏ tạm thời (sau khi xác nhận thành công)
     const [miniToast, setMiniToast] = useState(null);
 
-    // Lưu trữ props mới nhất vào Ref để camera callback luôn thấy dữ liệu mới mà KHÔNG cần restart camera
+    // Props Ref để tránh camera restart khi props thay đổi
     const propsRef = useRef({
         roomStudents,
         allStudents,
@@ -183,25 +184,36 @@ export default function QRScannerModal({
     const lastScannedTimeRef = useRef({});
     const isPendingRef = useRef(false);
     const handleScanRef = useRef(null);
+    const idleTimerRef = useRef(null);
 
-    // === QUÉT & HIỆN THỊ THÔNG TIN (KHÔNG TỰ ĐỘNG CHỐT) ===
-    // Camera + giải mã QR chạy liên tục 100%, chỉ dùng cờ ref để bỏ qua kết quả khi đang hiện thẻ
+    // Reset idle guidance timer
+    const resetIdleTimer = useCallback(() => {
+        setShowIdleGuide(false);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(() => {
+            setShowIdleGuide(true);
+        }, 3500);
+    }, []);
+
+    // === QUÉT & GIẢI MÃ QR (Chạy liên tục, không ngắt camera) ===
     const handleScan = useCallback((decodedText) => {
         if (!decodedText) return;
-        if (isPendingRef.current) return; // Đang hiện thẻ xác nhận, bỏ qua frame này
+        if (isPendingRef.current) return; // Đang hiện thẻ xác nhận, bỏ qua frame
+
         const now = Date.now();
-        console.log('[QR SCAN DECODED]:', decodedText);
+        resetIdleTimer();
 
+        // 1. Phân tích mã QR theo quy tắc
         const parsed = parseStudentId(decodedText);
-        if (!parsed || !parsed.idCandidate) return;
+        const rawText = parsed ? parsed.rawText : String(decodedText);
+        const candidateStr = parsed?.idCandidate;
 
-        const candidateStr = parsed.idCandidate;
-
-        // Tránh quét lặp lại cùng 1 thẻ trong vòng 2 giây
-        if (lastScannedTimeRef.current[candidateStr] && (now - lastScannedTimeRef.current[candidateStr] < 2000)) {
+        // Chống quét trùng lặp trong vòng 2 giây
+        const dedupeKey = candidateStr || rawText;
+        if (lastScannedTimeRef.current[dedupeKey] && (now - lastScannedTimeRef.current[dedupeKey] < 2000)) {
             return;
         }
-        lastScannedTimeRef.current[candidateStr] = now;
+        lastScannedTimeRef.current[dedupeKey] = now;
 
         const {
             roomStudents: curRoomStudents,
@@ -210,8 +222,24 @@ export default function QRScannerModal({
             currentRoomName: curRoomName
         } = propsRef.current;
 
-        // 1. Tìm trong phòng hiện tại
-        const matched = findStudentByCandidate(curRoomStudents, candidateStr, parsed.rawText);
+        // Nếu mã QR không trích xuất được ID hợp lệ
+        if (!candidateStr) {
+            playChime('warning');
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            setBoxFlash('warning');
+            setTimeout(() => setBoxFlash(null), 600);
+
+            isPendingRef.current = true;
+            setPendingStudent(null);
+            setPendingType('invalid');
+            setPendingExtra({ rawText: `Đã đọc được mã: "${rawText}" (Không phải định dạng thẻ bán trú)` });
+            return;
+        }
+
+        // 2. Tìm học sinh trong phòng hiện tại
+        const matched = curRoomStudents && curRoomStudents.length > 0
+            ? findStudentByCandidate(curRoomStudents, candidateStr)
+            : null;
 
         if (matched) {
             playChime('success');
@@ -219,28 +247,24 @@ export default function QRScannerModal({
             setBoxFlash('success');
             setTimeout(() => setBoxFlash(null), 600);
 
-            isPendingRef.current = true; // Khóa quét trước khi set state
-            if (curScannedIds.has(matched.id)) {
-                setPendingStudent(matched);
-                setPendingType('already');
-                setPendingExtra(null);
-            } else {
-                setPendingStudent(matched);
-                setPendingType('new');
-                setPendingExtra(null);
-            }
+            isPendingRef.current = true;
+            setPendingStudent(matched);
+            setPendingType(curScannedIds.has(matched.id) ? 'already' : 'new');
+            setPendingExtra(null);
             return;
         }
 
-        // 2. Tìm trong tất cả HS (sai phòng)
-        const otherStudent = findStudentByCandidate(curAllStudents, candidateStr, parsed.rawText);
+        // 3. Tìm trong toàn trường (Học sinh sai phòng)
+        const otherStudent = curAllStudents && curAllStudents.length > 0
+            ? findStudentByCandidate(curAllStudents, candidateStr)
+            : null;
 
         playChime('warning');
         if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
         setBoxFlash('warning');
         setTimeout(() => setBoxFlash(null), 600);
 
-        isPendingRef.current = true; // Khóa quét
+        isPendingRef.current = true;
         if (otherStudent) {
             const actualRoom = otherStudent.phong_an || otherStudent.phong_ngu || 'Chưa phân phòng';
             setPendingStudent(otherStudent);
@@ -249,16 +273,15 @@ export default function QRScannerModal({
         } else {
             setPendingStudent(null);
             setPendingType('invalid');
-            setPendingExtra({ rawText: parsed.rawText });
+            setPendingExtra({ rawText: `Mã: ${candidateStr} (Không tìm thấy học sinh này trong danh sách trường)` });
         }
-    }, []);
+    }, [resetIdleTimer]);
 
-    // Luôn cập nhật ref mới nhất để camera callback dùng mà không cần restart
     useEffect(() => {
         handleScanRef.current = handleScan;
     });
 
-    // === XÁC NHẬN CÓ MẶT (GV bấm nút) ===
+    // === XÁC NHẬN CÓ MẶT (GV bấm nút xác nhận) ===
     const handleConfirm = useCallback(() => {
         if (!pendingStudent || pendingType !== 'new') return;
         const { onConfirmStudent: curOnConfirm } = propsRef.current;
@@ -268,36 +291,37 @@ export default function QRScannerModal({
 
         curOnConfirm(pendingStudent);
 
-        // Hiện mini toast xác nhận thành công ngắn gọn
         setMiniToast({
             name: pendingStudent.ho_ten,
             lop: pendingStudent.lop,
         });
         setTimeout(() => setMiniToast(null), 2000);
 
-        // Đóng thẻ xác nhận & mở khóa quét tiếp
+        // Mở khóa quét tiếp ngay lập tức
         setPendingStudent(null);
         setPendingType(null);
         setPendingExtra(null);
         isPendingRef.current = false;
-    }, [pendingStudent, pendingType]);
+        resetIdleTimer();
+    }, [pendingStudent, pendingType, resetIdleTimer]);
 
-    // === BỎ QUA (dismiss thẻ xác nhận & quét tiếp) ===
+    // === BỎ QUA THẺ ĐANG CHỜ & TIẾP TỤC QUÉT ===
     const handleDismiss = useCallback(() => {
         setPendingStudent(null);
         setPendingType(null);
         setPendingExtra(null);
         isPendingRef.current = false;
-    }, []);
+        resetIdleTimer();
+    }, [resetIdleTimer]);
 
-    // Khởi động Camera duy nhất 1 lần khi mở modal
+    // === KHỞI ĐỘNG CAMERA (Quản lý session an toàn chống leak & StrictMode) ===
     useEffect(() => {
-        let isMounted = true;
-        let qrScanner = null;
-
         if (!isOpen) return;
 
-        // Mở khóa AudioContext cho iOS/Android ngay khi bật camera
+        const currentSession = ++sessionIdRef.current;
+        let qrScannerInstance = null;
+
+        // Unlock AudioContext cho thiết bị di động
         try {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             if (AudioContextClass) {
@@ -309,165 +333,343 @@ export default function QRScannerModal({
                 }
             }
         } catch {
-            // Audio unlock ignore
+            // ignore
         }
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCameraError(null);
         setMiniToast(null);
         setPendingStudent(null);
         setPendingType(null);
         setPendingExtra(null);
         setZoomLevel(1);
+        setShowIdleGuide(false);
         isPendingRef.current = false;
 
         const qrCodeId = 'zalo-qr-viewport';
 
-        try {
-            // Tắt BarcodeDetector để dùng ZXing thuần túy 100% tương thích mọi điện thoại di động
-            qrScanner = new Html5Qrcode(qrCodeId, {
-                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-                useBarCodeDetectorIfSupported: false,
-                verbose: false,
-            });
-            html5QrCodeRef.current = qrScanner;
+        async function initCamera() {
+            try {
+                qrScannerInstance = new Html5Qrcode(qrCodeId, {
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.QR_CODE,
+                    ],
+                    useBarCodeDetectorIfSupported: true,
+                    verbose: false,
+                });
+                html5QrCodeRef.current = qrScannerInstance;
 
-            // Quét toàn bộ khung hình để bắt mã QR siêu nhạy
-            // qrbox giới hạn vùng giải mã QR vào chính giữa khung hình
-            // → giảm nhiễu, tăng tốc decode, quét ổn định hơn rất nhiều trên điện thoại
-            const config = {
-                fps: 15,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    const size = Math.min(viewfinderWidth, viewfinderHeight);
-                    const qrboxSize = Math.floor(size * 0.72); // khớp với reticle 72vw
-                    return { width: qrboxSize, height: qrboxSize };
-                },
-                aspectRatio: undefined,
-                disableFlip: false,
-            };
-
-            qrScanner.start(
-                { facingMode: 'environment' },
-                config,
-                (decodedText) => {
-                    if (isMounted && handleScanRef.current) handleScanRef.current(decodedText);
-                },
-                () => {
-                    // Frame không có QR
-                }
-            ).then(async () => {
-                if (!isMounted) return;
-                setScannerActive(true);
-
-                // Bật lấy nét tự động liên tục
+                // 1. Lấy danh sách camera
+                let availableCameras = [];
                 try {
-                    await qrScanner.applyVideoConstraints({
-                        advanced: [
-                            { focusMode: 'continuous' },
-                            { exposureMode: 'continuous' },
-                            { whiteBalanceMode: 'continuous' }
-                        ]
-                    });
-                } catch (e) {
-                    console.debug('Autofocus constraint not supported:', e);
-                }
-
-                // Kiểm tra khả năng Flash & Zoom
-                try {
-                    const trackCaps = qrScanner.getRunningTrackCameraCapabilities ? qrScanner.getRunningTrackCameraCapabilities() : null;
-                    if (trackCaps && trackCaps.torchFeature && trackCaps.torchFeature().isSupported()) {
-                        setHasTorch(true);
+                    availableCameras = await Html5Qrcode.getCameras();
+                    if (currentSession !== sessionIdRef.current) return;
+                    if (Array.isArray(availableCameras) && availableCameras.length > 0) {
+                        setCameras(availableCameras);
                     }
-                    if (trackCaps && trackCaps.zoomFeature && trackCaps.zoomFeature().isSupported()) {
-                        setHasZoom(true);
+                } catch (enumErr) {
+                    if (import.meta.env.DEV) console.debug('Camera enum fallback:', enumErr);
+                }
+
+                // Chọn camera mục tiêu: ưu tiên camera theo activeCamIndex hoặc camera sau chính
+                let targetCam = null;
+                if (availableCameras.length > 0) {
+                    if (activeCamIndex >= 0 && activeCamIndex < availableCameras.length) {
+                        targetCam = availableCameras[activeCamIndex];
                     } else {
-                        const caps = qrScanner.getRunningTrackCapabilities ? qrScanner.getRunningTrackCapabilities() : null;
-                        if (caps && caps.zoom) {
-                            setHasZoom(true);
+                        targetCam = selectBestBackCamera(availableCameras);
+                        const idx = availableCameras.findIndex(c => c.id === targetCam.id);
+                        if (idx >= 0) setActiveCamIndex(idx);
+                    }
+                }
+
+                // 2. Cấu hình máy quét: chỉ QR_CODE, fps vừa phải, vùng quét co giãn
+                const config = {
+                    fps: 12,
+                    qrbox: (viewfinderWidth, viewfinderHeight) => {
+                        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                        const boxSize = Math.max(200, Math.floor(minEdge * 0.70));
+                        return { width: boxSize, height: boxSize };
+                    },
+                    disableFlip: false,
+                };
+
+                const onScanSuccess = (decodedText) => {
+                    if (currentSession === sessionIdRef.current && handleScanRef.current) {
+                        handleScanRef.current(decodedText);
+                    }
+                };
+                const onScanError = () => {
+                    // Frame không có mã QR
+                };
+
+                // Khởi động bằng Device ID + videoConstraints độ phân giải cao
+                let started = false;
+                if (targetCam && targetCam.id) {
+                    try {
+                        const camConfig = {
+                            ...config,
+                            videoConstraints: {
+                                deviceId: { exact: targetCam.id },
+                                width: { min: 640, ideal: 1920 },
+                                height: { min: 480, ideal: 1080 },
+                            },
+                        };
+                        await qrScannerInstance.start(
+                            targetCam.id,
+                            camConfig,
+                            onScanSuccess,
+                            onScanError
+                        );
+                        started = true;
+                        setCurrentCamLabel(targetCam.label || `Camera ${activeCamIndex + 1}`);
+                    } catch (exactErr) {
+                        if (import.meta.env.DEV) console.warn('Start camera by target ID failed, trying fallback:', exactErr);
+                    }
+                }
+
+                if (!started) {
+                    const envConfig = {
+                        ...config,
+                        videoConstraints: {
+                            facingMode: 'environment',
+                            width: { min: 640, ideal: 1920 },
+                            height: { min: 480, ideal: 1080 },
+                        },
+                    };
+                    try {
+                        await qrScannerInstance.start(
+                            { facingMode: 'environment' },
+                            envConfig,
+                            onScanSuccess,
+                            onScanError
+                        );
+                        started = true;
+                        setCurrentCamLabel('Camera sau');
+                    } catch (envErr) {
+                        if (import.meta.env.DEV) console.warn('Environment camera failed, trying user camera:', envErr);
+                        await qrScannerInstance.start(
+                            { facingMode: 'user' },
+                            config,
+                            onScanSuccess,
+                            onScanError
+                        );
+                        started = true;
+                        setCurrentCamLabel('Camera trước');
+                    }
+                }
+
+                if (currentSession !== sessionIdRef.current) {
+                    try { await qrScannerInstance.stop(); } catch (err) { void err; }
+                    return;
+                }
+
+                setScannerActive(true);
+                resetIdleTimer();
+
+                // 3. Đọc capabilities qua API chính thức và kích hoạt autofocus
+                try {
+                    const caps = qrScannerInstance.getRunningTrackCapabilities();
+                    const settings = qrScannerInstance.getRunningTrackSettings();
+                    if (import.meta.env.DEV) {
+                        console.info('[QR Camera] Resolution:', settings.width, '×', settings.height);
+                        console.info('[QR Camera] Capabilities:', caps);
+                    }
+
+                    // Bật autofocus liên tục + exposure + white balance qua applyVideoConstraints
+                    const advancedConstraints = [];
+                    let cameraHasAutoFocus = false;
+                    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+                        advancedConstraints.push({ focusMode: 'continuous' });
+                        cameraHasAutoFocus = true;
+                    }
+                    setHasAutoFocus(cameraHasAutoFocus);
+
+                    if (caps.exposureMode && caps.exposureMode.includes('continuous')) {
+                        advancedConstraints.push({ exposureMode: 'continuous' });
+                    }
+                    if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) {
+                        advancedConstraints.push({ whiteBalanceMode: 'continuous' });
+                    }
+
+                    if (advancedConstraints.length > 0) {
+                        try {
+                            await qrScannerInstance.applyVideoConstraints({
+                                advanced: advancedConstraints,
+                            });
+                        } catch (constrainErr) {
+                            // applyVideoConstraints validates input — fallback nếu advanced không được hỗ trợ
+                            if (import.meta.env.DEV) console.debug('applyVideoConstraints advanced fallback:', constrainErr);
                         }
                     }
-                } catch (err) {
-                    console.debug('Capabilities check:', err);
+
+                    // Kiểm tra Flash
+                    if (caps.torch) {
+                        setHasTorch(true);
+                    } else {
+                        setHasTorch(false);
+                        setTorchOn(false);
+                    }
+
+                    // Kiểm tra Zoom
+                    if (caps.zoom) {
+                        setHasZoom(true);
+                        setZoomLimits({
+                            min: caps.zoom.min || 1,
+                            max: caps.zoom.max || 2,
+                            step: caps.zoom.step || 0.1,
+                        });
+                        // Áp dụng zoom nhẹ (1.2x–1.5x) nếu hỗ trợ, giúp lấy nét mã QR nhỏ
+                        const gentleZoom = Math.min(1.5, caps.zoom.max || 1);
+                        if (gentleZoom > 1) {
+                            try {
+                                await qrScannerInstance.applyVideoConstraints({
+                                    advanced: [{ zoom: gentleZoom }],
+                                });
+                                setZoomLevel(gentleZoom);
+                            } catch { /* zoom không áp dụng được, bỏ qua */ }
+                        }
+                    } else {
+                        setHasZoom(false);
+                    }
+                } catch (capErr) {
+                    if (import.meta.env.DEV) console.debug('Capabilities read error (camera may not support):', capErr);
+                    setHasAutoFocus(false);
                 }
-            }).catch(err => {
+            } catch (err) {
+                if (currentSession !== sessionIdRef.current) return;
                 console.error('Camera start error:', err);
-                if (isMounted) {
-                    setCameraError('Không thể mở camera. Vui lòng cho phép quyền truy cập máy ảnh trong cài đặt trình duyệt và tải lại trang.');
-                }
-            });
-        } catch (e) {
-            console.error('QR Scanner init error:', e);
+                setCameraError('Không thể mở camera. Vui lòng cấp quyền truy cập máy ảnh cho trình duyệt và thử lại.');
+            }
         }
 
+        initCamera();
+
+        // 4. Dọn dẹp an toàn khi đóng modal hoặc unmount hoặc đổi camera
         return () => {
-            isMounted = false;
             isPendingRef.current = false;
-            if (qrScanner) {
-                try {
-                    const state = qrScanner.getState ? qrScanner.getState() : null;
-                    if (qrScanner.isScanning || state === 2 || state === 3) {
-                        qrScanner.stop().then(() => {
-                            try { qrScanner.clear(); } catch (e) { console.debug('QR clear on stop:', e); }
-                        }).catch(err => console.warn('QR stop warning:', err));
-                    } else {
-                        try { qrScanner.clear(); } catch (e) { console.debug('QR clear idle:', e); }
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+            if (qrScannerInstance) {
+                const doCleanup = async () => {
+                    try {
+                        const state = qrScannerInstance.getState ? qrScannerInstance.getState() : null;
+                        // state 2 = SCANNING, state 3 = PAUSED
+                        if (qrScannerInstance.isScanning || state === 2 || state === 3) {
+                            await qrScannerInstance.stop();
+                        }
+                    } catch (err) {
+                        void err;
                     }
-                } catch (err) {
-                    console.warn('QR cleanup warning:', err);
-                }
+                    try {
+                        qrScannerInstance.clear();
+                    } catch (err) {
+                        void err;
+                    }
+                };
+                doCleanup();
             }
+            html5QrCodeRef.current = null;
             setScannerActive(false);
         };
-    }, [isOpen]); // Chỉ restart camera khi mở/đóng modal, handleScan dùng qua ref
+    }, [isOpen, activeCamIndex, resetIdleTimer]);
 
-    // Bật tắt Flashlight
+    // Chuyển đổi camera
+    const handleSwitchCamera = () => {
+        if (cameras.length <= 1) return;
+        setActiveCamIndex(prev => (prev + 1) % cameras.length);
+    };
+
+    // Bật/Tắt Flashlight qua API chính thức
     const toggleTorch = async () => {
         if (!html5QrCodeRef.current || !hasTorch) return;
         try {
             const nextState = !torchOn;
-            const trackCaps = html5QrCodeRef.current.getRunningTrackCameraCapabilities ? html5QrCodeRef.current.getRunningTrackCameraCapabilities() : null;
-            if (trackCaps && trackCaps.torchFeature && trackCaps.torchFeature().isSupported()) {
-                await trackCaps.torchFeature().apply(nextState);
-            } else {
-                await html5QrCodeRef.current.applyVideoConstraints({
-                    advanced: [{ torch: nextState }]
-                });
-            }
+            await html5QrCodeRef.current.applyVideoConstraints({
+                advanced: [{ torch: nextState }],
+            });
             setTorchOn(nextState);
         } catch (e) {
-            console.warn('Torch toggle error:', e);
+            if (import.meta.env.DEV) console.warn('Torch toggle error:', e);
         }
     };
 
-    // Phóng to 2x / 1x
+    // Phóng to Zoom qua API chính thức
     const toggleZoom = async () => {
-        if (!html5QrCodeRef.current) return;
-        const nextZoom = zoomLevel >= 2 ? 1 : 2;
+        if (!html5QrCodeRef.current || !hasZoom) return;
         try {
-            const trackCaps = html5QrCodeRef.current.getRunningTrackCameraCapabilities ? html5QrCodeRef.current.getRunningTrackCameraCapabilities() : null;
-            if (trackCaps && trackCaps.zoomFeature && trackCaps.zoomFeature().isSupported()) {
-                await trackCaps.zoomFeature().apply(nextZoom);
-            } else {
+            const targetZoom = zoomLevel >= zoomLimits.max ? zoomLimits.min : Math.min(zoomLevel + 1, zoomLimits.max);
+            await html5QrCodeRef.current.applyVideoConstraints({
+                advanced: [{ zoom: targetZoom }],
+            });
+            setZoomLevel(targetZoom);
+        } catch (e) {
+            if (import.meta.env.DEV) console.warn('Zoom error:', e);
+        }
+    };
+
+    // Chạm vào màn hình để kích hoạt lấy nét + vòng tròn hoạt họa
+    const handleTapToFocus = async (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        setFocusRing({ x, y });
+        setTimeout(() => setFocusRing(null), 750);
+
+        if (!html5QrCodeRef.current) return;
+        try {
+            const caps = html5QrCodeRef.current.getRunningTrackCapabilities();
+            if (caps.focusMode && caps.focusMode.includes('continuous')) {
                 await html5QrCodeRef.current.applyVideoConstraints({
-                    advanced: [{ zoom: nextZoom }]
+                    advanced: [{ focusMode: 'continuous' }],
                 });
             }
-            setZoomLevel(nextZoom);
-        } catch (e) {
-            console.warn('Zoom error:', e);
+        } catch (err) {
+            if (import.meta.env.DEV) console.debug('Tap to focus error:', err);
         }
     };
 
-    // Chạm vào màn hình để kích hoạt lại lấy nét
-    const handleTapToFocus = async () => {
-        if (!html5QrCodeRef.current) return;
-        try {
-            await html5QrCodeRef.current.applyVideoConstraints({
-                advanced: [{ focusMode: 'continuous' }]
-            });
-        } catch (err) {
-            console.debug('Tap to focus error:', err);
+    // Kích hoạt chọn file ảnh QR
+    const handleTriggerFileScan = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
         }
+    };
+
+    // Xử lý đọc file ảnh QR được tải lên
+    const handleFileSelected = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsScanningFile(true);
+        try {
+            const sandboxId = 'zalo-file-scan-sandbox';
+            const fileScanner = new Html5Qrcode(sandboxId);
+            const decodedText = await fileScanner.scanFile(file, false);
+            try { fileScanner.clear(); } catch { /* ignore */ }
+
+            if (decodedText) {
+                handleScan(decodedText);
+            } else {
+                alert('Không tìm thấy mã QR trong hình ảnh vừa chọn.');
+            }
+        } catch (err) {
+            console.warn('File scan error:', err);
+            alert('Không tìm thấy mã QR trong ảnh vừa chọn. Vui lòng chọn ảnh chụp rõ nét hơn.');
+        } finally {
+            setIsScanningFile(false);
+            if (e.target) e.target.value = '';
+        }
+    };
+
+    // Xử lý tìm kiếm / nhập tay
+    const handleManualSearch = (e) => {
+        e.preventDefault();
+        if (!manualText.trim()) return;
+        const query = manualText.trim();
+        handleScan(query);
+        setShowManualInput(false);
+        setManualText('');
     };
 
     if (!isOpen) return null;
@@ -475,9 +677,9 @@ export default function QRScannerModal({
     const presentCount = scannedIds.size;
     const totalCount = roomStudents.length;
     const percent = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
-
-    // Xác định nội dung thẻ xác nhận
     const hasPending = pendingType !== null;
+    const isStudentsLoading = !roomStudents || roomStudents.length === 0;
+
     const genderAvatar = (student) => {
         if (!student) return '👤';
         return student.gioi_tinh === 'Nữ' || student.gioi_tinh === 1 ? '👧' : '👦';
@@ -485,11 +687,29 @@ export default function QRScannerModal({
 
     return (
         <div className="zalo-scanner-fullscreen" onClick={hasPending ? undefined : handleTapToFocus}>
+            {/* Sandbox ẩn để giải mã ảnh QR tải lên */}
+            <div id="zalo-file-scan-sandbox" style={{ display: 'none' }}></div>
+            <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleFileSelected}
+            />
+
             {/* 1. Camera Viewport */}
             <div id="zalo-qr-viewport" ref={scannerRef}></div>
 
+            {/* Hiệu ứng vòng tròn lấy nét khi chạm */}
+            {focusRing && (
+                <div
+                    className="zalo-focus-ring"
+                    style={{ left: `${focusRing.x}px`, top: `${focusRing.y}px` }}
+                />
+            )}
+
             {/* 2. Top Header (Zalo style) */}
-            <div className="zalo-top-bar">
+            <div className="zalo-top-bar" onClick={(e) => e.stopPropagation()}>
                 <button className="zalo-btn-icon" onClick={onClose} title="Đóng máy quét">
                     ✕
                 </button>
@@ -498,20 +718,29 @@ export default function QRScannerModal({
                     <span className="zalo-header-title">Quét mã QR bán trú</span>
                 </div>
                 <div className="zalo-header-right-btns">
+                    {cameras.length > 1 && (
+                        <button
+                            className="zalo-btn-icon"
+                            onClick={handleSwitchCamera}
+                            title="Đổi camera khác"
+                        >
+                            🔄
+                        </button>
+                    )}
                     {hasZoom && (
                         <button
                             className={`zalo-btn-icon zalo-zoom-btn ${zoomLevel > 1 ? 'on' : ''}`}
-                            onClick={(e) => { e.stopPropagation(); toggleZoom(); }}
-                            title="Phóng to 2x"
+                            onClick={toggleZoom}
+                            title="Chỉnh mức thu phóng"
                         >
-                            {zoomLevel > 1 ? '2x' : '1x'}
+                            {zoomLevel.toFixed(1)}x
                         </button>
                     )}
                     {hasTorch ? (
                         <button
                             className={`zalo-btn-icon zalo-torch-btn ${torchOn ? 'on' : ''}`}
-                            onClick={(e) => { e.stopPropagation(); toggleTorch(); }}
-                            title="Bật/Tắt flash"
+                            onClick={toggleTorch}
+                            title="Bật/Tắt đèn flash"
                         >
                             {torchOn ? '🔦' : '⚡'}
                         </button>
@@ -521,7 +750,22 @@ export default function QRScannerModal({
                 </div>
             </div>
 
-            {/* 3. Mini toast nhỏ (sau khi xác nhận thành công) */}
+            {/* Huy hiệu camera đang hoạt động */}
+            {currentCamLabel && (
+                <div className="zalo-cam-badge">
+                    📷 {currentCamLabel}
+                </div>
+            )}
+
+            {/* Thông báo đang tải học sinh nếu danh sách rỗng */}
+            {isStudentsLoading && (
+                <div className="zalo-loading-students-overlay">
+                    <i className="fas fa-spinner fa-spin" style={{ fontSize: '1.8rem', color: '#38bdf8' }}></i>
+                    <span>Đang tải dữ liệu học sinh phòng trực...</span>
+                </div>
+            )}
+
+            {/* 3. Mini toast xác nhận thành công */}
             {miniToast && (
                 <div className="zalo-scan-toast success">
                     <div className="zalo-toast-avatar">✅</div>
@@ -532,7 +776,7 @@ export default function QRScannerModal({
                 </div>
             )}
 
-            {/* 4. Center Scanner Reticle (ẩn khi đang hiện thẻ xác nhận) */}
+            {/* 4. Khung quét QR chính giữa (Reticle) */}
             {scannerActive && !hasPending && (
                 <div className="zalo-center-container">
                     <div className={`zalo-reticle-box ${boxFlash || ''}`}>
@@ -544,17 +788,78 @@ export default function QRScannerModal({
                     </div>
 
                     <p className="zalo-guide-hint">
-                        Đưa mã QR vào khung viền (khoảng cách 15 – 25cm)
+                        Đưa mã QR vào giữa khung và giữ yên
                     </p>
+
+                    {/* Hướng dẫn lấy nét thủ công nếu camera không hỗ trợ autofocus */}
+                    {!hasAutoFocus && (
+                        <p className="zalo-no-autofocus-hint">
+                            📐 Camera không tự lấy nét — giữ mã QR cách 15–25 cm, từ từ thay đổi khoảng cách
+                        </p>
+                    )}
+
+                    {/* Phím tắt tiện ích: Tải ảnh & Nhập tay */}
+                    <div className="zalo-secondary-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            type="button"
+                            className="zalo-action-chip-btn"
+                            onClick={handleTriggerFileScan}
+                            disabled={isScanningFile}
+                        >
+                            {isScanningFile ? '⏳ Đang quét ảnh...' : '🖼️ Quét từ ảnh'}
+                        </button>
+                        <button
+                            type="button"
+                            className="zalo-action-chip-btn"
+                            onClick={() => setShowManualInput(prev => !prev)}
+                        >
+                            ⌨️ Nhập mã tay
+                        </button>
+                    </div>
+
+                    {showIdleGuide && (
+                        <div className="zalo-idle-guidance">
+                            <i className="fas fa-hand-pointer"></i>
+                            <span>{hasAutoFocus ? 'Chạm màn hình để lấy nét lại' : 'Giữ mã QR cách 15–25 cm rồi từ từ đưa ra/vào'}</span>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* ========== 5. THẺ XÁC NHẬN HỌC SINH (Zalo-style bottom sheet) ========== */}
+            {/* Ngăn nhập thủ công nhanh */}
+            {showManualInput && (
+                <div className="zalo-manual-input-panel" onClick={(e) => e.stopPropagation()}>
+                    <div className="zalo-manual-header">
+                        <span>🔍 Nhập mã số thẻ hoặc tên học sinh</span>
+                        <button
+                            type="button"
+                            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.1rem' }}
+                            onClick={() => setShowManualInput(false)}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <form onSubmit={handleManualSearch} className="zalo-manual-input-box">
+                        <input
+                            type="text"
+                            className="zalo-manual-input"
+                            placeholder="Ví dụ: 26057 hoặc Nguyễn Văn..."
+                            value={manualText}
+                            onChange={(e) => setManualText(e.target.value)}
+                            autoFocus
+                        />
+                        <button type="submit" className="zalo-manual-submit-btn">
+                            Tìm
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* 5. THẺ XÁC NHẬN HỌC SINH (Bottom Sheet Zalo-style) */}
             {hasPending && (
                 <div className="zalo-confirm-overlay" onClick={(e) => e.stopPropagation()}>
                     <div className={`zalo-confirm-card ${pendingType}`}>
-
-                        {/* --- HS thuộc phòng, chưa điểm danh (cần xác nhận) --- */}
+                        {/* Học sinh thuộc phòng, cần xác nhận */}
                         {pendingType === 'new' && pendingStudent && (
                             <>
                                 <div className="zalo-confirm-header">
@@ -583,7 +888,7 @@ export default function QRScannerModal({
                             </>
                         )}
 
-                        {/* --- HS đã điểm danh trước đó --- */}
+                        {/* Học sinh đã điểm danh trước đó */}
                         {pendingType === 'already' && pendingStudent && (
                             <>
                                 <div className="zalo-confirm-header">
@@ -594,7 +899,7 @@ export default function QRScannerModal({
                                             <span className="zalo-tag lop">Lớp {pendingStudent.lop}</span>
                                             <span className="zalo-tag id">ID #{pendingStudent.id}</span>
                                         </div>
-                                        <p className="zalo-confirm-note already">Đã điểm danh trước đó</p>
+                                        <p className="zalo-confirm-note already">Học sinh này đã được ghi nhận có mặt</p>
                                     </div>
                                 </div>
                                 <div className="zalo-confirm-actions">
@@ -605,7 +910,7 @@ export default function QRScannerModal({
                             </>
                         )}
 
-                        {/* --- Sai phòng --- */}
+                        {/* Học sinh sai phòng (Chỉ cảnh báo, không tự động xác nhận) */}
                         {pendingType === 'wrong_room' && pendingStudent && (
                             <>
                                 <div className="zalo-confirm-header">
@@ -620,7 +925,7 @@ export default function QRScannerModal({
                                             SAI PHÒNG — Thuộc {pendingExtra?.actualRoom}
                                         </p>
                                         <p className="zalo-confirm-note wrong-sub">
-                                            Không thuộc {pendingExtra?.curRoomName}
+                                            Không thuộc danh sách {pendingExtra?.curRoomName}
                                         </p>
                                     </div>
                                 </div>
@@ -632,15 +937,15 @@ export default function QRScannerModal({
                             </>
                         )}
 
-                        {/* --- Mã không hợp lệ --- */}
+                        {/* Mã thẻ không hợp lệ */}
                         {pendingType === 'invalid' && (
                             <>
                                 <div className="zalo-confirm-header">
                                     <div className="zalo-confirm-avatar-lg">❓</div>
                                     <div className="zalo-confirm-info">
-                                        <h3 className="zalo-confirm-name">Mã thẻ không hợp lệ</h3>
+                                        <h3 className="zalo-confirm-name">Kết quả quét mã</h3>
                                         <p className="zalo-confirm-note invalid">
-                                            Không tìm thấy học sinh với mã: {pendingExtra?.rawText}
+                                            {pendingExtra?.rawText || 'Không tìm thấy học sinh'}
                                         </p>
                                     </div>
                                 </div>
@@ -655,7 +960,7 @@ export default function QRScannerModal({
                 </div>
             )}
 
-            {/* Camera error */}
+            {/* Báo lỗi Camera */}
             {cameraError && (
                 <div className="zalo-error-popup">
                     <div className="zalo-error-icon">⚠️</div>
@@ -666,7 +971,7 @@ export default function QRScannerModal({
                 </div>
             )}
 
-            {/* 6. Bottom Status Bar */}
+            {/* 6. Thanh tiến độ đáy */}
             <div className="zalo-bottom-bar" onClick={(e) => e.stopPropagation()}>
                 <div className="zalo-progress-info">
                     <div className="zalo-count-text">

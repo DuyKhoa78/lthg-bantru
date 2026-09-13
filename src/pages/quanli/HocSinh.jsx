@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import api from '../../services/api';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import { removeAccents, getSortNames } from '../../utils/stringUtils';
+import { removeAccents, getSortNames, escapeHtml } from '../../utils/stringUtils';
 import { cacheInvalidateStudents } from '../../utils/cache';
 import '../../styles/admin.css';
 
@@ -184,7 +184,6 @@ export default function HocSinh() {
 
   // Reset page when filters change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [search, filterLop, filterGT, filterTT, filterPhong]);
 
@@ -515,11 +514,11 @@ export default function HocSinh() {
     const rowsHtml = students.map((s, idx) => `
       <tr>
         <td class="tc">${idx + 1}</td>
-        <td class="tc font-bold">${s.id}</td>
-        <td class="tl name-col">${s.ho_ten}</td>
-        <td class="tc font-bold room-col">${s.ma_phong_an_id || s.phong_an?.ma_phong || '-'}</td>
-        <td class="tc font-bold room-col">${s.ma_phong_ngu_id || s.phong_ngu?.ma_phong || '-'}</td>
-        <td class="tl note-col">${s.ghi_chu || ''}</td>
+        <td class="tc font-bold">${escapeHtml(s.id)}</td>
+        <td class="tl name-col">${escapeHtml(s.ho_ten)}</td>
+        <td class="tc font-bold room-col">${escapeHtml(s.ma_phong_an_id || s.phong_an?.ma_phong || '-')}</td>
+        <td class="tc font-bold room-col">${escapeHtml(s.ma_phong_ngu_id || s.phong_ngu?.ma_phong || '-')}</td>
+        <td class="tl note-col">${escapeHtml(s.ghi_chu || '')}</td>
       </tr>
     `).join('');
 
@@ -540,8 +539,8 @@ export default function HocSinh() {
 
       <div class="title-wrap">
         <h1 class="main-title">DANH SÁCH HỌC SINH BÁN TRÚ</h1>
-        <div class="sub-class">LỚP: ${lop}</div>
-        <div class="sub-year">Năm học: ${namHoc}</div>
+        <div class="sub-class">LỚP: ${escapeHtml(lop)}</div>
+        <div class="sub-year">Năm học: ${escapeHtml(namHoc)}</div>
       </div>
 
       <table class="data-table-print">
@@ -568,17 +567,17 @@ export default function HocSinh() {
       <div class="sig-wrap">
         <div class="sig-col">
           <div class="sig-date-space" style="height: 18px;"></div>
-          <div class="sig-role">${leftRoleTitle}</div>
+          <div class="sig-role">${escapeHtml(leftRoleTitle)}</div>
           <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
           <div class="sig-space"></div>
-          <div class="sig-name">${leftCreatorName}</div>
+          <div class="sig-name">${escapeHtml(leftCreatorName)}</div>
         </div>
         <div class="sig-col">
-          <div class="sig-date">${todayStr}</div>
+          <div class="sig-date">${escapeHtml(todayStr)}</div>
           <div class="sig-role">GIÁM ĐỐC</div>
           <div class="sig-hint">(Ký và ghi rõ họ tên)</div>
           <div class="sig-space"></div>
-          <div class="sig-name">${nguoiPhuTrach}</div>
+          <div class="sig-name">${escapeHtml(nguoiPhuTrach)}</div>
         </div>
       </div>
     </div>
@@ -1047,12 +1046,12 @@ export default function HocSinh() {
                   transition: 'all .2s', marginBottom: 14,
                 }}
               >
-                <input ref={csvInputRef} type="file" accept=".csv" style={{ display: 'none' }}
+                <input ref={csvInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
                   onChange={e => { if (e.target.files?.[0]) pickFile(e.target.files[0]); }} />
                 <i className="fas fa-cloud-upload-alt" style={{ fontSize: '2rem', color: dragOver ? '#16a34a' : '#94a3b8', marginBottom: 8, display: 'block' }}></i>
                 {csvFile
-                  ? <><b style={{ color: '#16a34a' }}><i className="fas fa-check-circle"></i> {csvFile.name}</b><br /><small style={{ color: '#64748b' }}>Click để chọn file khác</small></>
-                  : <><b style={{ color: '#475569' }}>Kéo thả file CSV vào đây</b><br /><small style={{ color: '#94a3b8' }}>hoặc click để chọn file (.csv)</small></>
+                  ? <><b style={{ color: '#16a34a' }}><i className="fas fa-check-circle"></i> {csvFile.name}</b><br /><small style={{ color: '#64748b' }}>Click để chọn file khác (Chỉ nhận file CSV)</small></>
+                  : <><b style={{ color: '#475569' }}>Kéo thả file CSV vào đây</b><br /><small style={{ color: '#94a3b8' }}>hoặc click để chọn file (Chỉ nhận file CSV, tối đa 5MB)</small></>
                 }
               </div>
 

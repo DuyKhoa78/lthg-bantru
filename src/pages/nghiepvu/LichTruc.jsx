@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import { getSortNames } from '../../utils/stringUtils';
+import { getSortNames, escapeHtml } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './LichTruc.css';
 
@@ -96,7 +96,6 @@ export default function LichTruc() {
   // Fetch data theo view và date (bao gồm cả GV & Phòng trong kết quả tuần)
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line
     setLoading(true);
     const req = view === 'week'
       ? Promise.all([
@@ -300,18 +299,18 @@ export default function LichTruc() {
             else if (isLastInDay) thuClass += ' thu-last';
             else thuClass += ' thu-mid';
 
-            const thuText = (k === mid) ? r.thu : '';
+            const thuText = (k === mid) ? escapeHtml(r.thu) : '';
             const thuCell = `<td class="${thuClass}">${thuText}</td>`;
             const w1Cell = r.hasW1 ? `<td class="td-ky td-w1"></td>` : `<td class="td-ky td-w1-empty"></td>`;
             const w2Cell = r.hasW2 ? `<td class="td-ky td-w2"></td>` : `<td class="td-ky td-w2-empty"></td>`;
             html += `<tr${rowClass}>
               <td class="td-stt">${stt}</td>
               ${thuCell}
-              <td class="td-ten">${r.ho_ten}</td>
-              <td class="td-phong">${r.phong}</td>
+              <td class="td-ten">${escapeHtml(r.ho_ten)}</td>
+              <td class="td-phong">${escapeHtml(r.phong)}</td>
               ${w1Cell}
               ${w2Cell}
-              <td class="td-ghi">${r.ghichu}</td>
+              <td class="td-ghi">${escapeHtml(r.ghichu)}</td>
             </tr>`;
             stt++;
           }
@@ -334,9 +333,9 @@ export default function LichTruc() {
           </div>
         </div>
         <div class="title-wrap">
-          <div class="main-title">${title}</div>
+          <div class="main-title">${escapeHtml(title)}</div>
           <div class="sub-title">Tuần từ <b>${fdFull(ws1)}</b> đến <b>${fdFull(we2)}</b></div>
-          ${subNote ? `<div class="sub-note">(${subNote})</div>` : ''}
+          ${subNote ? `<div class="sub-note">(${escapeHtml(subNote)})</div>` : ''}
         </div>
         <table>
           ${renderThead()}
@@ -350,14 +349,14 @@ export default function LichTruc() {
               <div class="sig-title">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
               <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
               <div class="sig-space"></div>
-              <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+              <div class="sig-name">${escapeHtml(user?.fullname?.trim() || user?.username || '')}</div>
             </div>
             <div class="sig-box">
               <div class="sig-date">TP Hồ Chí Minh, ngày ${ws1.getDate()} tháng ${ws1.getMonth()+1} năm ${ws1.getFullYear()}</div>
               <div class="sig-title">GIÁM ĐỐC</div>
               <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
               <div class="sig-space"></div>
-              <div class="sig-name">${phuTrach || 'Vũ Quốc Phong'}</div>
+              <div class="sig-name">${escapeHtml(phuTrach || 'Vũ Quốc Phong')}</div>
             </div>
           </div>
         </div>

@@ -55,7 +55,6 @@ export default function BaoPhepModal({
     useEffect(() => {
         if (open) {
             const d = defaultDate || new Date().toISOString().split('T')[0];
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setStartDate(d);
             setEndDate(d);
             setListDate(d);
@@ -70,7 +69,6 @@ export default function BaoPhepModal({
     useEffect(() => {
         if (!open) return;
         if (allStudents.length === 0 && students && students.length > 0) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setAllStudents(students);
         }
         if (allStudents.length > 0) return;
@@ -150,7 +148,6 @@ export default function BaoPhepModal({
 
     useEffect(() => {
         if (open && activeTab === 'list') {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             fetchPhepList(listDate);
         }
     }, [open, activeTab, listDate, fetchPhepList]);

@@ -50,7 +50,6 @@ export default function GiaoVien() {
       .finally(() => setLoading(false));
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, []);
 
   const handleCopyCode = (gv) => {

@@ -379,14 +379,26 @@
 /* ── 3. 5 Hero Stat Cards (Grid Layout) ── */
 .bctruc-stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 14px;
   margin-bottom: 22px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1400px) {
   .bctruc-stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 850px) {
+  .bctruc-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .bctruc-stats-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -563,78 +575,192 @@
   color: #16a34a;
 }
 
-/* ── 4. Alert pending rooms banner ── */
-.bctruc-pending-banner {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 1px solid #fde68a;
-  border-left: 5px solid #f59e0b;
-  padding: 14px 18px;
-  border-radius: 12px;
-  margin-bottom: 22px;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+.bctruc-stat-card.theme-teal {
+  border-color: #ccfbf1;
+}
+.bctruc-stat-card.theme-teal:hover {
+  border-color: #99f6e4;
+}
+.bctruc-stat-card.theme-teal .bctruc-stat-icon {
+  background: #ccfbf1;
+  color: #0d9488;
 }
 
-.bctruc-pending-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: #fef3c7;
-  color: #d97706;
+.bctruc-stat-badge.teal {
+  background: #f0fdfa;
+  color: #0d9488;
+}
+
+.bctruc-badge-giamsat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* ── 4. Modern Progress Status Bar ── */
+.bctruc-progress-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.bctruc-progress-main {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 1.15rem;
-  flex-shrink: 0;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.bctruc-pending-content {
-  flex: 1;
+.bctruc-progress-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.bctruc-pending-title {
-  font-weight: 800;
-  font-size: 0.94rem;
-  color: #92400e;
-  margin-bottom: 6px;
+.bctruc-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
-.bctruc-pending-rooms-wrap {
+.bctruc-status-pill.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.bctruc-status-pill.success {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.bctruc-progress-meta-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: #475569;
+  flex-wrap: wrap;
+}
+
+.bctruc-dot {
+  color: #cbd5e1;
+  font-size: 0.75rem;
+}
+
+.bctruc-progress-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bctruc-progress-meter {
+  width: 90px;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.bctruc-progress-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7 0%, #06b6d4 100%);
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+
+.bctruc-btn-toggle-pending {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.bctruc-btn-toggle-pending:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.bctruc-btn-toggle-pending.active {
+  background: #eff6ff;
+  color: #0284c7;
+  border-color: #bfdbfe;
+}
+
+.bctruc-pending-expanded {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-in-out;
 }
 
-.bctruc-pending-group {
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bctruc-pending-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.bctruc-pending-group-label {
-  font-size: 0.84rem;
+.bctruc-pending-label {
+  font-size: 0.78rem;
   font-weight: 700;
-  color: #78350f;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .bctruc-pending-tags {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
-.bctruc-pending-tag {
-  background: #ffffff;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
-  padding: 2px 7px;
-  border-radius: 5px;
-  font-size: 0.78rem;
-  font-weight: 800;
+.bctruc-pending-tag-modern {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 /* ── 5. Table Card & Container ── */
@@ -700,38 +826,206 @@
   box-shadow: 0 0 0 3px rgba(0, 156, 255, 0.12);
 }
 
-.bctruc-badge-an {
+/* ── Modern Report Table ── */
+.bctruc-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.bctruc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.bctruc-table thead {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.bctruc-table th {
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.bctruc-table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.bctruc-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Mini badges for shift */
+.bctruc-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.bctruc-mini-badge.badge-an {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.bctruc-mini-badge.badge-ngu {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.bctruc-mini-badge.badge-giamsat {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+.bctruc-table-room-text {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #0f172a;
+  margin-top: 3px;
+}
+
+.bctruc-siso-pill {
+  background: #f1f5f9;
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  display: inline-block;
+}
+
+.bctruc-status-normal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #16a34a;
+  font-weight: 600;
+  font-size: 0.82rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+
+.bctruc-vp-cell-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.bctruc-vp-cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #b91c1c;
+  margin-bottom: 4px;
+}
+
+.bctruc-vp-cell-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bctruc-vp-cell-item {
+  background: #ffffff;
+  border: 1px solid #fee2e2;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 0.8rem;
+}
+
+.bctruc-vp-lop-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.bctruc-vp-time-badge {
   background: #fef3c7;
   color: #b45309;
-  padding: 4px 9px;
-  border-radius: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.7rem;
   font-weight: 700;
-  font-size: 0.78rem;
+}
+
+.bctruc-attp-pill {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.bctruc-badge-ngu {
-  background: #ede9fe;
-  color: #6d28d9;
-  padding: 4px 9px;
-  border-radius: 6px;
-  font-weight: 700;
-  font-size: 0.78rem;
-  display: inline-flex;
+.bctruc-ghichu-text {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 500;
+  display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.bctruc-phong-pill {
-  background: #f1f5f9;
-  color: #334155;
-  font-weight: 800;
-  padding: 4px 10px;
+.bctruc-btn-del {
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
-  font-size: 0.85rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.84rem;
+  transition: all 0.15s ease;
+}
+
+.bctruc-btn-del:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.bctruc-table-footer-clean {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  color: #475569;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .bctruc-empty {
@@ -820,3 +1114,205 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.75; }
 }
+
+/* ── Selected State for Stat Cards ── */
+.bctruc-stat-card.bctruc-card-active {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25), 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-2px);
+}
+
+/* ── Primary Ghost Button (Zalo Copy) ── */
+.bctruc-btn-primary-ghost {
+  background: #eff6ff;
+  color: #0284c7;
+  border-color: #bfdbfe;
+}
+.bctruc-btn-primary-ghost:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.28);
+}
+
+/* ── Section Navigation Bar & Tabs ── */
+.bctruc-section-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 8px 16px;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.bctruc-section-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.bctruc-sec-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.bctruc-sec-tab:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.bctruc-sec-tab.active {
+  background: #ffffff;
+  color: #0284c7;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.bctruc-sec-tab.tab-an.active {
+  color: #d97706;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.bctruc-sec-tab.tab-ngu.active {
+  color: #7c3aed;
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+}
+
+.bctruc-sec-tab.tab-giamsat.active {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.bctruc-sec-tab.tab-vipham.active {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.bctruc-sec-tab.tab-gv.active {
+  color: #16a34a;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.bctruc-sec-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  border-radius: 12px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.bctruc-sec-tab.active .bctruc-sec-count {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.bctruc-sec-tab.tab-an.active .bctruc-sec-count {
+  background: #d97706;
+  color: #ffffff;
+}
+
+.bctruc-sec-tab.tab-ngu.active .bctruc-sec-count {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.bctruc-sec-tab.tab-giamsat.active .bctruc-sec-count {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.bctruc-sec-count.danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.bctruc-sec-tab.tab-vipham.active .bctruc-sec-count.danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* ── Section Blocks for 3 Parts (Ăn, Ngủ, Giám Sát) ── */
+.bctruc-section-block {
+  margin-bottom: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.bctruc-section-block-header {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.92rem;
+  border: 1px solid transparent;
+}
+
+.bctruc-section-block-header.theme-an {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.bctruc-section-block-header.theme-ngu {
+  background: #f5f3ff;
+  color: #5b21b6;
+  border-color: #ddd6fe;
+}
+
+.bctruc-section-block-header.theme-giamsat {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+.bctruc-sec-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.bctruc-sec-badge.badge-an {
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.bctruc-sec-badge.badge-ngu {
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.bctruc-sec-badge.badge-giamsat {
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+
