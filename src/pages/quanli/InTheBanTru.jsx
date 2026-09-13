@@ -16,7 +16,7 @@ const colorThemes = {
 };
 
 // Component render mã QR chuẩn quang học 100% bằng QRCode.js
-function QRCodeView({ value, size = 62 }) {
+function QRCodeView({ value, size = 58 }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -129,7 +129,7 @@ function CardFront({ student, namHoc }) {
         </div>
 
         {/* MÃ QR CODE THẬT (Kéo sát vào trong để tránh bị viền dây đeo che) */}
-        <QRCodeView value={qrText} size={62} />
+        <QRCodeView value={qrText} size={58} />
       </div>
     </div>
   );
