@@ -71,7 +71,7 @@ function CardFront({ student, namHoc }) {
   const displayName = (student.name || '').normalize('NFC');
   // Cố định khung dán ảnh 3x4
   const avatarSrc = pastePhotoAvatar;
-  const nameFontSize = displayName.length > 22 ? '9.4px' : (displayName.length > 17 ? '10.2px' : '11px');
+  const nameFontSize = displayName.length > 26 ? '9.6px' : (displayName.length > 18 ? '10.2px' : '10.8px');
 
   const cardStyle = {
     '--primary-navy': theme.navy,
