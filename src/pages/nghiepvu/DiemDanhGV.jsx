@@ -40,28 +40,9 @@ export default function DiemDanhGV() {
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'comat', 'vang', 'thay'
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Teachers list for substitute picker
-  const [giaoVienList, setGiaoVienList] = useState([]);
-
-  // Substitute modal
-  const [subModal, setSubModal] = useState(null); // { pcId, originalTeacherName, room, loai_truc }
-  const [subTab, setSubTab] = useState('gv'); // 'gv' | 'ngoai'
-  const [subSearchGv, setSubSearchGv] = useState('');
-  const [subNgoaiTen, setSubNgoaiTen] = useState('');
-  const [subSaving, setSubSaving] = useState(false);
-
   // Quick Action confirming
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const [confirmAllSaving, setConfirmAllSaving] = useState(false);
-
-  // Load teachers for substitute dropdown
-  useEffect(() => {
-    api.get('/api/giaovien/?limit=500')
-      .then(res => {
-        if (res.data?.ok) setGiaoVienList(res.data.giaovien || []);
-      })
-      .catch(() => {});
-  }, []);
 
   // Fetch duty schedule for selected date
   const loadDayData = useCallback(async (selectedDate, silent = false) => {
@@ -144,72 +125,7 @@ export default function DiemDanhGV() {
     }
   };
 
-  // Open substitute modal
-  const openSubstituteModal = (record) => {
-    setSubModal(record);
-    setSubTab('gv');
-    setSubSearchGv('');
-    setSubNgoaiTen('');
-  };
 
-  // Cancel substitute
-  const handleCancelSubstitute = async (recordId) => {
-    try {
-      const res = await api.post('/api/lichtruc/huy-truc-thay/', { id: recordId });
-      if (res.data?.ok) {
-        showAlert('Đã hủy trực thay thành công, trả về giáo viên gốc', 'success');
-        await loadDayData(date, true);
-      }
-    } catch (err) {
-      showAlert('Lỗi hủy trực thay: ' + (err.response?.data?.error || err.message), 'danger');
-    }
-  };
-
-  // Submit substitute
-  const handleSaveSubstitute = async () => {
-    if (!subModal) return;
-    setSubSaving(true);
-    try {
-      let payload = {
-        id: subModal.id,
-        ma_gv_id: subModal.ma_gv_id,
-        ma_phong_id: subModal.ma_phong_id,
-        ngay: subModal.ngay,
-        loai_truc: subModal.loai_truc,
-        nhiem_vu: subModal.nhiem_vu ?? 0,
-        xac_nhan_truc: true,
-      };
-
-      if (subTab === 'gv') {
-        if (!subSearchGv) {
-          showAlert('Vui lòng chọn giáo viên trực thay', 'warning');
-          setSubSaving(false);
-          return;
-        }
-        payload.ma_gv_truc_thay_id = parseInt(subSearchGv);
-        payload.ten_gv_truc_thay = null;
-      } else {
-        if (!subNgoaiTen.trim()) {
-          showAlert('Vui lòng nhập họ và tên người trực thay ngoài danh sách', 'warning');
-          setSubSaving(false);
-          return;
-        }
-        payload.ma_gv_truc_thay_id = null;
-        payload.ten_gv_truc_thay = subNgoaiTen.trim();
-      }
-
-      const res = await api.post('/api/lichtruc/save/', payload);
-      if (res.data?.ok) {
-        showAlert('Đã cập nhật người trực thay thành công', 'success');
-        setSubModal(null);
-        await loadDayData(date, true);
-      }
-    } catch (err) {
-      showAlert('Lỗi lưu trực thay: ' + (err.response?.data?.error || err.message), 'danger');
-    } finally {
-      setSubSaving(false);
-    }
-  };
 
   // Filtered records
   const filteredRecords = useMemo(() => {
@@ -250,19 +166,7 @@ export default function DiemDanhGV() {
     return { total, comat, vang, thay };
   }, [records]);
 
-  // Filtered teacher list for picker modal
-  const eligibleTeachers = useMemo(() => {
-    if (!subModal) return [];
-    return (giaoVienList || []).filter(g => {
-      // Don't substitute for oneself
-      if (g.id === subModal.ma_gv_id) return false;
-      // Room gender matching for sleeping rooms
-      if (subModal.loai_truc === 1 && subModal.phong?.gioi_tinh !== null && subModal.phong?.gioi_tinh !== undefined) {
-        if (g.gioi_tinh !== subModal.phong.gioi_tinh) return false;
-      }
-      return true;
-    });
-  }, [giaoVienList, subModal]);
+
 
   return (
     <div className="diemdanh-gv-page" style={{ paddingBottom: 60 }}>
@@ -283,11 +187,21 @@ export default function DiemDanhGV() {
             Điểm danh Giáo viên trực
           </h2>
           <p style={{ color: '#64748b', margin: '4px 0 0' }}>
-            Quản lý điểm danh ca trực bán trú hàng ngày, xác nhận có mặt / vắng và điều động người trực thay.
+            Quản lý điểm danh ca trực bán trú hàng ngày, xác nhận có mặt / vắng của giáo viên.
           </p>
         </div>
 
         <div className="page-header-actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link
+            to="/lich-truc-admin"
+            className="btn btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}
+            title="Đến Phân công theo ngày để điều động trực thay"
+          >
+            <i className="fas fa-calendar-check" style={{ color: 'var(--primary)' }}></i>
+            <span>Phân công theo Ngày</span>
+          </Link>
+
           <button
             className="btn btn-primary"
             onClick={() => setConfirmAllOpen(true)}
@@ -550,11 +464,10 @@ export default function DiemDanhGV() {
             <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', width: 90 }}>Phòng</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', width: 140 }}>Ca & Nhiệm vụ</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', width: 100 }}>Phòng</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', width: 160 }}>Ca & Nhiệm vụ</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Người trực thực tế</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center', width: 220 }}>Trạng thái Điểm danh</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', width: 140 }}>Điều động</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center', width: 240 }}>Trạng thái Điểm danh</th>
                 </tr>
               </thead>
               <tbody>
@@ -766,43 +679,6 @@ export default function DiemDanhGV() {
                           </button>
                         </div>
                       </td>
-
-                      {/* Điều động / Trực thay */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => openSubstituteModal(item)}
-                            title="Chỉ định người trực thay"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              fontSize: '0.78rem',
-                              padding: '5px 9px',
-                              color: hasSubstitute ? '#b45309' : '#475569',
-                            }}
-                          >
-                            <i className="fas fa-user-friends"></i>
-                            {hasSubstitute ? 'Đổi người' : 'Trực thay'}
-                          </button>
-
-                          {hasSubstitute && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => handleCancelSubstitute(item.id)}
-                              title="Hủy trực thay, trả về GV ban đầu"
-                              style={{
-                                color: '#dc2626',
-                                padding: '5px 8px',
-                                fontSize: '0.78rem',
-                              }}
-                            >
-                              <i className="fas fa-undo"></i>
-                            </button>
-                          )}
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
@@ -812,158 +688,7 @@ export default function DiemDanhGV() {
         )}
       </div>
 
-      {/* ─── MODAL: TRỰC THAY (Tab GV trường & Tab Ngoài DS) ─── */}
-      {subModal && (
-        <div className="modal-overlay open" onClick={() => !subSaving && setSubModal(null)}>
-          <div className="modal-box" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <i className="fas fa-exchange-alt" style={{ color: '#d97706' }}></i>
-                Điều động Trực thay — Phòng {subModal.ma_phong_id}
-              </div>
-              <button className="modal-close" onClick={() => !subSaving && setSubModal(null)}>
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
 
-            <div className="modal-body">
-              {/* Thông tin ca trực */}
-              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 8, marginBottom: 16, border: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
-                <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Giáo viên được thay thế
-                </div>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1e293b', marginTop: 2 }}>
-                  {subModal.giao_vien?.ho_ten || `GV #${subModal.ma_gv_id}`}
-                </div>
-                <div style={{ color: '#64748b', fontSize: '0.78rem', marginTop: 4 }}>
-                  Ca: {subModal.loai_truc === 0 ? 'Ăn' : 'Ngủ'} — Ngày: {fmtDate(subModal.ngay)}
-                </div>
-              </div>
-
-              {/* Tabs chọn hình thức trực thay */}
-              <div style={{ display: 'flex', gap: 8, background: '#f1f5f9', padding: 4, borderRadius: 8, marginBottom: 14 }}>
-                <button
-                  type="button"
-                  onClick={() => setSubTab('gv')}
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    background: subTab === 'gv' ? '#fff' : 'transparent',
-                    color: subTab === 'gv' ? '#2563eb' : '#64748b',
-                    boxShadow: subTab === 'gv' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  }}
-                >
-                  <i className="fas fa-chalkboard-teacher"></i>
-                  GV trong trường
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSubTab('ngoai')}
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    background: subTab === 'ngoai' ? '#fff' : 'transparent',
-                    color: subTab === 'ngoai' ? '#d97706' : '#64748b',
-                    boxShadow: subTab === 'ngoai' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  }}
-                >
-                  <i className="fas fa-user-edit"></i>
-                  Điền tên ngoài DS
-                </button>
-              </div>
-
-              {/* Tab 1: Giáo viên trong trường */}
-              {subTab === 'gv' && (
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
-                    Chọn Giáo viên trực thay:
-                  </label>
-                  <select
-                    className="form-select"
-                    value={subSearchGv}
-                    onChange={e => setSubSearchGv(e.target.value)}
-                    style={{ width: '100%', height: 40, borderRadius: 8 }}
-                  >
-                    <option value="">-- Chọn giáo viên từ danh sách --</option>
-                    {eligibleTeachers.map(g => (
-                      <option key={g.id} value={g.id}>
-                        {g.ho_ten} {g.nhiem_vu === 1 ? '(Giám sát)' : '(Điểm danh)'}
-                      </option>
-                    ))}
-                  </select>
-                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 6 }}>
-                    Chỉ hiển thị giáo viên đủ điều kiện trực phòng này.
-                  </p>
-                </div>
-              )}
-
-              {/* Tab 2: Người ngoài danh sách */}
-              {subTab === 'ngoai' && (
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
-                    Họ và tên người trực thay (Thủ công):
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <i className="fas fa-user-tag" style={{ position: 'absolute', left: 12, top: 12, color: '#d97706' }}></i>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Ví dụ: Nguyễn Thị Hoa (Bảo mẫu ngoài)..."
-                      value={subNgoaiTen}
-                      onChange={e => setSubNgoaiTen(e.target.value)}
-                      style={{ paddingLeft: 34, height: 40, borderRadius: 8 }}
-                      autoFocus
-                    />
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 6 }}>
-                    Người này sẽ được ghi nhận vào báo cáo kế toán để thanh toán công trực riêng biệt.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setSubModal(null)}
-                disabled={subSaving}
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleSaveSubstitute}
-                disabled={subSaving}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                {subSaving && <i className="fas fa-spinner fa-spin"></i>}
-                <span>Xác nhận trực thay</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── MODAL CONFIRM: ĐIỂM DANH TẤT CẢ CÓ MẶT ─── */}
       {confirmAllOpen && (
