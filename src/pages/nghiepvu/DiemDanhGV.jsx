@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import '../../styles/admin.css';
 
@@ -30,7 +29,6 @@ const todayVN = () => {
 const DOW_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export default function DiemDanhGV() {
-  const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
 
   const [date, setDate] = useState(todayVN);
@@ -471,7 +469,7 @@ export default function DiemDanhGV() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((item, index) => {
+                {filteredRecords.map((item) => {
                   const isCaAn = item.loai_truc === 0;
                   const isDiemDanh = item.nhiem_vu === 0;
                   const isComat = item.xac_nhan_truc !== false;
@@ -482,16 +480,12 @@ export default function DiemDanhGV() {
                   const hasSubstitute = hasGvThay || hasNgoaiThay;
 
                   // Tên người trực thực tế (Primary display name)
-                  let actualName = '';
-                  let isNgoai = false;
-                  if (hasNgoaiThay) {
-                    actualName = item.ten_gv_truc_thay.trim();
-                    isNgoai = true;
-                  } else if (hasGvThay) {
-                    actualName = item.giao_vien_truc_thay?.ho_ten || `GV #${item.ma_gv_truc_thay_id}`;
-                  } else {
-                    actualName = item.giao_vien?.ho_ten || `GV #${item.ma_gv_id}`;
-                  }
+                  const isNgoai = Boolean(hasNgoaiThay);
+                  const actualName = hasNgoaiThay
+                    ? item.ten_gv_truc_thay.trim()
+                    : hasGvThay
+                    ? (item.giao_vien_truc_thay?.ho_ten || `GV #${item.ma_gv_truc_thay_id}`)
+                    : (item.giao_vien?.ho_ten || `GV #${item.ma_gv_id}`);
 
                   // Tên GV ban đầu được phân công
                   const originalTeacherName = item.giao_vien?.ho_ten || `GV #${item.ma_gv_id}`;
