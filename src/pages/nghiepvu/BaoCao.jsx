@@ -1228,7 +1228,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
             gvData.forEach((g, i) => {
                 tbody += `<tr>
           <td class="tc">${i + 1}</td>
-          <td>${g.ho_ten}</td>
+          <td>${g.ho_ten}${g.is_ngoai ? ' <span style="font-size:9pt;font-style:italic;color:#92400e;">(Ngoài DS)</span>' : ''}</td>
           <td class="tc">${g.so_ca_an}</td>
           <td class="tc">${g.so_ca_ngu}</td>
           <td class="tr" style="font-weight:bold;">${g.tong_tien.toLocaleString('vi-VN')} đ</td>
@@ -1338,7 +1338,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
 
         const headerRowAn = ['STT', 'Tên\\\\Thứ', ...workDays.map(d => d.dowStr), 'TC'];
         const dataRowsAn = gvData.map((g, i) => {
-            const row = [i + 1, g.ho_ten];
+            const row = [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : '')];
             workDays.forEach(wd => {
                 row.push(g.ngay_an.includes(wd.dateStr) ? 1 : '');
             });
@@ -1348,7 +1348,7 @@ body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
 
         const headerRowNgu = ['STT', 'Tên\\\\Thứ', ...workDays.map(d => d.dowStr), 'TC'];
         const dataRowsNgu = gvData.map((g, i) => {
-            const row = [i + 1, g.ho_ten];
+            const row = [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : '')];
             workDays.forEach(wd => {
                 row.push(g.ngay_ngu.includes(wd.dateStr) ? 1 : '');
             });
@@ -1441,7 +1441,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
 
             let tbody = '';
             gvData.forEach(g => {
-                let tr = `<tr><td class="name">${g.ho_ten}</td>`;
+                let tr = `<tr><td class="name">${g.ho_ten}${g.is_ngoai ? ' <span style="font-size:9pt;font-style:italic;color:#92400e;">(Ngoài DS)</span>' : ''}</td>`;
                 workDays.forEach(wd => {
                     const hasAn = g.ngay_an.includes(wd.dateStr);
                     const hasNgu = g.ngay_ngu.includes(wd.dateStr);
@@ -1529,7 +1529,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             ['BẢNG THỐNG KÊ LƯƠNG GIÁO VIÊN TRỰC BÁN TRÚ'],
             [`Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')}  |  Đơn giá ăn: ${giaAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${giaNgu.toLocaleString('vi-VN')}đ`], [],
             ['STT', 'Họ tên GV', 'Số ca ăn', 'Số ca ngủ', 'Tổng số ca', 'Tổng thành tiền (VNĐ)'],
-            ...gvData.map((g, i) => [i + 1, g.ho_ten, g.so_ca_an, g.so_ca_ngu, g.so_ca_an + g.so_ca_ngu, g.tong_tien.toLocaleString('vi-VN')])
+            ...gvData.map((g, i) => [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : ''), g.so_ca_an, g.so_ca_ngu, g.so_ca_an + g.so_ca_ngu, g.tong_tien.toLocaleString('vi-VN')])
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'GV');
@@ -1823,19 +1823,53 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', borderRadius: 8, padding: '7px 14px' }}>
                                     <i className="fas fa-tag" style={{ color: '#64748b', fontSize: '.8rem' }}></i>
-                                    <span className="ca-an-badge" style={{ fontSize: '.8rem' }}>🍽️ {giaAn.toLocaleString('vi-VN')}đ/ca</span>
-                                    <span className="ca-ngu-badge" style={{ fontSize: '.8rem' }}>🛏️ {giaNgu.toLocaleString('vi-VN')}đ/ca</span>
+                                    <span className="ca-an-badge" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                        <i className="fas fa-utensils"></i> {giaAn.toLocaleString('vi-VN')}đ/ca
+                                    </span>
+                                    <span className="ca-ngu-badge" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                        <i className="fas fa-bed"></i> {giaNgu.toLocaleString('vi-VN')}đ/ca
+                                    </span>
                                 </div>
                             </div>
                         </div>
                         <div style={{ overflowX: 'auto' }}>
                             <table className="data-table" id="gv-detail-table">
-                                <thead><tr><th style={{ width: 44 }}>STT</th><th>Họ tên GV</th><th style={{ textAlign: 'center' }}>Số ca ăn 🍽️</th><th style={{ textAlign: 'center' }}>Số ca ngủ 🛏️</th><th style={{ textAlign: 'right', minWidth: 200 }}>Thành tiền (VNĐ)</th></tr></thead>
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: 44 }}>STT</th>
+                                        <th>Họ tên GV / Nhân sự trực</th>
+                                        <th style={{ textAlign: 'center' }}><i className="fas fa-utensils" style={{ marginRight: 4 }}></i> Số ca ăn</th>
+                                        <th style={{ textAlign: 'center' }}><i className="fas fa-bed" style={{ marginRight: 4 }}></i> Số ca ngủ</th>
+                                        <th style={{ textAlign: 'right', minWidth: 200 }}>Thành tiền (VNĐ)</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                     {gvData.map((g, i) => (
                                         <tr key={g.id}>
                                             <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{i + 1}</td>
-                                            <td><strong>{g.ho_ten}</strong></td>
+                                            <td>
+                                                <strong>{g.ho_ten}</strong>
+                                                {g.is_ngoai && (
+                                                    <span
+                                                        style={{
+                                                            fontSize: '0.7rem',
+                                                            background: '#fef3c7',
+                                                            color: '#92400e',
+                                                            border: '1px solid #fde68a',
+                                                            padding: '2px 6px',
+                                                            borderRadius: 4,
+                                                            marginLeft: 8,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 4,
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-user-tag"></i>
+                                                        Ngoài DS
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td style={{ textAlign: 'center' }}><span className="ca-an-badge">{g.so_ca_an} ca</span></td>
                                             <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge">{g.so_ca_ngu} ca</span></td>
                                             <td style={{ textAlign: 'right' }}>

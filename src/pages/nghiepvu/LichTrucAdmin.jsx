@@ -65,6 +65,8 @@ export default function LichTrucAdmin() {
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerNhiemVu, setPickerNhiemVu] = useState('all');
   const [pickerSaving, setPickerSaving] = useState(false);
+  const [pickerSubTab, setPickerSubTab] = useState('gv'); // 'gv' | 'ngoai'
+  const [pickerNgoaiTen, setPickerNgoaiTen] = useState('');
 
   // Confirm delete
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -245,6 +247,69 @@ export default function LichTrucAdmin() {
       showAlert('Lỗi lưu: ' + (err.response?.data?.error || err.message), 'danger');
     } finally {
       setPickerSaving(false);
+    }
+  };
+
+  const addGVNgoai = async (tenNgoai) => {
+    if (!picker || !tenNgoai || !tenNgoai.trim()) return;
+    const { ngay, phong_id, loai_truc } = picker;
+    setPickerSaving(true);
+    try {
+      const originalPC = picker.mode === 'substitute'
+        ? (pcData || []).find(x => String(x.id) === String(picker.originalPCId))
+        : null;
+      const res = await api.post('/api/lichtruc/save/', {
+        id: picker.originalPCId,
+        ma_gv_id: originalPC?.ma_gv_id,
+        ma_gv_truc_thay_id: null,
+        ten_gv_truc_thay: tenNgoai.trim(),
+        ma_phong_id: phong_id,
+        ngay,
+        loai_truc,
+        nhiem_vu: originalPC?.nhiem_vu ?? 0,
+        xac_nhan_truc: true,
+      });
+      if (res.data?.ok) {
+        showAlert('Đã gán người ngoài danh sách trực thay thành công', 'success');
+        await loadWeek(weekStart, true);
+        setPicker(null);
+        setDetailPC(null);
+      }
+    } catch (err) {
+      showAlert('Lỗi lưu: ' + (err.response?.data?.error || err.message), 'danger');
+    } finally {
+      setPickerSaving(false);
+    }
+  };
+
+  const cancelSubstitute = async (pcId) => {
+    try {
+      const res = await api.post('/api/lichtruc/huy-truc-thay/', { id: pcId });
+      if (res.data?.ok) {
+        showAlert('Đã hủy trực thay thành công, trả về giáo viên gốc', 'success');
+        await loadWeek(weekStart, true);
+        setDetailPC(null);
+      }
+    } catch (err) {
+      showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger');
+    }
+  };
+
+  const toggleDiemDanh = async (pcId, currentStatus) => {
+    try {
+      const res = await api.post('/api/lichtruc/diem-danh/', {
+        id: pcId,
+        xac_nhan_truc: !currentStatus
+      });
+      if (res.data?.ok) {
+        showAlert(`Đã đánh dấu ${!currentStatus ? 'Có mặt' : 'Vắng'}`, 'success');
+        await loadWeek(weekStart, true);
+        if (detailPC && detailPC.id === pcId) {
+          setDetailPC(prev => prev ? { ...prev, xac_nhan_truc: !currentStatus } : null);
+        }
+      }
+    } catch (err) {
+      showAlert('Lỗi: ' + (err.response?.data?.error || err.message), 'danger');
     }
   };
 
@@ -694,21 +759,37 @@ export default function LichTrucAdmin() {
                             onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'}
                             onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
                           >
-                            {/* Nếu có trực thay: hiện tên GV thay màu vàng đậm ở trên */}
-                            {gvThay ? (
-                              <>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b45309' }}>
-                                  {gvThay.ho_ten}
+                            {/* Nếu có trực thay: CHỈ hiển thị tên người trực thay, làm rõ thay cho ai */}
+                            {(() => {
+                              const hasNgoai = Boolean(pc.ten_gv_truc_thay && pc.ten_gv_truc_thay.trim());
+                              const actualThayName = hasNgoai ? pc.ten_gv_truc_thay.trim() : (gvThay?.ho_ten);
+                              const isComat = pc.xac_nhan_truc !== false;
+
+                              if (actualThayName) {
+                                return (
+                                  <>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                                      <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b45309', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {actualThayName} {hasNgoai ? <span style={{ fontSize: '0.58rem', color: '#92400e', background: '#fef3c7', padding: '1px 3px', borderRadius: 2 }}>Ngoài</span> : null}
+                                      </div>
+                                      <i className={`fas ${isComat ? 'fa-check' : 'fa-times'}`} style={{ fontSize: '0.62rem', color: isComat ? '#16a34a' : '#dc2626' }}></i>
+                                    </div>
+                                    <div style={{ fontSize: '0.62rem', color: '#64748b', marginTop: 1 }}>
+                                      thay: {abbrevName(gv?.ho_ten)}
+                                    </div>
+                                  </>
+                                );
+                              }
+
+                              return (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDD ? '#1e40af' : (isHT ? '#166534' : '#1e293b'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {gv?.ho_ten}
+                                  </div>
+                                  <i className={`fas ${isComat ? 'fa-check' : 'fa-times'}`} style={{ fontSize: '0.62rem', color: isComat ? '#16a34a' : '#dc2626' }}></i>
                                 </div>
-                                <div style={{ fontSize: '0.62rem', color: '#64748b', marginTop: 1 }}>
-                                  thay: {abbrevName(gv?.ho_ten)}
-                                </div>
-                              </>
-                            ) : (
-                              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDD ? '#1e40af' : (isHT ? '#166534' : '#1e293b') }}>
-                                {gv?.ho_ten}
-                              </div>
-                            )}
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -733,71 +814,110 @@ export default function LichTrucAdmin() {
       {/* ─── Modal Chi tiết GV (click vào tag) ─── */}
       {detailPC && (() => {
         const gv    = getGVInfo(detailPC);
+        const hasNgoai = Boolean(detailPC.ten_gv_truc_thay && detailPC.ten_gv_truc_thay.trim());
         const gvThay = detailPC.ma_gv_truc_thay_id ? getGVThayInfo(detailPC) : null;
+        const actualThayName = hasNgoai ? detailPC.ten_gv_truc_thay.trim() : (gvThay?.ho_ten);
+        const hasSubstitute = Boolean(actualThayName);
         const nv    = detailPC.nhiem_vu !== undefined && detailPC.nhiem_vu !== null ? detailPC.nhiem_vu : (gv?.nhiem_vu ?? 0);
         const isDD  = nv === 0;
         const isHT  = nv === 1;
+        const isComat = detailPC.xac_nhan_truc !== false;
         return (
           <div className="modal-overlay open" onClick={() => setDetailPC(null)}>
-            <div className="modal-box" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-box" style={{ maxWidth: 390 }} onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <div className="modal-title">Chi tiết phân công</div>
+                <div className="modal-title">Chi tiết phân công trực</div>
                 <button className="modal-close" onClick={() => setDetailPC(null)}><i className="fas fa-times"></i></button>
               </div>
               <div className="modal-body">
                 {/* Thông tin phòng + ngày */}
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 12 }}>
-                  <i className="fas fa-door-open" style={{ marginRight: 6 }}></i>
-                  {detailPC._phong?.ma_phong} — {detailPC._ngay}
+                <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="fas fa-door-open" style={{ color: 'var(--primary)' }}></i>
+                  Phòng <strong>{detailPC._phong?.ma_phong}</strong> ({detailPC._phong?.loai_phong === 0 ? 'Phòng ăn' : 'Phòng ngủ'}) — {detailPC._ngay}
                 </div>
 
-                {/* GV được phân công */}
-                <div style={{ background: isDD ? '#eff6ff' : (isHT ? '#f0fdf4' : '#f8fafc'), borderLeft: `4px solid ${isDD ? '#2563eb' : (isHT ? '#16a34a' : '#94a3b8')}`, padding: '10px 12px', borderRadius: 6, marginBottom: 10 }}>
-                  <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
-                    {gvThay ? 'Người được thay' : 'Giáo viên trực'}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: isDD ? '#1e40af' : (isHT ? '#166534' : '#1e293b') }}>
-                    {gv?.ho_ten || '?'}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', marginTop: 2 }}>
-                    <span className={`badge ${isDD ? 'badge-primary' : (isHT ? 'badge-success' : '')}`} style={{ fontSize: '0.6rem' }}>
-                      {isDD ? 'Điểm danh' : (isHT ? 'Giám sát' : '?')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Nếu có trực thay */}
-                {gvThay && (
-                  <div style={{ background: '#fffbeb', borderLeft: '4px solid #d97706', padding: '10px 12px', borderRadius: 6, marginBottom: 10 }}>
-                    <div style={{ fontSize: '0.65rem', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
-                      <i className="fas fa-exchange-alt"></i> Người trực thay
+                {/* Người trực thực tế (NẾU ĐÃ CÓ TRỰC THAY: CHỈ HIỂN THỊ NGƯỜI TRỰC THAY, LÀM RÕ THAY AI) */}
+                {hasSubstitute ? (
+                  <div style={{ background: '#fffbeb', borderLeft: '4px solid #d97706', padding: '10px 12px', borderRadius: 6, marginBottom: 12 }}>
+                    <div style={{ fontSize: '0.68rem', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <i className="fas fa-exchange-alt"></i>
+                      <span>Người trực thay thực tế {hasNgoai ? '(Ngoài danh sách)' : ''}</span>
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#b45309' }}>
-                      {gvThay.ho_ten}
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#b45309' }}>
+                      {actualThayName}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#78350f', marginTop: 4 }}>
+                      Thay cho giáo viên: <strong>{gv?.ho_ten || '?'}</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background: isDD ? '#eff6ff' : (isHT ? '#f0fdf4' : '#f8fafc'), borderLeft: `4px solid ${isDD ? '#2563eb' : (isHT ? '#16a34a' : '#94a3b8')}`, padding: '10px 12px', borderRadius: 6, marginBottom: 12 }}>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
+                      Giáo viên trực phân công
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', color: isDD ? '#1e40af' : (isHT ? '#166534' : '#1e293b') }}>
+                      {gv?.ho_ten || '?'}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', marginTop: 4 }}>
+                      <span className={`badge ${isDD ? 'badge-primary' : (isHT ? 'badge-success' : '')}`} style={{ fontSize: '0.65rem' }}>
+                        {isDD ? 'Điểm danh' : (isHT ? 'Giám sát' : '?')}
+                      </span>
                     </div>
                   </div>
                 )}
 
+                {/* Trạng thái Điểm danh */}
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: 6, marginBottom: 12, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Điểm danh ca trực:</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isComat ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                      <i className={`fas ${isComat ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                      {isComat ? 'Có mặt' : 'Vắng trực'}
+                    </div>
+                  </div>
+                  {user?.is_admin && (
+                    <button
+                      className={`btn btn-sm ${isComat ? 'btn-ghost' : 'btn-primary'}`}
+                      style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+                      onClick={() => toggleDiemDanh(detailPC.id, isComat)}
+                    >
+                      {isComat ? 'Đánh dấu Vắng' : 'Đánh dấu Có mặt'}
+                    </button>
+                  )}
+                </div>
+
                 {/* Nút hành động (chỉ admin) */}
                 {user?.is_admin && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      style={{ flex: 1 }}
-                      onClick={() => {
-                        setDetailPC(null);
-                        setPicker({ ngay: detailPC._ngay, phong_id: detailPC._phong?.ma_phong, loai_truc: detailPC._phong?.loai_phong, mode: 'substitute', originalPCId: detailPC.id });
-                        setPickerSearch(''); setPickerNhiemVu('all');
-                      }}
-                    >
-                      <i className="fas fa-user-friends"></i> {gvThay ? 'Đổi người thay' : 'Trực thay'}
-                    </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                        onClick={() => {
+                          setDetailPC(null);
+                          setPicker({ ngay: detailPC._ngay, phong_id: detailPC._phong?.ma_phong, loai_truc: detailPC._phong?.loai_phong, mode: 'substitute', originalPCId: detailPC.id });
+                          setPickerSearch(''); setPickerNhiemVu('all'); setPickerSubTab('gv'); setPickerNgoaiTen('');
+                        }}
+                      >
+                        <i className="fas fa-user-friends"></i> {hasSubstitute ? 'Đổi người thay' : 'Trực thay'}
+                      </button>
+                      {hasSubstitute && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ flex: 1, color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                          onClick={() => cancelSubstitute(detailPC.id)}
+                        >
+                          <i className="fas fa-undo"></i> Hủy trực thay
+                        </button>
+                      )}
+                    </div>
+
                     <button
                       className="btn btn-danger btn-sm"
-                      style={{ flex: 1 }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
                       onClick={() => { setConfirmDelete(detailPC.id); setDetailPC(null); }}
                     >
-                      <i className="fas fa-trash"></i> Xóa phân công
+                      <i className="fas fa-trash"></i> Xóa phân công ca này
                     </button>
                   </div>
                 )}
@@ -810,37 +930,110 @@ export default function LichTrucAdmin() {
       {/* ─── Modal Chọn GV (thêm / trực thay) ─── */}
       {picker && (
         <div className="modal-overlay open">
-          <div className="modal-box" style={{ maxWidth: 450 }}>
+          <div className="modal-box" style={{ maxWidth: 460 }}>
             <div className="modal-header">
-              <div className="modal-title">{picker.mode === 'substitute' ? '👥 Chọn GV trực thay' : '➕ Thêm giáo viên'} — {picker.phong_id}</div>
+              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <i className={`fas ${picker.mode === 'substitute' ? 'fa-user-friends' : 'fa-plus'}`} style={{ color: 'var(--primary)' }}></i>
+                {picker.mode === 'substitute' ? 'Chọn người trực thay' : 'Thêm giáo viên'} — {picker.phong_id}
+              </div>
               <button className="modal-close" onClick={() => setPicker(null)}><i className="fas fa-times"></i></button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <input type="text" className="form-control" placeholder="Tìm tên..." value={pickerSearch} onChange={e => setPickerSearch(e.target.value)} />
-                <select className="form-select" style={{ width: 130 }} value={pickerNhiemVu} onChange={e => setPickerNhiemVu(e.target.value)}>
-                  <option value="all">Tất cả</option>
-                  <option value="0">Điểm danh</option>
-                  <option value="1">Giám sát</option>
-                </select>
-              </div>
-              <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-                {(filteredGVList || []).length === 0 && (
-                  <div style={{ textAlign: 'center', color: '#94a3b8', padding: 20, fontSize: '0.85rem' }}>Không có giáo viên phù hợp</div>
-                )}
-                {(filteredGVList || []).map(gv => (
-                  <div key={gv.id} className="lt-picker-item" onClick={() => !pickerSaving && addGV(gv)} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer',
-                    background: gv.nhiem_vu === 0 ? 'rgba(37,99,235,0.03)' : 'rgba(22,163,74,0.03)'
-                  }}>
-                    <span style={{ fontWeight: 500 }}>{gv.ho_ten}</span>
-                    <span className={`badge ${gv.nhiem_vu === 0 ? 'badge-primary' : 'badge-success'}`} style={{ fontSize: '0.6rem' }}>
-                      {gv.nhiem_vu === 0 ? 'Điểm danh' : 'Giám sát'}
-                    </span>
+              {/* Nếu là mode trực thay: hiển thị 2 Tabs chọn hình thức */}
+              {picker.mode === 'substitute' && (
+                <div style={{ display: 'flex', gap: 8, background: '#f1f5f9', padding: 4, borderRadius: 8, marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPickerSubTab('gv')}
+                    style={{
+                      flex: 1, border: 'none', padding: '7px 10px', borderRadius: 6, fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      background: pickerSubTab === 'gv' ? '#fff' : 'transparent',
+                      color: pickerSubTab === 'gv' ? '#2563eb' : '#64748b',
+                      boxShadow: pickerSubTab === 'gv' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                    }}
+                  >
+                    <i className="fas fa-chalkboard-teacher"></i> GV trong trường
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerSubTab('ngoai')}
+                    style={{
+                      flex: 1, border: 'none', padding: '7px 10px', borderRadius: 6, fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      background: pickerSubTab === 'ngoai' ? '#fff' : 'transparent',
+                      color: pickerSubTab === 'ngoai' ? '#d97706' : '#64748b',
+                      boxShadow: pickerSubTab === 'ngoai' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                    }}
+                  >
+                    <i className="fas fa-user-edit"></i> Điền tên ngoài DS
+                  </button>
+                </div>
+              )}
+
+              {/* Tab Ngoài danh mục */}
+              {picker.mode === 'substitute' && pickerSubTab === 'ngoai' ? (
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>Họ và tên người trực thay (Thủ công):</label>
+                  <div style={{ position: 'relative', marginBottom: 14 }}>
+                    <i className="fas fa-user-tag" style={{ position: 'absolute', left: 12, top: 12, color: '#d97706' }}></i>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Ví dụ: Nguyễn Thị Hoa (Bảo mẫu ngoài)..."
+                      value={pickerNgoaiTen}
+                      onChange={e => setPickerNgoaiTen(e.target.value)}
+                      style={{ paddingLeft: 34, height: 40, borderRadius: 8 }}
+                      autoFocus
+                    />
                   </div>
-                ))}
-              </div>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: 16 }}>
+                    Người này sẽ được lưu trực tiếp vào ca trực và hiển thị trong danh sách tính lương của kế toán.
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setPicker(null)}>Hủy</button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={pickerSaving || !pickerNgoaiTen.trim()}
+                      onClick={() => addGVNgoai(pickerNgoaiTen)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      {pickerSaving && <i className="fas fa-spinner fa-spin"></i>}
+                      <span>Xác nhận trực thay</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Tab GV trong trường / Mode thêm mới */
+                <>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <input type="text" className="form-control" placeholder="Tìm tên..." value={pickerSearch} onChange={e => setPickerSearch(e.target.value)} />
+                    <select className="form-select" style={{ width: 130 }} value={pickerNhiemVu} onChange={e => setPickerNhiemVu(e.target.value)}>
+                      <option value="all">Tất cả</option>
+                      <option value="0">Điểm danh</option>
+                      <option value="1">Giám sát</option>
+                    </select>
+                  </div>
+                  <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                    {(filteredGVList || []).length === 0 && (
+                      <div style={{ textAlign: 'center', color: '#94a3b8', padding: 20, fontSize: '0.85rem' }}>Không có giáo viên phù hợp</div>
+                    )}
+                    {(filteredGVList || []).map(gv => (
+                      <div key={gv.id} className="lt-picker-item" onClick={() => !pickerSaving && addGV(gv)} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer',
+                        background: gv.nhiem_vu === 0 ? 'rgba(37,99,235,0.03)' : 'rgba(22,163,74,0.03)'
+                      }}>
+                        <span style={{ fontWeight: 500 }}>{gv.ho_ten}</span>
+                        <span className={`badge ${gv.nhiem_vu === 0 ? 'badge-primary' : 'badge-success'}`} style={{ fontSize: '0.6rem' }}>
+                          {gv.nhiem_vu === 0 ? 'Điểm danh' : 'Giám sát'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

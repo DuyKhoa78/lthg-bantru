@@ -962,20 +962,27 @@ export default function LichTruc() {
                                 lineHeight: 1.25,
                               }}
                             >
-                              {gvThay ? (
-                                <>
-                                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b45309' }}>
-                                    {gvThay.ho_ten}
+                              {(() => {
+                                const hasNgoai = Boolean(pc.ten_gv_truc_thay && pc.ten_gv_truc_thay.trim());
+                                const actualThayName = hasNgoai ? pc.ten_gv_truc_thay.trim() : (gvThay?.ho_ten);
+                                if (actualThayName) {
+                                  return (
+                                    <>
+                                      <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b45309' }}>
+                                        {actualThayName} {hasNgoai ? <span style={{ fontSize: '0.58rem', color: '#92400e', background: '#fef3c7', padding: '1px 3px', borderRadius: 2 }}>Ngoài</span> : null}
+                                      </div>
+                                      <div style={{ fontSize: '0.62rem', color: '#64748b', marginTop: 1 }}>
+                                        thay: {gv?.ho_ten?.split(' ').pop()}
+                                      </div>
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDD ? '#1e40af' : (isHT ? '#166534' : '#1e293b') }}>
+                                    {gv?.ho_ten}
                                   </div>
-                                  <div style={{ fontSize: '0.62rem', color: '#64748b', marginTop: 1 }}>
-                                    thay: {gv?.ho_ten?.split(' ').pop()}
-                                  </div>
-                                </>
-                              ) : (
-                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDD ? '#1e40af' : (isHT ? '#166534' : '#1e293b') }}>
-                                  {gv?.ho_ten}
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           );
                         })}
