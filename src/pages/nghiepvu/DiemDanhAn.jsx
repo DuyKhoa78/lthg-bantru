@@ -217,7 +217,7 @@ export default function DiemDanhAn() {
             if (!hs.ngay_rut && !hs.dang_hoc) return false; // Đã rút bán trú (không có ngày rút cụ thể)
             if (!isHsAllowed(hs)) return false;
             if (overridedElsewhere.has(hs.id)) return false;
-            
+
             const groupPhong = cauhinhNgay?.lop_phong_an?.[hs.lop];
             if (groupPhong) return groupPhong === ma_phong;
             if (phongTamAn) return phongTamAn === ma_phong;
@@ -243,7 +243,7 @@ export default function DiemDanhAn() {
             const overrideCodes = extraHsList.filter(x => x.phong_an).map(x => x.phong_an);
             const groupCodes = cauhinhNgay.lop_phong_an ? Object.values(cauhinhNgay.lop_phong_an) : [];
             const allCodes = [...new Set([phongTamAn, ...overrideCodes, ...groupCodes])].filter(Boolean);
-            
+
             if (allCodes.length > 0) {
                 const result = allCodes.map(code => phongList.find(p => p.ma_phong === code)).filter(Boolean);
                 if (result.length > 0) list = result;
@@ -304,7 +304,7 @@ export default function DiemDanhAn() {
                     }
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
     }, [selectedPhong, date]);
 
     // Trạng thái chốt phòng hiện tại
@@ -592,8 +592,8 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const roomTotal = roomStudents.length;
             const roomComat = roomStudents.filter(s => ddMap[s.id]?.[date]?.an === 0).length;
-            const roomVang  = roomStudents.filter(s => ddMap[s.id]?.[date]?.an === 1).length;
-            const roomPhep  = roomStudents.filter(s => ddMap[s.id]?.[date]?.an === 2).length;
+            const roomVang = roomStudents.filter(s => ddMap[s.id]?.[date]?.an === 1).length;
+            const roomPhep = roomStudents.filter(s => ddMap[s.id]?.[date]?.an === 2).length;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
             const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
             const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -938,6 +938,40 @@ ${htmlPages}
         </tr>`;
                 }).join('');
 
+                // Hàng Tổng cộng
+                const totalDayCells = weeksData.map(w =>
+                    w.days.map((d, di) => {
+                        let vangDay = 0, phepDay = 0;
+                        chunk.forEach(s => {
+                            const val = getSymVal(s.id, d);
+                            if (val === 1) vangDay++;
+                            if (val === 2) phepDay++;
+                        });
+                        const parts = [];
+                        if (vangDay > 0) parts.push(`<span class="mk-v">${vangDay}V</span>`);
+                        if (phepDay > 0) parts.push(`<span class="mk-p">${phepDay}P</span>`);
+                        return `<td class="col-day-an" style="font-size:7pt;${di === 0 ? 'border-left:1.5px solid #555;' : ''}">${parts.join('<br>') || ''}</td>`;
+                    }).join('')
+                ).join('');
+
+                let sumVang = 0, sumPhep = 0, sumThucTe = 0;
+                chunk.forEach(s => {
+                    const allV = weeksData.flatMap(w => w.days.map(d => getSymVal(s.id, d)));
+                    sumVang += allV.filter(v => v === 1).length;
+                    sumPhep += allV.filter(v => v === 2).length;
+                    sumThucTe += allV.filter(v => v === 0 || v === 1).length;
+                });
+
+                const totalRow = `<tr style="background:#f5f5f5; font-weight:bold;">
+          <td colspan="6" style="text-align:center; font-weight:800; font-size:9pt;">TỔNG CỘNG (${chunk.length} HS)</td>
+          ${totalDayCells}
+          <td class="col-sum-an" style="font-weight:800;">${chunk.length * totalDays}</td>
+          <td class="col-sum-an" style="font-weight:800; color:#dc2626;">${sumVang || ''}</td>
+          <td class="col-sum-an" style="font-weight:800; color:#d97706;">${sumPhep || ''}</td>
+          <td class="col-sum-an" style="font-weight:800;">${sumThucTe || ''}</td>
+          <td class="col-ghichu-an"></td>
+        </tr>`;
+
                 return `<div class="room-block">
 <table class="hdr-inner-an"><tr>
   <td class="hdr-school-an" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
@@ -967,7 +1001,7 @@ ${htmlPages}
     </tr>
     <tr>${weekTH2}</tr>
   </thead>
-  <tbody>${dataRows}</tbody>
+  <tbody>${dataRows}${totalRow}</tbody>
 </table>
 <div style="margin-top: 10px; margin-bottom: 12px; font-size: 9.5pt; line-height: 1.45; text-align: left;">
   <div>* Danh sách có TC: <strong>${roomStudents.length} HS</strong>${totalPages > 1 ? ` &nbsp;|&nbsp; Tờ này: <strong>${chunk.length} HS</strong>` : ''}</div>
@@ -1086,9 +1120,11 @@ ${htmlPages}
                                     </div>
                                 )}
                                 {ptAn && (
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    <div style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
                                         background: '#e0f2fe', border: '1.5px solid #7dd3fc', borderRadius: 8,
-                                        padding: '5px 12px', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600 }}>
+                                        padding: '5px 12px', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600
+                                    }}>
                                         <i className="fas fa-compress-arrows-alt"></i>
                                         Gộp phòng ăn: <strong>{ptAn}</strong>
                                     </div>
@@ -1159,7 +1195,7 @@ ${htmlPages}
                                             gap: 6
                                         }}>
                                             <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
-                                            ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                            ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
                                         </span>
                                     )}
                                     <button
@@ -1327,9 +1363,9 @@ ${htmlPages}
                                             </div>
                                         </div>
 
-                                        <div className="dd-persistence-indicator" title={`Dữ liệu được lưu an toàn trên điện thoại và máy chủ${lastSyncedTime ? ` (Đồng bộ lúc ${lastSyncedTime.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}`}>
+                                        <div className="dd-persistence-indicator" title={`Dữ liệu được lưu an toàn trên điện thoại và máy chủ${lastSyncedTime ? ` (Đồng bộ lúc ${lastSyncedTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}`}>
                                             <i className="fas fa-shield-alt" style={{ color: '#16a34a' }}></i>
-                                            <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}</span>
+                                            <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}</span>
                                         </div>
                                     </div>
 
@@ -1379,7 +1415,7 @@ ${htmlPages}
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
-                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
                                         </span>
                                     )}
                                 </div>
@@ -1448,7 +1484,7 @@ ${htmlPages}
                                                     <span className="dd-student-name">{(s.ho_ten || '').normalize('NFC')}</span>
                                                     <span className="dd-student-class"><b style={{ color: '#0ea5e9', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
                                                 </div>
-                                                
+
                                                 <div className="dd-status-btns">
                                                     {['comat', 'vang', 'phep'].map(key => {
                                                         const val = STATUS[key];
@@ -1483,7 +1519,7 @@ ${htmlPages}
                                                 <span><i className="fas fa-info-circle"></i> Bấm <strong>Chốt danh sách</strong> để hoàn tất điểm danh phòng này và tự động ghi nhận vắng cho học sinh chưa điểm danh.</span>
                                             )}
                                         </div>
-                                        
+
                                         {!isGiaoVien && (
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
                                                 <button

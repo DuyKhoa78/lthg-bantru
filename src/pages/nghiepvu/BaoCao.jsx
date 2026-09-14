@@ -13,6 +13,7 @@ Chart.register(ArcElement, BarElement, LineElement, CategoryScale, LinearScale, 
 // ── Helpers ──────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
 const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const DOW_NAMES_VN = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export default function BaoCao() {
     const { user } = useAuth();
@@ -62,6 +63,16 @@ export default function BaoCao() {
     const [specialLoai, setSpecialLoai] = useState('an'); // 'an' | 'ngu'
     const [specialDate, setSpecialDate] = useState(today);
     const [exportingSpecial, setExportingSpecial] = useState(false);
+
+    // Xuất / In danh sách HS vắng, phép theo ngày
+    const [showHsVangModal, setShowHsVangModal] = useState(false);
+    const [hsVangDate, setHsVangDate] = useState(today);
+    const [hsVangLoai, setHsVangLoai] = useState('all'); // 'all' | 'an' | 'ngu'
+    const [hsVangLop, setHsVangLop] = useState('');
+    const [hsVangPhong, setHsVangPhong] = useState('');
+    const [hsVangStatus, setHsVangStatus] = useState('all'); // 'all' | 'vang' | 'phep'
+    const [hsVangData, setHsVangData] = useState(null);
+    const [loadingHsVang, setLoadingHsVang] = useState(false);
 
     // Báo cáo tổng hợp theo lớp
     const [showTongHopLopModal, setShowTongHopLopModal] = useState(false);
@@ -1536,6 +1547,384 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         XLSX.writeFile(wb, `baocao-gv-${tuNgayGV}-to-${denNgayGV}.xlsx`);
     };
 
+    // ── Hàm nạp dữ liệu HS vắng theo ngày ──
+    const fetchHsVangData = async (dateStr, loaiVal, lopVal) => {
+        setLoadingHsVang(true);
+        try {
+            const d = dateStr || hsVangDate;
+            const l = loaiVal !== undefined ? loaiVal : hsVangLoai;
+            let url = `/api/baocao/hs-vang-ngay/?ngay=${d}&loai=${l}`;
+            const targetLop = lopVal !== undefined ? lopVal : hsVangLop;
+            if (targetLop) url += `&lop=${encodeURIComponent(targetLop)}`;
+            const res = await api.get(url);
+            if (res.data?.ok) {
+                setHsVangData(res.data);
+            } else {
+                alert('Lỗi tải dữ liệu HS vắng: ' + (res.data?.error || ''));
+            }
+        } catch (err) {
+            console.error('Lỗi fetchHsVangData:', err);
+            alert('Lỗi tải dữ liệu: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoadingHsVang(false);
+        }
+    };
+
+    const openHsVangModal = (loaiInit = 'all') => {
+        setHsVangLoai(loaiInit);
+        setHsVangStatus('all');
+        setHsVangPhong('');
+        setShowHsVangModal(true);
+        fetchHsVangData(hsVangDate, loaiInit, hsVangLop);
+    };
+
+    const dsHsVangAn = useMemo(() => {
+        if (!hsVangData?.danh_sach) return [];
+        return hsVangData.danh_sach.filter(hs => {
+            const isVang = hs.diem_danh_an === 1;
+            const isPhep = hs.diem_danh_an === 2;
+            if (!isVang && !isPhep) return false;
+            if (hsVangPhong && hs.ma_phong_an_id !== hsVangPhong) return false;
+            if (hsVangStatus === 'vang' && !isVang) return false;
+            if (hsVangStatus === 'phep' && !isPhep) return false;
+            return true;
+        });
+    }, [hsVangData, hsVangPhong, hsVangStatus]);
+
+    const dsHsVangNgu = useMemo(() => {
+        if (!hsVangData?.danh_sach) return [];
+        return hsVangData.danh_sach.filter(hs => {
+            const isVang = hs.diem_danh_ngu === 1;
+            const isPhep = hs.diem_danh_ngu === 2;
+            if (!isVang && !isPhep) return false;
+            if (hsVangPhong && hs.ma_phong_ngu_id !== hsVangPhong) return false;
+            if (hsVangStatus === 'vang' && !isVang) return false;
+            if (hsVangStatus === 'phep' && !isPhep) return false;
+            return true;
+        });
+    }, [hsVangData, hsVangPhong, hsVangStatus]);
+
+    const hsVangStats = useMemo(() => {
+        const vangAn = dsHsVangAn.filter(s => s.diem_danh_an === 1).length;
+        const phepAn = dsHsVangAn.filter(s => s.diem_danh_an === 2).length;
+        const vangNgu = dsHsVangNgu.filter(s => s.diem_danh_ngu === 1).length;
+        const phepNgu = dsHsVangNgu.filter(s => s.diem_danh_ngu === 2).length;
+
+        const allIds = new Set();
+        if (hsVangLoai === 'all' || hsVangLoai === 'an') {
+            dsHsVangAn.forEach(s => allIds.add(s.id));
+        }
+        if (hsVangLoai === 'all' || hsVangLoai === 'ngu') {
+            dsHsVangNgu.forEach(s => allIds.add(s.id));
+        }
+
+        return {
+            totalUnique: allIds.size,
+            totalAn: dsHsVangAn.length,
+            vangAn,
+            phepAn,
+            totalNgu: dsHsVangNgu.length,
+            vangNgu,
+            phepNgu
+        };
+    }, [dsHsVangAn, dsHsVangNgu, hsVangLoai]);
+
+    const phongVangList = useMemo(() => {
+        if (!hsVangData?.danh_sach) return [];
+        const set = new Set();
+        hsVangData.danh_sach.forEach(s => {
+            if (s.ma_phong_an_id) set.add(s.ma_phong_an_id);
+            if (s.ma_phong_ngu_id) set.add(s.ma_phong_ngu_id);
+        });
+        return Array.from(set).sort();
+    }, [hsVangData]);
+
+    const printHsVangPDF = () => {
+        const hasAn = hsVangLoai === 'all' || hsVangLoai === 'an';
+        const hasNgu = hsVangLoai === 'all' || hsVangLoai === 'ngu';
+        const totalToPrint = (hasAn ? dsHsVangAn.length : 0) + (hasNgu ? dsHsVangNgu.length : 0);
+
+        if (totalToPrint === 0) {
+            return alert('Không có học sinh vắng / phép nào để in!');
+        }
+        const dObj = new Date(hsVangDate + 'T00:00:00');
+        const dowStr = DOW_NAMES_VN[dObj.getDay()] || 'Thứ Hai';
+        const dayLabel = `${dowStr}, ngày ${p2(dObj.getDate())}/${p2(dObj.getMonth() + 1)}/${dObj.getFullYear()}`;
+        const buoiLabel = hsVangLoai === 'an' ? 'CA ĂN TRƯA' : (hsVangLoai === 'ngu' ? 'CA NGỦ TRƯA' : 'CẢ NGÀY (ĂN & NGỦ)');
+        const lopLabel = hsVangLop ? ` - LỚP ${hsVangLop}` : '';
+        const phongLabel = hsVangPhong ? ` - PHÒNG ${hsVangPhong}` : '';
+
+        // 1. Tạo bảng Ca Ăn trưa riêng
+        let tableAnHTML = '';
+        if (hasAn) {
+            const rowsAn = dsHsVangAn.map((s, idx) => {
+                const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                const statusStr = s.diem_danh_an === 1 
+                    ? '<span style="color:#dc2626;font-weight:bold;">Vắng ăn</span>' 
+                    : '<span style="color:#d97706;font-weight:bold;">Phép ăn</span>';
+                return `<tr>
+                    <td style="text-align:center;">${idx + 1}</td>
+                    <td style="text-align:center; font-weight:bold; color:#b91c1c;">${s.id}</td>
+                    <td style="text-align:left; font-weight:600; padding-left:6px;">${s.ho_ten}</td>
+                    <td style="text-align:center;">${gt}</td>
+                    <td style="text-align:center; font-weight:bold;">${s.lop}</td>
+                    <td style="text-align:center;">${s.ma_phong_an_id || '-'}</td>
+                    <td style="text-align:center;">${statusStr}</td>
+                    <td style="text-align:left; font-size:9pt; font-style:italic; padding-left:4px;">${s.ghi_chu || ''}</td>
+                </tr>`;
+            }).join('');
+
+            tableAnHTML = `
+                ${hsVangLoai === 'all' ? `<div style="font-size:10.5pt; font-weight:bold; text-transform:uppercase; margin-top:12px; margin-bottom:5px; color:#b91c1c;">I. DANH SÁCH CA ĂN TRƯA (${dsHsVangAn.length} HỌC SINH)</div>` : ''}
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th style="width:5%;">STT</th>
+                            <th style="width:11%;">Mã BT</th>
+                            <th style="width:30%;">Họ và tên</th>
+                            <th style="width:7%;">GT</th>
+                            <th style="width:9%;">Lớp</th>
+                            <th style="width:11%;">Phòng ăn</th>
+                            <th style="width:13%;">Trạng thái</th>
+                            <th style="width:14%;">Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${dsHsVangAn.length > 0 ? rowsAn : '<tr><td colspan="8" style="text-align:center; padding:12px; color:#666;">Không có học sinh vắng / phép ca ăn</td></tr>'}
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight:bold; background:#f4f4f4;">
+                            <td colspan="6" style="text-align:right; padding-right:10px;">TỔNG CỘNG CA ĂN:</td>
+                            <td style="text-align:center;">${dsHsVangAn.length} HS</td>
+                            <td style="font-size:8.5pt; text-align:center;">Vắng: ${hsVangStats.vangAn} | Phép: ${hsVangStats.phepAn}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+        }
+
+        // 2. Tạo bảng Ca Ngủ trưa riêng
+        let tableNguHTML = '';
+        if (hasNgu) {
+            const rowsNgu = dsHsVangNgu.map((s, idx) => {
+                const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+                const statusStr = s.diem_danh_ngu === 1 
+                    ? '<span style="color:#dc2626;font-weight:bold;">Vắng ngủ</span>' 
+                    : '<span style="color:#d97706;font-weight:bold;">Phép ngủ</span>';
+                return `<tr>
+                    <td style="text-align:center;">${idx + 1}</td>
+                    <td style="text-align:center; font-weight:bold; color:#b91c1c;">${s.id}</td>
+                    <td style="text-align:left; font-weight:600; padding-left:6px;">${s.ho_ten}</td>
+                    <td style="text-align:center;">${gt}</td>
+                    <td style="text-align:center; font-weight:bold;">${s.lop}</td>
+                    <td style="text-align:center;">${s.ma_phong_ngu_id || '-'}</td>
+                    <td style="text-align:center;">${statusStr}</td>
+                    <td style="text-align:left; font-size:9pt; font-style:italic; padding-left:4px;">${s.ghi_chu || ''}</td>
+                </tr>`;
+            }).join('');
+
+            tableNguHTML = `
+                ${hsVangLoai === 'all' ? `<div style="font-size:10.5pt; font-weight:bold; text-transform:uppercase; margin-top:16px; margin-bottom:5px; color:#1e40af; page-break-before:auto;">II. DANH SÁCH CA NGỦ TRƯA (${dsHsVangNgu.length} HỌC SINH)</div>` : ''}
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th style="width:5%;">STT</th>
+                            <th style="width:11%;">Mã BT</th>
+                            <th style="width:30%;">Họ và tên</th>
+                            <th style="width:7%;">GT</th>
+                            <th style="width:9%;">Lớp</th>
+                            <th style="width:11%;">Phòng ngủ</th>
+                            <th style="width:13%;">Trạng thái</th>
+                            <th style="width:14%;">Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${dsHsVangNgu.length > 0 ? rowsNgu : '<tr><td colspan="8" style="text-align:center; padding:12px; color:#666;">Không có học sinh vắng / phép ca ngủ</td></tr>'}
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight:bold; background:#f4f4f4;">
+                            <td colspan="6" style="text-align:right; padding-right:10px;">TỔNG CỘNG CA NGỦ:</td>
+                            <td style="text-align:center;">${dsHsVangNgu.length} HS</td>
+                            <td style="font-size:8.5pt; text-align:center;">Vắng: ${hsVangStats.vangNgu} | Phép: ${hsVangStats.phepNgu}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+        }
+
+        // 3. Khối tổng hợp tóm tắt (ĐƯA XUỐNG DƯỚI CÙNG THEO YÊU CẦU)
+        let summaryBoxHTML;
+        if (hsVangLoai === 'all') {
+            summaryBoxHTML = `
+                <div style="margin-top:14px; margin-bottom:18px; padding:7px 12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; font-size:9.5pt; display:flex; justify-content:space-between; align-items:center; page-break-inside:avoid;">
+                    <div>Tổng số học sinh vắng / phép: <strong>${hsVangStats.totalUnique} HS</strong></div>
+                    <div style="font-size:9pt;">
+                        Vắng ăn: <strong style="color:#dc2626;">${hsVangStats.vangAn}</strong> &nbsp;|&nbsp; 
+                        Phép ăn: <strong style="color:#d97706;">${hsVangStats.phepAn}</strong> &nbsp;|&nbsp; 
+                        Vắng ngủ: <strong style="color:#dc2626;">${hsVangStats.vangNgu}</strong> &nbsp;|&nbsp; 
+                        Phép ngủ: <strong style="color:#d97706;">${hsVangStats.phepNgu}</strong>
+                    </div>
+                </div>
+            `;
+        } else if (hsVangLoai === 'an') {
+            summaryBoxHTML = `
+                <div style="margin-top:14px; margin-bottom:18px; padding:7px 12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; font-size:9.5pt; display:flex; justify-content:space-between; align-items:center; page-break-inside:avoid;">
+                    <div>Tổng số học sinh vắng / phép Ca Ăn: <strong>${dsHsVangAn.length} HS</strong></div>
+                    <div style="font-size:9pt;">
+                        Vắng ăn: <strong style="color:#dc2626;">${hsVangStats.vangAn}</strong> &nbsp;|&nbsp; 
+                        Phép ăn: <strong style="color:#d97706;">${hsVangStats.phepAn}</strong>
+                    </div>
+                </div>
+            `;
+        } else {
+            summaryBoxHTML = `
+                <div style="margin-top:14px; margin-bottom:18px; padding:7px 12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; font-size:9.5pt; display:flex; justify-content:space-between; align-items:center; page-break-inside:avoid;">
+                    <div>Tổng số học sinh vắng / phép Ca Ngủ: <strong>${dsHsVangNgu.length} HS</strong></div>
+                    <div style="font-size:9pt;">
+                        Vắng ngủ: <strong style="color:#dc2626;">${hsVangStats.vangNgu}</strong> &nbsp;|&nbsp; 
+                        Phép ngủ: <strong style="color:#d97706;">${hsVangStats.phepNgu}</strong>
+                    </div>
+                </div>
+            `;
+        }
+
+        const css = `
+            * { box-sizing: border-box; font-family: 'Times New Roman', Times, serif; }
+            body { margin: 0; padding: 0; color: #000; background: #fff; line-height: 1.3; }
+            table.print-table { width: 100%; border-collapse: collapse; margin-top: 5px; margin-bottom: 12px; font-size: 10pt; }
+            table.print-table th, table.print-table td { border: 1px solid #333; padding: 5px 6px; }
+            table.print-table th { background: #ececec !important; font-weight: bold; text-align: center; }
+            table.print-table tfoot td { background: #f4f4f4 !important; font-weight: bold; }
+            @page { size: A4 portrait; margin: 1cm 0.8cm 1.2cm 0.8cm; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        `;
+
+        const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>DS_HS_Vang_${hsVangDate}</title><style>${css}</style></head><body>
+            <table style="width:100%; border:none; margin-bottom:8px;">
+                <tr>
+                    <td style="width:45%; text-align:center; vertical-align:top; border:none; padding:0;">
+                        <div style="font-size:9.5pt; text-transform:uppercase;">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP.HCM</div>
+                        <div style="font-size:10pt; font-weight:bold; text-transform:uppercase;">PHÂN HIỆU THPT LÊ THI HỒNG GẤM</div>
+                        <div style="border-top:1px solid #333; width:60px; margin:4px auto 0;"></div>
+                    </td>
+                    <td style="width:55%; text-align:center; vertical-align:top; border:none; padding:0;">
+                        <div style="font-size:9.5pt; font-weight:bold; text-transform:uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                        <div style="font-size:9.5pt; font-weight:bold;">Độc lập - Tự do - Hạnh phúc</div>
+                        <div style="border-top:1px solid #333; width:100px; margin:4px auto 0;"></div>
+                    </td>
+                </tr>
+            </table>
+
+            <div style="text-align:center; margin-top:10px; margin-bottom:12px;">
+                <h1 style="font-size:13.5pt; font-weight:bold; text-transform:uppercase; margin:0;">DANH SÁCH HỌC SINH VẮNG / NGHỈ PHÉP BÁN TRÚ</h1>
+                <div style="font-size:10.5pt; font-weight:bold; margin-top:4px;">${dayLabel} &nbsp;|&nbsp; ${buoiLabel}${lopLabel}${phongLabel}</div>
+                <div style="font-size:9pt; margin-top:2px; font-style:italic;">Năm học: ${hsVangData?.nam_hoc || '2026-2027'}</div>
+            </div>
+
+            ${tableAnHTML}
+            ${tableNguHTML}
+
+            ${summaryBoxHTML}
+
+            <div style="width:100%; display:flex; justify-content:space-between; margin-top:20px; page-break-inside:avoid;">
+                <div style="width:40%; text-align:center;">
+                    <div style="font-size:9.5pt; font-weight:bold; text-transform:uppercase;">NGƯỜI LẬP BẢNG</div>
+                    <div style="font-size:8.5pt; font-style:italic; margin-top:2px;">(Ký và ghi rõ họ tên)</div>
+                    <div style="height:55px;"></div>
+                    <div style="font-size:10pt; font-weight:bold;">${user?.fullname || user?.username || ''}</div>
+                </div>
+                <div style="width:50%; text-align:center;">
+                    <div style="font-size:9pt; font-style:italic;">TP. Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}</div>
+                    <div style="font-size:9.5pt; font-weight:bold; text-transform:uppercase; margin-top:2px;">PHỤ TRÁCH BÁN TRÚ</div>
+                    <div style="font-size:8.5pt; font-style:italic; margin-top:2px;">(Ký và ghi rõ họ tên)</div>
+                    <div style="height:55px;"></div>
+                    <div style="font-size:10pt; font-weight:bold;">${hsVangData?.nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
+                </div>
+            </div>
+            <script>window.onload=function(){setTimeout(window.print,400);};</script>
+        </body></html>`;
+
+        const w = window.open('', '_blank');
+        if (!w) return alert('Trình duyệt chặn popup! Vui lòng cho phép mở popup để in.');
+        w.document.write(html);
+        w.document.close();
+    };
+
+    const exportHsVangExcel = () => {
+        const hasAn = hsVangLoai === 'all' || hsVangLoai === 'an';
+        const hasNgu = hsVangLoai === 'all' || hsVangLoai === 'ngu';
+        const totalToExport = (hasAn ? dsHsVangAn.length : 0) + (hasNgu ? dsHsVangNgu.length : 0);
+
+        if (totalToExport === 0) {
+            return alert('Không có dữ liệu học sinh vắng / phép để xuất Excel!');
+        }
+        const wb = XLSX.utils.book_new();
+
+        if (hasAn) {
+            const wsDataAn = [
+                ['PHÂN HIỆU THPT LÊ THỊ HỒNG GẤM - BÁN TRÚ'],
+                [`DANH SÁCH HỌC SINH VẮNG / NGHỈ PHÉP - CA ĂN TRƯA (NGÀY ${hsVangDate})`],
+                [`Lớp: ${hsVangLop || 'Tất cả'} | Phòng: ${hsVangPhong || 'Tất cả'} | Trạng thái: ${hsVangStatus === 'vang' ? 'Chỉ vắng' : (hsVangStatus === 'phep' ? 'Chỉ phép' : 'Tất cả')}`],
+                [],
+                ['STT', 'Mã BT', 'Họ và tên', 'Giới tính', 'Lớp', 'Phòng ăn', 'Trạng thái', 'Ghi chú']
+            ];
+            dsHsVangAn.forEach((s, idx) => {
+                wsDataAn.push([
+                    idx + 1,
+                    s.id,
+                    s.ho_ten,
+                    s.gioi_tinh === 0 ? 'Nam' : 'Nữ',
+                    s.lop,
+                    s.ma_phong_an_id || '',
+                    s.diem_danh_an === 1 ? 'Vắng ăn' : (s.diem_danh_an === 2 ? 'Phép ăn' : ''),
+                    s.ghi_chu || ''
+                ]);
+            });
+            wsDataAn.push([]);
+            wsDataAn.push([
+                'TỔNG CỘNG CA ĂN:', '', '', '', '',
+                `${dsHsVangAn.length} HS`,
+                `Vắng: ${hsVangStats.vangAn} | Phép: ${hsVangStats.phepAn}`,
+                ''
+            ]);
+            const wsAn = XLSX.utils.aoa_to_sheet(wsDataAn);
+            XLSX.utils.book_append_sheet(wb, wsAn, 'Vang_An_Trua');
+        }
+
+        if (hasNgu) {
+            const wsDataNgu = [
+                ['PHÂN HIỆU THPT LÊ THỊ HỒNG GẤM - BÁN TRÚ'],
+                [`DANH SÁCH HỌC SINH VẮNG / NGHỈ PHÉP - CA NGỦ TRƯA (NGÀY ${hsVangDate})`],
+                [`Lớp: ${hsVangLop || 'Tất cả'} | Phòng: ${hsVangPhong || 'Tất cả'} | Trạng thái: ${hsVangStatus === 'vang' ? 'Chỉ vắng' : (hsVangStatus === 'phep' ? 'Chỉ phép' : 'Tất cả')}`],
+                [],
+                ['STT', 'Mã BT', 'Họ và tên', 'Giới tính', 'Lớp', 'Phòng ngủ', 'Trạng thái', 'Ghi chú']
+            ];
+            dsHsVangNgu.forEach((s, idx) => {
+                wsDataNgu.push([
+                    idx + 1,
+                    s.id,
+                    s.ho_ten,
+                    s.gioi_tinh === 0 ? 'Nam' : 'Nữ',
+                    s.lop,
+                    s.ma_phong_ngu_id || '',
+                    s.diem_danh_ngu === 1 ? 'Vắng ngủ' : (s.diem_danh_ngu === 2 ? 'Phép ngủ' : ''),
+                    s.ghi_chu || ''
+                ]);
+            });
+            wsDataNgu.push([]);
+            wsDataNgu.push([
+                'TỔNG CỘNG CA NGỦ:', '', '', '', '',
+                `${dsHsVangNgu.length} HS`,
+                `Vắng: ${hsVangStats.vangNgu} | Phép: ${hsVangStats.phepNgu}`,
+                ''
+            ]);
+            const wsNgu = XLSX.utils.aoa_to_sheet(wsDataNgu);
+            XLSX.utils.book_append_sheet(wb, wsNgu, 'Vang_Ngu_Trua');
+        }
+
+        XLSX.writeFile(wb, `DS_HS_Vang_${hsVangLoai}_${hsVangDate}.xlsx`);
+    };
+
     if (user?.role === 'giao_vien' || user?.is_giao_vien) {
         return (
             <div style={{ padding: '60px', textAlign: 'center' }}>
@@ -1588,6 +1977,9 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         <button className="btn btn-outline btn-sm" onClick={() => setMonthHS(today.slice(0, 7))}>Tháng này</button>
                         {canExportHS && (
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button className="btn btn-primary btn-sm" style={{ background: '#e11d48', borderColor: '#e11d48', fontWeight: 600 }} onClick={() => openHsVangModal('all')}>
+                                <i className="fas fa-user-times"></i> In HS vắng / phép theo ngày
+                            </button>
                             <button className="btn btn-primary btn-sm" style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 600 }} onClick={openTongHopLopModal}>
                                 <i className="fas fa-table"></i> Tổng hợp theo Lớp
                             </button>
@@ -1598,6 +1990,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 <div className="bc-dropdown-content">
                                     <button onClick={openExportAnModal}><i className="fas fa-file-pdf" style={{ color: '#0ea5e9' }}></i> In DS chính thức</button>
                                     <button onClick={() => { setSpecialLoai('an'); setSpecialDate(today); setShowSpecialModal(true); }}><i className="fas fa-print" style={{ color: '#f59e0b' }}></i> In ngày đặc biệt</button>
+                                    <button onClick={() => openHsVangModal('an')}><i className="fas fa-user-times" style={{ color: '#e11d48' }}></i> In HS vắng ăn theo ngày</button>
                                 </div>
                             </div>
                             <div className="bc-dropdown">
@@ -1607,6 +2000,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 <div className="bc-dropdown-content">
                                     <button onClick={openExportNguModal}><i className="fas fa-file-pdf" style={{ color: '#6366f1' }}></i> In DS chính thức</button>
                                     <button onClick={() => { setSpecialLoai('ngu'); setSpecialDate(today); setShowSpecialModal(true); }}><i className="fas fa-print" style={{ color: '#6c5ce7' }}></i> In ngày đặc biệt</button>
+                                    <button onClick={() => openHsVangModal('ngu')}><i className="fas fa-user-times" style={{ color: '#e11d48' }}></i> In HS vắng ngủ theo ngày</button>
                                 </div>
                             </div>
                         </div>
@@ -2197,6 +2591,250 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                             >
                                 {exportingSpecial ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-print"></i>}
                                 {exportingSpecial ? ' Đang xuất...' : ' Xuất PDF'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL IN DANH SÁCH HS VẮNG / PHÉP THEO NGÀY ── */}
+            {showHsVangModal && (
+                <div className="export-modal-overlay">
+                    <div className="export-modal" style={{ maxWidth: 880, width: '95%' }}>
+                        <div className="export-modal-header" style={{ background: 'linear-gradient(90deg, #e11d48, #f43f5e)' }}>
+                            <div className="icon"><i className="fas fa-user-times"></i></div>
+                            <div>
+                                <h3>In danh sách Học sinh vắng &amp; phép theo ngày</h3>
+                                <p>Tra cứu và in danh sách học sinh vắng ăn, vắng ngủ chi tiết từng ngày</p>
+                            </div>
+                        </div>
+                        <div className="export-modal-body">
+                            {/* Bộ lọc */}
+                            <div className="export-modal-group" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                                <div>
+                                    <div className="export-modal-section-title"><i className="fas fa-calendar-day" style={{ color: '#e11d48' }}></i> CHỌN NGÀY</div>
+                                    <input
+                                        type="date"
+                                        value={hsVangDate}
+                                        onChange={e => {
+                                            setHsVangDate(e.target.value);
+                                            fetchHsVangData(e.target.value, hsVangLoai, hsVangLop);
+                                        }}
+                                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                                    />
+                                </div>
+                                <div>
+                                    <div className="export-modal-section-title"><i className="fas fa-clock" style={{ color: '#e11d48' }}></i> BUỔI / CA</div>
+                                    <select
+                                        value={hsVangLoai}
+                                        onChange={e => {
+                                            setHsVangLoai(e.target.value);
+                                            fetchHsVangData(hsVangDate, e.target.value, hsVangLop);
+                                        }}
+                                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                                    >
+                                        <option value="all">Tất cả (Ăn &amp; Ngủ)</option>
+                                        <option value="an">Ca Ăn trưa</option>
+                                        <option value="ngu">Ca Ngủ trưa</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <div className="export-modal-section-title"><i className="fas fa-chalkboard" style={{ color: '#e11d48' }}></i> LỌC LỚP</div>
+                                    <select
+                                        value={hsVangLop}
+                                        onChange={e => {
+                                            setHsVangLop(e.target.value);
+                                            fetchHsVangData(hsVangDate, hsVangLoai, e.target.value);
+                                        }}
+                                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                                    >
+                                        <option value="">-- Tất cả các lớp --</option>
+                                        {lopList.map(l => <option key={l} value={l}>{l}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <div className="export-modal-section-title"><i className="fas fa-door-open" style={{ color: '#e11d48' }}></i> LỌC PHÒNG</div>
+                                    <select
+                                        value={hsVangPhong}
+                                        onChange={e => setHsVangPhong(e.target.value)}
+                                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                                    >
+                                        <option value="">-- Tất cả các phòng --</option>
+                                        {phongVangList.map(p => <option key={p} value={p}>Phòng {p}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <div className="export-modal-section-title"><i className="fas fa-filter" style={{ color: '#e11d48' }}></i> TRẠNG THÁI</div>
+                                    <select
+                                        value={hsVangStatus}
+                                        onChange={e => setHsVangStatus(e.target.value)}
+                                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                                    >
+                                        <option value="all">Tất cả (Vắng &amp; Phép)</option>
+                                        <option value="vang">Chỉ vắng không phép</option>
+                                        <option value="phep">Chỉ nghỉ có phép</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Vùng bảng xem trước (Tách Ăn và Ngủ riêng) */}
+                            <div className="export-modal-group" style={{ margin: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>DANH SÁCH CHI TIẾT THEO CA</span>
+                                    {loadingHsVang && <span style={{ color: '#e11d48', fontSize: '0.8rem', fontWeight: 500 }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</span>}
+                                </div>
+
+                                <div style={{ maxHeight: 340, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    {/* 1. BẢNG CA ĂN TRƯA */}
+                                    {(hsVangLoai === 'all' || hsVangLoai === 'an') && (
+                                        <div style={{ border: '1px solid #fecdd3', borderRadius: 8, overflow: 'hidden' }}>
+                                            <div style={{ background: '#fff1f2', padding: '6px 12px', fontWeight: 'bold', color: '#b91c1c', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                                                <span><i className="fas fa-utensils"></i> {hsVangLoai === 'all' ? 'I. ' : ''}CA ĂN TRƯA ({dsHsVangAn.length} học sinh)</span>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Vắng: <strong>{hsVangStats.vangAn}</strong> | Phép: <strong>{hsVangStats.phepAn}</strong></span>
+                                            </div>
+                                            <table className="data-table" style={{ width: '100%', fontSize: '0.82rem', margin: 0 }}>
+                                                <thead>
+                                                    <tr style={{ background: '#f8fafc' }}>
+                                                        <th style={{ width: 40, textAlign: 'center' }}>STT</th>
+                                                        <th style={{ width: 60, textAlign: 'center' }}>Mã BT</th>
+                                                        <th>Họ và tên</th>
+                                                        <th style={{ width: 45, textAlign: 'center' }}>GT</th>
+                                                        <th style={{ width: 60, textAlign: 'center' }}>Lớp</th>
+                                                        <th style={{ width: 70, textAlign: 'center' }}>Phòng ăn</th>
+                                                        <th style={{ width: 95, textAlign: 'center' }}>Trạng thái</th>
+                                                        <th>Ghi chú</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {dsHsVangAn.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px 10px', color: '#64748b' }}>
+                                                                <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 6 }}></i>
+                                                                Không có học sinh vắng hoặc nghỉ phép ca ăn.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        dsHsVangAn.map((s, idx) => (
+                                                            <tr key={'an-' + s.id}>
+                                                                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#b91c1c' }}>{s.id}</td>
+                                                                <td style={{ fontWeight: 600 }}>{s.ho_ten}</td>
+                                                                <td style={{ textAlign: 'center' }}>{s.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
+                                                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{s.lop}</td>
+                                                                <td style={{ textAlign: 'center' }}>{s.ma_phong_an_id || '-'}</td>
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    {s.diem_danh_an === 1 && <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Vắng ăn</span>}
+                                                                    {s.diem_danh_an === 2 && <span className="status-badge" style={{ background: '#fef3c7', color: '#d97706' }}>Phép ăn</span>}
+                                                                </td>
+                                                                <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{s.ghi_chu || '-'}</td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                                {dsHsVangAn.length > 0 && (
+                                                    <tfoot>
+                                                        <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
+                                                            <td colSpan={6} style={{ textAlign: 'right', paddingRight: 10 }}>TỔNG CỘNG CA ĂN:</td>
+                                                            <td style={{ textAlign: 'center', color: '#b91c1c' }}>{dsHsVangAn.length} HS</td>
+                                                            <td style={{ fontSize: '0.78rem', color: '#64748b' }}>Vắng: {hsVangStats.vangAn} | Phép: {hsVangStats.phepAn}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                )}
+                                            </table>
+                                        </div>
+                                    )}
+
+                                    {/* 2. BẢNG CA NGỦ TRƯA */}
+                                    {(hsVangLoai === 'all' || hsVangLoai === 'ngu') && (
+                                        <div style={{ border: '1px solid #bfdbfe', borderRadius: 8, overflow: 'hidden' }}>
+                                            <div style={{ background: '#eff6ff', padding: '6px 12px', fontWeight: 'bold', color: '#1e40af', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                                                <span><i className="fas fa-bed"></i> {hsVangLoai === 'all' ? 'II. ' : ''}CA NGỦ TRƯA ({dsHsVangNgu.length} học sinh)</span>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Vắng: <strong>{hsVangStats.vangNgu}</strong> | Phép: <strong>{hsVangStats.phepNgu}</strong></span>
+                                            </div>
+                                            <table className="data-table" style={{ width: '100%', fontSize: '0.82rem', margin: 0 }}>
+                                                <thead>
+                                                    <tr style={{ background: '#f8fafc' }}>
+                                                        <th style={{ width: 40, textAlign: 'center' }}>STT</th>
+                                                        <th style={{ width: 60, textAlign: 'center' }}>Mã BT</th>
+                                                        <th>Họ và tên</th>
+                                                        <th style={{ width: 45, textAlign: 'center' }}>GT</th>
+                                                        <th style={{ width: 60, textAlign: 'center' }}>Lớp</th>
+                                                        <th style={{ width: 70, textAlign: 'center' }}>Phòng ngủ</th>
+                                                        <th style={{ width: 95, textAlign: 'center' }}>Trạng thái</th>
+                                                        <th>Ghi chú</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {dsHsVangNgu.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px 10px', color: '#64748b' }}>
+                                                                <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 6 }}></i>
+                                                                Không có học sinh vắng hoặc nghỉ phép ca ngủ.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        dsHsVangNgu.map((s, idx) => (
+                                                            <tr key={'ngu-' + s.id}>
+                                                                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#b91c1c' }}>{s.id}</td>
+                                                                <td style={{ fontWeight: 600 }}>{s.ho_ten}</td>
+                                                                <td style={{ textAlign: 'center' }}>{s.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
+                                                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{s.lop}</td>
+                                                                <td style={{ textAlign: 'center' }}>{s.ma_phong_ngu_id || '-'}</td>
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    {s.diem_danh_ngu === 1 && <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Vắng ngủ</span>}
+                                                                    {s.diem_danh_ngu === 2 && <span className="status-badge" style={{ background: '#fef3c7', color: '#d97706' }}>Phép ngủ</span>}
+                                                                </td>
+                                                                <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{s.ghi_chu || '-'}</td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                                {dsHsVangNgu.length > 0 && (
+                                                    <tfoot>
+                                                        <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
+                                                            <td colSpan={6} style={{ textAlign: 'right', paddingRight: 10 }}>TỔNG CỘNG CA NGỦ:</td>
+                                                            <td style={{ textAlign: 'center', color: '#1e40af' }}>{dsHsVangNgu.length} HS</td>
+                                                            <td style={{ fontSize: '0.78rem', color: '#64748b' }}>Vắng: {hsVangStats.vangNgu} | Phép: {hsVangStats.phepNgu}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                )}
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Khối thống kê tóm tắt (ĐƯA XUỐNG DƯỚI CÙNG THEO YÊU CẦU) */}
+                            <div className="export-modal-group" style={{ background: '#fff1f2', borderRadius: 10, padding: '9px 14px', border: '1px solid #fecdd3', marginTop: 12, marginBottom: 0 }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', fontSize: '0.88rem' }}>
+                                    <div><span style={{ color: '#64748b' }}>Tổng số HS vắng / phép:</span> <strong style={{ color: '#e11d48', fontSize: '1.08rem', marginLeft: 4 }}>{hsVangStats.totalUnique}</strong> HS</div>
+                                    <span style={{ color: '#cbd5e1' }}>|</span>
+                                    <div><span style={{ color: '#64748b' }}>Vắng ăn:</span> <strong style={{ color: '#dc2626', marginLeft: 3 }}>{hsVangStats.vangAn}</strong></div>
+                                    <div><span style={{ color: '#64748b' }}>Phép ăn:</span> <strong style={{ color: '#d97706', marginLeft: 3 }}>{hsVangStats.phepAn}</strong></div>
+                                    <span style={{ color: '#cbd5e1' }}>|</span>
+                                    <div><span style={{ color: '#64748b' }}>Vắng ngủ:</span> <strong style={{ color: '#dc2626', marginLeft: 3 }}>{hsVangStats.vangNgu}</strong></div>
+                                    <div><span style={{ color: '#64748b' }}>Phép ngủ:</span> <strong style={{ color: '#d97706', marginLeft: 3 }}>{hsVangStats.phepNgu}</strong></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="export-modal-footer">
+                            <button className="btn btn-outline" onClick={() => setShowHsVangModal(false)}>Đóng</button>
+                            <button
+                                className="btn btn-success"
+                                onClick={exportHsVangExcel}
+                                disabled={((hsVangLoai === 'all' || hsVangLoai === 'an' ? dsHsVangAn.length : 0) + (hsVangLoai === 'all' || hsVangLoai === 'ngu' ? dsHsVangNgu.length : 0)) === 0}
+                                style={{ background: '#10b981', borderColor: '#10b981' }}
+                            >
+                                <i className="fas fa-file-excel"></i> Xuất Excel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={printHsVangPDF}
+                                disabled={((hsVangLoai === 'all' || hsVangLoai === 'an' ? dsHsVangAn.length : 0) + (hsVangLoai === 'all' || hsVangLoai === 'ngu' ? dsHsVangNgu.length : 0)) === 0}
+                                style={{ background: '#e11d48', borderColor: '#e11d48' }}
+                            >
+                                <i className="fas fa-print"></i> In danh sách (A4)
                             </button>
                         </div>
                     </div>

@@ -232,7 +232,7 @@ export default function DiemDanhNgu() {
             if (!isHsAllowed(hs)) return false;
             if (!isGenderCompatible(hs)) return false; // STRICT GENDER CHECK
             if (overridedElsewhere.has(hs.id)) return false;
-            
+
             const groupPhong = cauhinhNgay?.lop_phong_ngu?.[hs.lop];
             if (groupPhong) return groupPhong === ma_phong;
             if (phongTamNgu) return phongTamNgu === ma_phong;
@@ -259,7 +259,7 @@ export default function DiemDanhNgu() {
             const overrideCodes = extraHsList.filter(x => x.phong_ngu).map(x => x.phong_ngu);
             const groupCodes = cauhinhNgay.lop_phong_ngu ? Object.values(cauhinhNgay.lop_phong_ngu) : [];
             const allCodes = [...new Set([phongTamNgu, ...overrideCodes, ...groupCodes])].filter(Boolean);
-            
+
             if (allCodes.length > 0) {
                 const result = allCodes.map(code => phongList.find(p => p.ma_phong === code)).filter(Boolean);
                 if (result.length > 0) list = result;
@@ -313,7 +313,7 @@ export default function DiemDanhNgu() {
                     }
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
     }, [selectedPhong, date]);
 
     // Trạng thái chốt phòng hiện tại
@@ -569,7 +569,7 @@ export default function DiemDanhNgu() {
                 byPhong[p.ma_phong] = stu;
             }
         });
-        
+
         if (Object.keys(byPhong).length === 0) return showAlert('Không có học sinh nào trong ngày này!', 'warning');
 
         const today = new Date();
@@ -616,8 +616,8 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const roomTotal = roomStudents.length;
             const roomComat = roomStudents.filter(s => ddMap[s.id]?.[date]?.ngu === 0).length;
-            const roomVang  = roomStudents.filter(s => ddMap[s.id]?.[date]?.ngu === 1).length;
-            const roomPhep  = roomStudents.filter(s => ddMap[s.id]?.[date]?.ngu === 2).length;
+            const roomVang = roomStudents.filter(s => ddMap[s.id]?.[date]?.ngu === 1).length;
+            const roomPhep = roomStudents.filter(s => ddMap[s.id]?.[date]?.ngu === 2).length;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
             const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
             const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -1063,9 +1063,11 @@ ${htmlPages}
                                     </div>
                                 )}
                                 {ptNgu && (
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    <div style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
                                         background: '#e0f2fe', border: '1.5px solid #7dd3fc', borderRadius: 8,
-                                        padding: '5px 12px', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600 }}>
+                                        padding: '5px 12px', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600
+                                    }}>
                                         <i className="fas fa-compress-arrows-alt"></i>
                                         Gộp phòng ngủ: <strong>{ptNgu}</strong>
                                     </div>
@@ -1136,7 +1138,7 @@ ${htmlPages}
                                             gap: 6
                                         }}>
                                             <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
-                                            ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                            ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
                                         </span>
                                     )}
                                     <button
@@ -1307,7 +1309,7 @@ ${htmlPages}
 
                                         <div className="dd-persistence-indicator" title={`Dữ liệu lưu an toàn trên máy ${lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN')})` : ''}${lastSyncedTime ? ` • Đã đồng bộ máy chủ (${lastSyncedTime.toLocaleTimeString('vi-VN')})` : ''}`}>
                                             <i className="fas fa-shield-alt" style={{ color: '#16a34a' }}></i>
-                                            <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}</span>
+                                            <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}</span>
                                         </div>
                                     </div>
 
@@ -1362,7 +1364,7 @@ ${htmlPages}
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
-                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})})` : ''}
+                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
                                         </span>
                                     )}
                                 </div>
