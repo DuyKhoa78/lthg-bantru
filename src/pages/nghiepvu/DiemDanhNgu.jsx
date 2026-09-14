@@ -780,17 +780,23 @@ ${htmlPages}
             if (rRes.data?.ok) ddMap = rRes.data.map;
         } catch { /* bỏ qua */ }
 
-        const getSym = (hsId, day) => {
-            const val = ddMap[hsId]?.[toISO(day)]?.ngu;
-            if (val === 0) return '✓';
-            if (val === 1) return '✗';
-            if (val === 2) return 'P';
-            return '';
-        };
-
         const wb = XLSX.utils.book_new();
         exportRooms.forEach(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong).sort((a, b) => Number(a.id) - Number(b.id));
+            const markedDays = new Set(
+                weekDays.map(d => toISO(d)).filter(dateStr =>
+                    roomStudents.length > 0 && roomStudents.every(s => ddMap[s.id]?.[dateStr]?.ngu != null)
+                )
+            );
+            const getSym = (hsId, day) => {
+                const dateStr = toISO(day);
+                const val = ddMap[hsId]?.[dateStr]?.ngu;
+                if (val === 2) return 'P';
+                if (!markedDays.has(dateStr)) return '';
+                if (val === 0) return '✓';
+                if (val === 1) return '✗';
+                return '';
+            };
             const h1 = ['STT', 'Mã\nsố BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'P.\nNGỦ', 'P.\nĂN'];
             const h2 = ['', '', '', '', '', '', ''];
             weekDays.forEach(d => { h1.push(`${d.getDate()}/${d.getMonth() + 1}`); h2.push(`T${d.getDay() === 0 ? 'CN' : d.getDay() + 1}`); });
@@ -890,14 +896,16 @@ ${htmlPages}
                 )
             );
 
-            // Hàm lấy ký hiệu: nếu phòng chưa điểm danh ngày đó → trống toàn bộ
+            // Hàm lấy ký hiệu:
+            // - Nếu học sinh đã báo phép trước (val === 2) -> luôn hiển thị P trên giấy in
+            // - Nếu phòng chưa điểm danh xong ngày này -> để trống các ô còn lại để GV điểm danh trên giấy
             const getSymForRoom = (hsId, day) => {
                 const dateStr = toISO(day);
-                if (!markedDays.has(dateStr)) return ''; // phòng chưa điểm danh ngày này → trắng
                 const val = ddMap[hsId]?.[dateStr]?.ngu;
+                if (val === 2) return '<span class="mk-p">P</span>';
+                if (!markedDays.has(dateStr)) return ''; // phòng chưa hoàn thành điểm danh ngày này → trắng
                 if (val === 0) return '<span class="mk-c">✓</span>';
                 if (val === 1) return '<span class="mk-v">✗</span>';
-                if (val === 2) return '<span class="mk-p">P</span>';
                 return '';
             };
 

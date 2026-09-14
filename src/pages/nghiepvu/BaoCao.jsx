@@ -545,9 +545,11 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                             return `<td class="col-day-an cell-inactive"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}><span class="mk-slash">/</span></td>`;
                         }
                         let sym = '';
-                        if (markedDaySet.has(ngay)) {
-                            const val = s.diemdanh[ngay];
-                            sym = val === 1 ? '<span class="mk-v">✗</span>' : val === 2 ? '<span class="mk-p">P</span>' : val === 0 ? '<span class="mk-c">✓</span>' : '';
+                        const val = s.diemdanh[ngay];
+                        if (val === 2) {
+                            sym = '<span class="mk-p">P</span>';
+                        } else if (markedDaySet.has(ngay)) {
+                            sym = val === 1 ? '<span class="mk-v">✗</span>' : val === 0 ? '<span class="mk-c">✓</span>' : '';
                         }
                         return `<td class="col-day-an"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${sym}</td>`;
                     }).join('')).join('');
