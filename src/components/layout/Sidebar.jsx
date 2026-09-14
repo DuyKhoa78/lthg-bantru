@@ -10,7 +10,7 @@ const menuItems = [
   { to: '/diemdanh-an',    icon: 'fas fa-utensils',   label: 'Điểm danh ăn',            permission: 'can_diem_danh' },
   { to: '/diemdanh-ngu',   icon: 'fas fa-bed',        label: 'Điểm danh ngủ',           permission: 'can_diem_danh' },
   { to: '/diemdanh-gv',    icon: 'fas fa-user-check', label: 'Điểm danh GV',            customRoleCheck: (u) => u.can_diem_danh || u.is_quan_ly || u.is_admin || u.is_superuser || u.is_hoc_vu },
-  { to: '/giam-sat-chot',  icon: 'fas fa-tasks',      label: 'Thống kê điểm danh',      customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_quan_ly || u.is_hoc_vu },
+  // { to: '/giam-sat-chot',  icon: 'fas fa-tasks',      label: 'Thống kê điểm danh',      customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_quan_ly || u.is_hoc_vu },
 
   // ─── Lịch trực & Báo cáo ───
   { label: 'LỊCH TRỰC & BÁO CÁO', type: 'label', roles: 'authenticated' },

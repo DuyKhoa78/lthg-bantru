@@ -72,7 +72,7 @@ function AppRoutes() {
         <Route path="/diemdanh-an"     element={<DiemDanhAn />} />
         <Route path="/diemdanh-ngu"    element={<DiemDanhNgu />} />
         <Route path="/diemdanh-gv"     element={<DiemDanhGV />} />
-        <Route path="/giam-sat-chot"   element={<GiamSatChot />} />
+        <Route path="/giam-sat-chot"   element={<Navigate to="/diemdanh-gv" replace />} />
         <Route path="/lich-truc"       element={<LichTruc />} />
         <Route path="/lich-truc-admin" element={<LichTrucAdmin />} />
         <Route path="/lich-truc-khung" element={<LichTrucKhung />} />
