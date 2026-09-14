@@ -228,6 +228,7 @@ export default function DiemDanhNgu() {
             // Lọc theo ngày đang xem: chỉ hiển thị học sinh đang tham gia bán trú vào ngày này
             if (hs.ngay_vao && date < hs.ngay_vao) return false;
             if (hs.ngay_rut && date > hs.ngay_rut) return false;
+            if (!hs.ngay_rut && !hs.dang_hoc) return false; // Đã rút bán trú (không có ngày rút cụ thể)
             if (!isHsAllowed(hs)) return false;
             if (!isGenderCompatible(hs)) return false; // STRICT GENDER CHECK
             if (overridedElsewhere.has(hs.id)) return false;
@@ -466,15 +467,19 @@ export default function DiemDanhNgu() {
         let markedCount = 0;
         const markedRooms = new Set();
         visiblePhongList.forEach(p => {
+            const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
+            const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
+
             const hsTrongPhong = getStudentsForRoom(p.ma_phong);
-            if (hsTrongPhong.length === 0) return;
-            if (hsTrongPhong.every(hs => diemDanhDb[hs.id] != null)) {
+            const isAllStudentsMarked = hsTrongPhong.length > 0 && hsTrongPhong.every(hs => diemDanhDb[hs.id] != null);
+
+            if (isChot || isAllStudentsMarked) {
                 markedCount++;
                 markedRooms.add(p.ma_phong);
             }
         });
         return { markedCount, unmarkedCount: visiblePhongList.length - markedCount, markedRooms };
-    }, [visiblePhongList, diemDanhDb, getStudentsForRoom]);
+    }, [visiblePhongList, diemDanhDb, getStudentsForRoom, phongStatuses]);
 
     const changeStatus = (id, status) => { setOverrides(p => ({ ...p, [id]: status })); setSaved(false); };
     const setAll = (status) => {
@@ -1227,13 +1232,15 @@ ${htmlPages}
                             <ul className="dd-room-list">
                                 {visiblePhongList.map(p => {
                                     const count = getStudentsForRoom(p.ma_phong).length;
-                                    const isMarked = roomStats.markedRooms.has(p.ma_phong);
+                                    const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
+                                    const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
+                                    const isMarked = isChot || roomStats.markedRooms.has(p.ma_phong);
                                     return (
                                         <li key={p.ma_phong}
                                             className={`dd-room-item${cauhinhNgay ? ' is-special' : ''}${selectedPhong?.ma_phong === p.ma_phong ? ' active' : ''}`}
                                             style={(selectedPhong?.ma_phong === p.ma_phong && !cauhinhNgay) ? { background: 'linear-gradient(135deg,rgba(108,92,231,.1),rgba(162,155,254,.08))', borderColor: 'rgba(108,92,231,.25)', color: '#6c5ce7' } : {}}
                                             onClick={() => { setSelectedPhongCode(p.ma_phong); setOverrides({}); setSaved(false); }}>
-                                            <div className={`dd-room-status-icon ${isMarked ? 'marked' : 'unmarked'}`} title={isMarked ? 'Đã điểm danh' : 'Chưa điểm danh'}>
+                                            <div className={`dd-room-status-icon ${isMarked ? 'marked' : 'unmarked'}`} title={isMarked ? (isChot ? 'Đã chốt danh sách lên tổng' : 'Đã điểm danh') : 'Chưa điểm danh'}>
                                                 <i className={isMarked ? 'fas fa-check' : 'fas fa-exclamation'}></i>
                                             </div>
                                             <div className="dd-room-item-name">
