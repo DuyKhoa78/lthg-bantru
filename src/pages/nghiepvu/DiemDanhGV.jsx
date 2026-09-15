@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import api from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import '../../styles/admin.css';
 
@@ -29,7 +30,11 @@ const todayVN = () => {
 const DOW_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export default function DiemDanhGV() {
+  const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
+
+  // Chỉ Admin, Super Admin và Quản lý mới được vào điểm danh GV (Học vụ không được phép)
+  const isAllowed = Boolean(user && (user.is_admin || user.is_superuser || user.is_quan_ly) && !user.is_hoc_vu);
 
   const [date, setDate] = useState(todayVN);
   const [loading, setLoading] = useState(true);
@@ -44,6 +49,7 @@ export default function DiemDanhGV() {
 
   // Fetch duty schedule for selected date
   const loadDayData = useCallback(async (selectedDate, silent = false) => {
+    if (!isAllowed) return;
     if (!silent) setLoading(true);
     try {
       const res = await api.get(`/api/lichtruc/day/?ngay=${selectedDate}`);
@@ -55,11 +61,12 @@ export default function DiemDanhGV() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [showAlert]);
+  }, [showAlert, isAllowed]);
 
   useEffect(() => {
+    if (!isAllowed) return;
     loadDayData(date);
-  }, [date, loadDayData]);
+  }, [date, loadDayData, isAllowed]);
 
   // Day label (e.g. Thứ Hai, 14/09/2026)
   const dayOfWeekLabel = useMemo(() => {
@@ -165,6 +172,10 @@ export default function DiemDanhGV() {
   }, [records]);
 
 
+
+  if (user && !isAllowed) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="diemdanh-gv-page" style={{ paddingBottom: 60 }}>
