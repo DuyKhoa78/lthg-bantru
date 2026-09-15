@@ -1602,8 +1602,8 @@ function testSendLatestSheetRow() {
         setTimeout(() => setCopySuccess(false), 2500);
     };
 
-    // Chỉ Admin và Giám đốc (quản lý) mới được xem Báo cáo Google Form
-    const isAllowedUser = user && (user.is_admin || user.is_superuser || user.is_quan_ly || user.position?.toLowerCase().includes('giám đốc'));
+    // Chỉ Admin, Giám đốc (quản lý) và Học vụ mới được xem Báo cáo Google Form
+    const isAllowedUser = user && (user.is_admin || user.is_superuser || user.is_quan_ly || user.is_hoc_vu || user.position?.toLowerCase().includes('giám đốc'));
     if (user && !isAllowedUser) {
         return <Navigate to="/" replace />;
     }

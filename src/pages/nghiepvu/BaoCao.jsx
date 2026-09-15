@@ -1962,9 +1962,11 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                 <button className={`bc-main-tab${activeTab === 'panel-hs' ? ' active' : ''}`} onClick={() => setActiveTab('panel-hs')}>
                     <i className="fas fa-users"></i> Thống kê Học sinh
                 </button>
+                {canExportGV && (
                 <button className={`bc-main-tab${activeTab === 'panel-gv' ? ' active' : ''}`} onClick={() => setActiveTab('panel-gv')}>
                     <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
                 </button>
+                )}
             </div>
 
             {/* PANEL HỌC SINH */}
@@ -2160,7 +2162,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             )}
 
             {/* PANEL GIÁO VIÊN */}
-            {activeTab === 'panel-gv' && (
+            {canExportGV && activeTab === 'panel-gv' && (
                 <div className="bc-main-panel active">
                     <div className="bc-filter-row" style={{ marginBottom: 18 }}>
                         <div className="bc-filter-item" style={{display:'flex', gap: 12}}>
