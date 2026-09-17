@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { Navigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../hooks/useAuth';
@@ -57,6 +57,7 @@ export default function BaoCaoTrucGV() {
 
     const [caTruc, setCaTruc] = useState('all'); // 'all', '0', '1', '2'
     const [activeSection, setActiveSection] = useState('all'); // 'all' | 'ca_an' | 'ca_ngu' | 'giam_sat' | 'vi_pham' | 'giao_vien'
+    const [filterCaVang, setFilterCaVang] = useState('all'); // 'all' | 'an' | 'ngu'
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
@@ -321,16 +322,72 @@ export default function BaoCaoTrucGV() {
         return classMatches ? classMatches.length : (Number(r.so_hs_vang) || (ds.trim() ? 1 : 0));
     };
 
-    // Danh sách HS vắng từ báo cáo GV (danh_sach_vang)
+    // Danh sách HS vắng từ báo cáo GV (danh_sach_vang), tự động sort theo Ca Ăn trước, Ca Ngủ sau
     const allAbsentRecords = useMemo(() => {
-        return (data.records || []).filter(r =>
+        const list = (data.records || []).filter(r =>
             r.danh_sach_vang && r.danh_sach_vang.trim() && r.ca_truc !== 2
         );
+
+        return list.sort((a, b) => {
+            // 1. Sort theo Ca: Ca Ăn (0) trước, Ca Ngủ (1) sau
+            const caA = (a.ca_truc === 0 || a.ca_truc === '0' || String(a.ca_truc).toLowerCase().includes('ăn')) ? 0 : 1;
+            const caB = (b.ca_truc === 0 || b.ca_truc === '0' || String(b.ca_truc).toLowerCase().includes('ăn')) ? 0 : 1;
+            if (caA !== caB) return caA - caB;
+
+            // 2. Nếu xem theo Tuần hoặc Tháng, sort theo Ngày
+            if (a.ngay && b.ngay && a.ngay !== b.ngay) {
+                return a.ngay.localeCompare(b.ngay);
+            }
+
+            // 3. Cùng Ca (và cùng ngày), sort theo Phòng tự nhiên (ví dụ P1, P2... A20, A21...)
+            const roomComp = (a.ma_phong || '').localeCompare(b.ma_phong || '', undefined, { numeric: true, sensitivity: 'base' });
+            if (roomComp !== 0) return roomComp;
+
+            // 4. Nếu cùng phòng, sort theo thời gian gửi (created_at)
+            return (a.created_at || '').localeCompare(b.created_at || '');
+        });
     }, [data.records]);
 
     const totalAbsentCount = useMemo(() => {
         return (data.records || []).reduce((sum, r) => sum + countVang(r), 0);
     }, [data.records]);
+
+    // Thống kê nhanh số phòng và số HS vắng theo từng ca
+    const statsVangCa = useMemo(() => {
+        const anList = allAbsentRecords.filter(r => r.ca_truc === 0 || r.ca_truc === '0' || String(r.ca_truc).toLowerCase().includes('ăn'));
+        const nguList = allAbsentRecords.filter(r => !(r.ca_truc === 0 || r.ca_truc === '0' || String(r.ca_truc).toLowerCase().includes('ăn')));
+        const totalAn = anList.reduce((sum, r) => sum + countVang(r), 0);
+        const totalNgu = nguList.reduce((sum, r) => sum + countVang(r), 0);
+        return {
+            anCount: anList.length,
+            totalAn,
+            nguCount: nguList.length,
+            totalNgu,
+        };
+    }, [allAbsentRecords]);
+
+    // Danh sách HS vắng hiển thị theo bộ lọc nhanh (Ca Ăn, Ca Ngủ) và tìm kiếm
+    const displayedAbsentRecords = useMemo(() => {
+        let list = allAbsentRecords;
+
+        if (filterCaVang === 'an') {
+            list = list.filter(r => r.ca_truc === 0 || r.ca_truc === '0' || String(r.ca_truc).toLowerCase().includes('ăn'));
+        } else if (filterCaVang === 'ngu') {
+            list = list.filter(r => !(r.ca_truc === 0 || r.ca_truc === '0' || String(r.ca_truc).toLowerCase().includes('ăn')));
+        }
+
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase().trim();
+            list = list.filter(r =>
+                (r.ho_ten_gv || '').toLowerCase().includes(q) ||
+                (r.ma_phong || '').toLowerCase().includes(q) ||
+                (r.danh_sach_vang || '').toLowerCase().includes(q) ||
+                (r.ngay || '').includes(q)
+            );
+        }
+
+        return list;
+    }, [allAbsentRecords, filterCaVang, searchTerm]);
 
     // Gom nhóm học sinh vi phạm theo Lớp (phục vụ gửi GVCN)
     const violationsByClass = useMemo(() => {
@@ -2179,7 +2236,58 @@ function testSendLatestSheetRow() {
                                 <i className="fas fa-user-times"></i> HỌC SINH VẮNG (THEO BÁO CÁO GV)
                             </div>
                             <div style={{ fontSize: '0.85rem', color: '#9f1239', marginTop: 3 }}>
-                                Tổng <strong>{totalAbsentCount} HS vắng</strong> từ <strong>{allAbsentRecords.length} phòng</strong> có ghi nhận. HV và Admin có thể điểm danh thay trực tiếp từ hệ thống.
+                                Tổng <strong>{totalAbsentCount} HS vắng</strong> từ <strong>{allAbsentRecords.length} phòng</strong> có ghi nhận (Đã sắp xếp: <strong>Ca Ăn</strong> trước, <strong>Ca Ngủ</strong> sau). HV và Admin có thể điểm danh thay trực tiếp từ hệ thống.
+                            </div>
+                            {/* Bộ lọc nhanh Ca Ăn / Ca Ngủ */}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterCaVang('all')}
+                                    style={{
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        padding: '4px 12px',
+                                        borderRadius: 20,
+                                        border: filterCaVang === 'all' ? '1.5px solid #be123c' : '1px solid #fecdd3',
+                                        background: filterCaVang === 'all' ? '#be123c' : '#fff',
+                                        color: filterCaVang === 'all' ? '#fff' : '#be123c',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Tất cả ({allAbsentRecords.length} phòng - {totalAbsentCount} vắng)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterCaVang('an')}
+                                    style={{
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        padding: '4px 12px',
+                                        borderRadius: 20,
+                                        border: filterCaVang === 'an' ? '1.5px solid #b45309' : '1px solid #fde68a',
+                                        background: filterCaVang === 'an' ? '#b45309' : '#fffbeb',
+                                        color: filterCaVang === 'an' ? '#fff' : '#b45309',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <i className="fas fa-utensils" style={{ marginRight: 4 }}></i> Ca Ăn ({statsVangCa.anCount} phòng - {statsVangCa.totalAn} vắng)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterCaVang('ngu')}
+                                    style={{
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        padding: '4px 12px',
+                                        borderRadius: 20,
+                                        border: filterCaVang === 'ngu' ? '1.5px solid #6d28d9' : '1px solid #ddd6fe',
+                                        background: filterCaVang === 'ngu' ? '#6d28d9' : '#f5f3ff',
+                                        color: filterCaVang === 'ngu' ? '#fff' : '#6d28d9',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <i className="fas fa-bed" style={{ marginRight: 4 }}></i> Ca Ngủ ({statsVangCa.nguCount} phòng - {statsVangCa.totalNgu} vắng)
+                                </button>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -2640,7 +2748,7 @@ function testSendLatestSheetRow() {
                                 {/* PHẦN HS VẮNG: chỉ hiển thị khi chọn tab hs_vang */}
                                 {activeSection === 'hs_vang' && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                        {allAbsentRecords.length === 0 ? (
+                                        {displayedAbsentRecords.length === 0 ? (
                                             <div className="bctruc-empty">
                                                 <i className="fas fa-user-check"></i>
                                                 <h4>Không có học sinh vắng trong khoảng thời gian này</h4>
@@ -2661,53 +2769,74 @@ function testSendLatestSheetRow() {
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {allAbsentRecords.map((r, idx) => {
-                                                            const isAn = r.ca_truc === 0 || String(r.ca_truc).toLowerCase().includes('ăn');
+                                                        {displayedAbsentRecords.map((r, idx) => {
+                                                            const isAn = r.ca_truc === 0 || r.ca_truc === '0' || String(r.ca_truc).toLowerCase().includes('ăn');
+                                                            const prevRecord = idx > 0 ? displayedAbsentRecords[idx - 1] : null;
+                                                            const prevIsAn = prevRecord ? (prevRecord.ca_truc === 0 || prevRecord.ca_truc === '0' || String(prevRecord.ca_truc).toLowerCase().includes('ăn')) : null;
+                                                            const showAnHeader = filterCaVang === 'all' && idx === 0 && isAn;
+                                                            const showNguHeader = filterCaVang === 'all' && (!prevRecord && !isAn || (prevRecord && prevIsAn && !isAn));
+
                                                             return (
-                                                                <tr key={r.id}>
-                                                                    <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
-                                                                    <td style={{ textAlign: 'center', fontSize: '0.84rem' }}>
-                                                                        <div style={{ fontWeight: 700 }}>{formatTime(r.created_at)}</div>
-                                                                        {viewMode !== 'day' && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{formatDateVN(r.ngay)}</div>}
-                                                                    </td>
-                                                                    <td style={{ textAlign: 'center' }}>
-                                                                        <span style={{
-                                                                            background: isAn ? '#fffbeb' : '#f5f3ff',
-                                                                            color: isAn ? '#b45309' : '#6d28d9',
-                                                                            fontWeight: 700,
-                                                                            padding: '2px 8px',
-                                                                            borderRadius: 6,
-                                                                            fontSize: '0.78rem',
-                                                                            border: `1px solid ${isAn ? '#fde68a' : '#ddd6fe'}`
-                                                                        }}>
-                                                                            {isAn ? 'Ăn trưa' : 'Ngủ trưa'}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td style={{ textAlign: 'center' }}>
-                                                                        <span className="bctruc-phong-pill" style={{ fontWeight: 800, color: '#1e3a8a' }}>{r.ma_phong}</span>
-                                                                    </td>
-                                                                    <td style={{ textAlign: 'center' }}>
-                                                                        <span style={{
-                                                                            background: '#fef2f2',
-                                                                            color: '#be123c',
-                                                                            fontWeight: 800,
-                                                                            padding: '3px 10px',
-                                                                            borderRadius: 6,
-                                                                            border: '1px solid #fecaca',
-                                                                            fontSize: '0.9rem'
-                                                                        }}>
-                                                                            {countVang(r)}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.ho_ten_gv}</td>
-                                                                    <td>
-                                                                        <div className="bctruc-vang-cell-box">
-                                                                            {r.danh_sach_vang.split('\n').filter(Boolean).map((hs, i) => (
-                                                                                <div key={i} className="bctruc-vang-cell-item">{hs.trim()}</div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
+                                                                <Fragment key={r.id}>
+                                                                    {showAnHeader && (
+                                                                        <tr style={{ background: '#fffbeb', borderTop: '2px solid #fde68a', borderBottom: '1px solid #fef3c7' }}>
+                                                                            <td colSpan={7} style={{ padding: '8px 14px', fontWeight: 800, color: '#b45309', fontSize: '0.86rem' }}>
+                                                                                <i className="fas fa-utensils" style={{ marginRight: 6 }}></i> CA ĂN TRƯA ({statsVangCa.anCount} phòng - {statsVangCa.totalAn} học sinh vắng)
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                    {showNguHeader && (
+                                                                        <tr style={{ background: '#f5f3ff', borderTop: '2px solid #ddd6fe', borderBottom: '1px solid #ede9fe' }}>
+                                                                            <td colSpan={7} style={{ padding: '8px 14px', fontWeight: 800, color: '#6d28d9', fontSize: '0.86rem' }}>
+                                                                                <i className="fas fa-bed" style={{ marginRight: 6 }}></i> CA NGỦ TRƯA ({statsVangCa.nguCount} phòng - {statsVangCa.totalNgu} học sinh vắng)
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                    <tr>
+                                                                        <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
+                                                                        <td style={{ textAlign: 'center', fontSize: '0.84rem' }}>
+                                                                            <div style={{ fontWeight: 700 }}>{formatTime(r.created_at)}</div>
+                                                                            {viewMode !== 'day' && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{formatDateVN(r.ngay)}</div>}
+                                                                        </td>
+                                                                        <td style={{ textAlign: 'center' }}>
+                                                                            <span style={{
+                                                                                background: isAn ? '#fffbeb' : '#f5f3ff',
+                                                                                color: isAn ? '#b45309' : '#6d28d9',
+                                                                                fontWeight: 700,
+                                                                                padding: '2px 8px',
+                                                                                borderRadius: 6,
+                                                                                fontSize: '0.78rem',
+                                                                                border: `1px solid ${isAn ? '#fde68a' : '#ddd6fe'}`
+                                                                            }}>
+                                                                                {isAn ? 'Ăn trưa' : 'Ngủ trưa'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td style={{ textAlign: 'center' }}>
+                                                                            <span className="bctruc-phong-pill" style={{ fontWeight: 800, color: '#1e3a8a' }}>{r.ma_phong}</span>
+                                                                        </td>
+                                                                        <td style={{ textAlign: 'center' }}>
+                                                                            <span style={{
+                                                                                background: '#fef2f2',
+                                                                                color: '#be123c',
+                                                                                fontWeight: 800,
+                                                                                padding: '3px 10px',
+                                                                                borderRadius: 6,
+                                                                                border: '1px solid #fecaca',
+                                                                                fontSize: '0.9rem'
+                                                                            }}>
+                                                                                {countVang(r)}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.ho_ten_gv}</td>
+                                                                        <td>
+                                                                            <div className="bctruc-vang-cell-box">
+                                                                                {r.danh_sach_vang.split('\n').filter(Boolean).map((hs, i) => (
+                                                                                    <div key={i} className="bctruc-vang-cell-item">{hs.trim()}</div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                </Fragment>
                                                             );
                                                         })}
                                                     </tbody>

@@ -20,6 +20,7 @@ export default function CauHinh() {
     bao_tri: false,
     thong_bao_bao_tri: '',
     thoi_gian_bao_tri: '',
+    tien_an: 35000,
   });
   const [giaAn, setGiaAn] = useState('');
   const [giaNgu, setGiaNgu] = useState('');
@@ -44,6 +45,7 @@ export default function CauHinh() {
             bao_tri:           Boolean(he_thong.bao_tri),
             thong_bao_bao_tri: he_thong.thong_bao_bao_tri  || 'Hệ thống Quản lý Bán trú đang được bảo trì và nâng cấp định kỳ. Quý Thầy Cô vui lòng quay lại sau ít phút!',
             thoi_gian_bao_tri: he_thong.thoi_gian_bao_tri  || 'Dự kiến hoàn tất trong 15-30 phút',
+            tien_an:           he_thong.tien_an !== undefined ? parseInt(he_thong.tien_an) : 35000,
           });
           if (gia_an) setGiaAn(parseInt(gia_an.don_gia) || '');
           if (gia_ngu) setGiaNgu(parseInt(gia_ngu.don_gia) || '');
@@ -156,15 +158,33 @@ export default function CauHinh() {
 
         {/* Cấu hình giá */}
         <div className="cauhinh-section">
-          <div className="cauhinh-section-header"><i className="fas fa-money-bill-wave"></i> Đơn giá Bán trú</div>
+          <div className="cauhinh-section-header"><i className="fas fa-money-bill-wave"></i> Đơn giá Bán trú &amp; Tiền ăn</div>
           <div className="cauhinh-section-body">
+            <div className="form-group" style={{ background: '#f0fdf4', padding: '12px 14px', borderRadius: 8, border: '1.5px solid #86efac', marginBottom: 16 }}>
+              <label className="form-label" style={{ fontWeight: 700, color: '#15803d', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <i className="fas fa-utensils" style={{ color: '#16a34a' }}></i> Tiền ăn Học sinh (VNĐ/ngày)
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                style={{ fontWeight: 700, fontSize: '1.1rem', color: '#166534', background: '#fff', borderColor: '#86efac' }}
+                value={heThong.tien_an ? Number(heThong.tien_an).toLocaleString('vi-VN') : ''}
+                disabled={!canEdit}
+                onChange={(e) => setHeThong({ ...heThong, tien_an: parseInt(e.target.value.replace(/\D/g, '')) || 0 })}
+                placeholder="VD: 35.000"
+              />
+              <small style={{ color: '#15803d', display: 'block', marginTop: 6, lineHeight: 1.4 }}>
+                <i className="fas fa-info-circle"></i> Giá tiền ăn áp dụng tính thanh toán bán trú theo chu kỳ: <strong>Thành tiền = (Tổng số buổi - Phép) × Tiền ăn</strong>.
+              </small>
+            </div>
+
             <div className="form-group">
-              <label className="form-label"><i className="fas fa-utensils" style={{ color: 'var(--primary)' }}></i> Đơn giá ca Ăn (VNĐ/ca)</label>
-              <input type="text" className="form-control" value={giaAn ? Number(giaAn).toLocaleString('vi-VN') : ''} disabled={!canEdit} onChange={(e) => setGiaAn(e.target.value.replace(/\D/g, ''))} placeholder="VD: 50.000" />
+              <label className="form-label"><i className="fas fa-chalkboard-teacher" style={{ color: 'var(--primary)' }}></i> Thù lao trực ca Ăn Giáo viên (VNĐ/ca)</label>
+              <input type="text" className="form-control" value={giaAn ? Number(giaAn).toLocaleString('vi-VN') : ''} disabled={!canEdit} onChange={(e) => setGiaAn(e.target.value.replace(/\D/g, ''))} placeholder="VD: 100.000" />
             </div>
             <div className="form-group">
-              <label className="form-label"><i className="fas fa-bed" style={{ color: '#a855f7' }}></i> Đơn giá ca Ngủ (VNĐ/ca)</label>
-              <input type="text" className="form-control" value={giaNgu ? Number(giaNgu).toLocaleString('vi-VN') : ''} disabled={!canEdit} onChange={(e) => setGiaNgu(e.target.value.replace(/\D/g, ''))} placeholder="VD: 30.000" />
+              <label className="form-label"><i className="fas fa-bed" style={{ color: '#a855f7' }}></i> Thù lao trực ca Ngủ Giáo viên (VNĐ/ca)</label>
+              <input type="text" className="form-control" value={giaNgu ? Number(giaNgu).toLocaleString('vi-VN') : ''} disabled={!canEdit} onChange={(e) => setGiaNgu(e.target.value.replace(/\D/g, ''))} placeholder="VD: 180.000" />
             </div>
           </div>
         </div>

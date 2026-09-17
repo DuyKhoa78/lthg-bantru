@@ -81,8 +81,9 @@ export default function BaoPhepModal({
     // Load students (use prop if available, also fetch all students)
     useEffect(() => {
         if (!open) return;
-        if (allStudents.length === 0 && students && students.length > 0) {
+        if (students && students.length > 0) {
             setAllStudents(students);
+            return;
         }
         if (allStudents.length > 0) return;
 
@@ -95,24 +96,56 @@ export default function BaoPhepModal({
             })
             .catch(err => {
                 console.error('Lỗi tải danh sách học sinh:', err);
-                if (!students || students.length === 0) {
-                    showAlert('Không thể tải danh sách học sinh', 'error');
-                }
+                showAlert('Không thể tải danh sách học sinh', 'error');
             })
             .finally(() => setLoadingStudents(false));
-    }, [open, allStudents.length, students, showAlert]);
+    }, [open, students, allStudents.length, showAlert]);
 
-    // Extract unique classes
+    // Helper function kiểm tra học sinh còn tham gia bán trú hay đã rút bán trú tính đến targetDate
+    const isStudentActiveAtDate = useCallback((s, targetDate) => {
+        if (!s) return false;
+        // 1. Học sinh không còn học (dang_hoc === false)
+        if (s.dang_hoc === false) {
+            // Nếu có ngày rút cụ thể và targetDate <= ngay_rut thì ngày đó vẫn còn học
+            if (s.ngay_rut && targetDate && targetDate <= s.ngay_rut) {
+                // Vẫn còn trong bán trú tại thời điểm này
+            } else {
+                return false; // Đã rút bán trú
+            }
+        } else if (s.ngay_rut && targetDate && targetDate > s.ngay_rut) {
+            // Có ngày rút và ngày chọn > ngày rút => đã rút bán trú
+            return false;
+        }
+
+        // 2. Chưa đến ngày vào học bán trú
+        if (s.ngay_vao && targetDate && targetDate < s.ngay_vao) {
+            return false;
+        }
+
+        return true;
+    }, []);
+
+    // Ngày hiệu lực để xét trạng thái học sinh
+    const effectiveDate = useMemo(() => {
+        return startDate || defaultDate || new Date().toISOString().split('T')[0];
+    }, [startDate, defaultDate]);
+
+    // Danh sách học sinh đang học bán trú hợp lệ tại ngày đang chọn (loại bỏ hoàn toàn học sinh đã rút bán trú)
+    const activeStudents = useMemo(() => {
+        return allStudents.filter(s => isStudentActiveAtDate(s, effectiveDate));
+    }, [allStudents, effectiveDate, isStudentActiveAtDate]);
+
+    // Extract unique classes từ danh sách học sinh đang học
     const classList = useMemo(() => {
         const classes = new Set();
-        allStudents.forEach(s => { if (s.lop) classes.add(s.lop); });
+        activeStudents.forEach(s => { if (s.lop) classes.add(s.lop); });
         return Array.from(classes).sort();
-    }, [allStudents]);
+    }, [activeStudents]);
 
-    // Filter students for search dropdown/list
+    // Filter students for search dropdown/list (dựa trên danh sách activeStudents)
     const filteredStudents = useMemo(() => {
         const query = removeAccents(searchQuery.toLowerCase().trim());
-        return allStudents.filter(s => {
+        return activeStudents.filter(s => {
             if (filterLop && s.lop !== filterLop) return false;
             if (!query) return true;
             const nameMatch = removeAccents((s.ho_ten || '').toLowerCase()).includes(query);
@@ -120,12 +153,12 @@ export default function BaoPhepModal({
             const lopMatch = (s.lop || '').toLowerCase().includes(query);
             return nameMatch || idMatch || lopMatch;
         });
-    }, [allStudents, filterLop, searchQuery]);
+    }, [activeStudents, filterLop, searchQuery]);
 
-    // Selected students objects
+    // Selected students objects (chỉ giữ lại những em đang học)
     const selectedStudents = useMemo(() => {
-        return allStudents.filter(s => selectedHsIds.has(s.id));
-    }, [allStudents, selectedHsIds]);
+        return activeStudents.filter(s => selectedHsIds.has(s.id));
+    }, [activeStudents, selectedHsIds]);
 
     const toggleStudent = (id) => {
         setSelectedHsIds(prev => {
@@ -243,10 +276,19 @@ export default function BaoPhepModal({
             return showAlert('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning');
         }
 
+        const validHsIds = Array.from(selectedHsIds).filter(id => {
+            const s = allStudents.find(x => x.id === id);
+            return s && isStudentActiveAtDate(s, startDate);
+        });
+
+        if (validHsIds.length === 0) {
+            return showAlert('Vui lòng chọn ít nhất 1 học sinh đang học bán trú!', 'warning');
+        }
+
         setSubmitting(true);
         try {
             const payload = {
-                ma_hs_list: Array.from(selectedHsIds),
+                ma_hs_list: validHsIds,
                 tu_ngay: startDate,
                 den_ngay: dateMode === 'range' ? endDate : startDate,
                 ca,

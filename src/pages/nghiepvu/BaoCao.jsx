@@ -15,6 +15,56 @@ const p2 = n => String(n).padStart(2, '0');
 const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const DOW_NAMES_VN = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
+const formatDateDMY = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+};
+
+const getDefaultSuatAnRange = (month, year) => {
+    const pM = String(month).padStart(2, '0');
+    const firstDate = new Date(year, month - 1, 1);
+    const dow = firstDate.getDay(); // 0: CN, 1: T2, 2: T3, 3: T4, 4: T5, 5: T6, 6: T7
+
+    // Chu kỳ suất ăn theo tuần trường học: nếu ngày 1 rơi vào T3-T5, lùi về Thứ Hai của tuần đó (cuối tháng trước, vd: 30/9 cho tháng 10)
+    let startDate = new Date(year, month - 1, 1);
+    if (dow >= 2 && dow <= 5) {
+        startDate.setDate(startDate.getDate() - (dow - 1));
+    } else if (dow === 0) {
+        startDate.setDate(startDate.getDate() + 1);
+    } else if (dow === 6) {
+        startDate.setDate(startDate.getDate() + 2);
+    }
+
+    const startY = startDate.getFullYear();
+    const startM = String(startDate.getMonth() + 1).padStart(2, '0');
+    const startD = String(startDate.getDate()).padStart(2, '0');
+    const startStr = `${startY}-${startM}-${startD}`;
+
+    const lastDayNum = new Date(year, month, 0).getDate();
+    const endStr = `${year}-${pM}-${String(lastDayNum).padStart(2, '0')}`;
+
+    return { startStr, endStr };
+};
+
+// ── Cấu hình các Đợt thanh toán bán trú (Chu kỳ 4 tuần = 1 lần thanh toán, năm học đến tháng 6/2027) ──
+const DOT_THANH_TOAN_CONFIG = [
+    { dot: 1, label: 'Đợt 1 (Tuần 1 - 4): 07/09/2026 → 02/10/2026', start: '2026-09-07', end: '2026-10-02', weeks: 'Tuần 1 - 4' },
+    { dot: 2, label: 'Đợt 2 (Tuần 5 - 8): 05/10/2026 → 30/10/2026', start: '2026-10-05', end: '2026-10-30', weeks: 'Tuần 5 - 8' },
+    { dot: 3, label: 'Đợt 3 (Tuần 9 - 12): 02/11/2026 → 27/11/2026', start: '2026-11-02', end: '2026-11-27', weeks: 'Tuần 9 - 12' },
+    { dot: 4, label: 'Đợt 4 (Tuần 13 - 16): 30/11/2026 → 25/12/2026', start: '2026-11-30', end: '2026-12-25', weeks: 'Tuần 13 - 16' },
+    { dot: 5, label: 'Đợt 5 (Tuần 17 - 20): 28/12/2026 → 22/01/2027', start: '2026-12-28', end: '2027-01-22', weeks: 'Tuần 17 - 20' },
+    { dot: 6, label: 'Đợt 6 (Tuần 21 - 24): 25/01/2027 → 19/02/2027', start: '2027-01-25', end: '2027-02-19', weeks: 'Tuần 21 - 24' },
+    { dot: 7, label: 'Đợt 7 (Tuần 25 - 28): 22/02/2027 → 19/03/2027', start: '2027-02-22', end: '2027-03-19', weeks: 'Tuần 25 - 28' },
+    { dot: 8, label: 'Đợt 8 (Tuần 29 - 32): 22/03/2027 → 16/04/2027', start: '2027-03-22', end: '2027-04-16', weeks: 'Tuần 29 - 32' },
+    { dot: 9, label: 'Đợt 9 (Tuần 33 - 36): 19/04/2027 → 14/05/2027', start: '2027-04-19', end: '2027-05-14', weeks: 'Tuần 33 - 36' },
+    { dot: 10, label: 'Đợt 10 (Tuần 37 - 40): 17/05/2027 → 11/06/2027', start: '2027-05-17', end: '2027-06-11', weeks: 'Tuần 37 - 40' },
+    { dot: 11, label: 'Đợt 11 (Tuần 41 - 43): 14/06/2027 → 30/06/2027', start: '2027-06-14', end: '2027-06-30', weeks: 'Tuần 41 - 43' },
+];
+
 export default function BaoCao() {
     const { user } = useAuth();
     const canExportHS = user?.is_admin || user?.is_superuser || user?.is_ke_toan || user?.is_hoc_vu;
@@ -76,10 +126,33 @@ export default function BaoCao() {
 
     // Báo cáo tổng hợp theo lớp
     const [showTongHopLopModal, setShowTongHopLopModal] = useState(false);
+    const [thLopCheDo, setThLopCheDo] = useState('dot'); // 'dot' (Chu kỳ 4 tuần) | 'thang' (Theo tháng)
+    const [thLopDotSelected, setThLopDotSelected] = useState('1'); // Mặc định Đợt 1
     const [thLopMonth, setThLopMonth] = useState(today.slice(0, 7));
+    const [thLopTuNgay, setThLopTuNgay] = useState('2026-09-07');
+    const [thLopDenNgay, setThLopDenNgay] = useState('2026-10-02');
     const [thLopData, setThLopData] = useState(null);
     const [loadingThLop, setLoadingThLop] = useState(false);
     const [thLopSelected, setThLopSelected] = useState('');
+    const [thLopDonGiaAn, setThLopDonGiaAn] = useState(35000);
+
+    // Báo cáo Suất ăn hàng tháng cho bên cung cấp
+    const [showSuatAnModal, setShowSuatAnModal] = useState(false);
+    const [suatAnMonth, setSuatAnMonth] = useState(new Date().getMonth() + 1);
+    const [suatAnYear, setSuatAnYear] = useState(new Date().getFullYear());
+    const [suatAnTuNgay, setSuatAnTuNgay] = useState('');
+    const [suatAnDenNgay, setSuatAnDenNgay] = useState('');
+    const [suatAnLoading, setSuatAnLoading] = useState(false);
+    const [suatAnData, setSuatAnData] = useState(null);
+    const [suatAnRows, setSuatAnRows] = useState([]);
+    const [suatAnNguoiLap, setSuatAnNguoiLap] = useState('Mai Quỳnh Châu');
+    const [suatAnDaiDienCT, setSuatAnDaiDienCT] = useState('Lê Thị Ngọc Bích');
+    const [suatAnGiamDoc, setSuatAnGiamDoc] = useState('Vũ Quốc Phong');
+    const [suatAnDiaDanh, setSuatAnDiaDanh] = useState('Thành phố Hồ Chí Minh');
+    const [suatAnNgayKy, setSuatAnNgayKy] = useState('');
+    const [suatAnSoGD, setSuatAnSoGD] = useState('SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH');
+    const [suatAnTenTruong, setSuatAnTenTruong] = useState('TRƯỜNG THPT LÊ THỊ HỒNG GẤM');
+    const [suatAnBoPhan, setSuatAnBoPhan] = useState('BỘ PHẬN BÁN TRÚ');
 
     // Lấy dữ liệu Báo cáo HS
     useEffect(() => {
@@ -1038,191 +1111,435 @@ ${htmlPages}
         finally { setExportingSpecial(false); }
     };
 
-    // ── Hàm xuất Excel Tổng hợp theo Lớp ──────────────────────────────
+    // ── Hàm xuất Excel & PDF Bảng Thống kê Bán trú theo Lớp (Template 13 cột) ──
+    const sortStudentsByABC = (list) => {
+        return [...list].sort((a, b) => {
+            const nameA = getSortNames(a.ho_ten);
+            const nameB = getSortNames(b.ho_ten);
+            let cmp = (nameA.first || '').localeCompare(nameB.first || '', 'vi');
+            if (cmp !== 0) return cmp;
+            cmp = (nameA.last || '').localeCompare(nameB.last || '', 'vi');
+            if (cmp !== 0) return cmp;
+            return (nameA.middle || '').localeCompare(nameB.middle || '', 'vi');
+        });
+    };
+
+    const calcHsThanhTien = (h, donGia) => {
+        // Công thức thanh toán bán trú: (Tổng số buổi - Phép) × Tiền ăn
+        const soBuoi = Math.max(0, (h.tong_buoi_an || 0) - (h.phep_an || 0));
+        return soBuoi * (donGia || 0);
+    };
+
     const openTongHopLopModal = async () => {
         setShowTongHopLopModal(true);
         setThLopData(null);
         setThLopSelected('');
-        await fetchThLop(thLopMonth);
+        if (thLopCheDo === 'dot') {
+            const dotObj = DOT_THANH_TOAN_CONFIG.find(d => String(d.dot) === String(thLopDotSelected)) || DOT_THANH_TOAN_CONFIG[0];
+            setThLopTuNgay(dotObj.start);
+            setThLopDenNgay(dotObj.end);
+            await fetchThLop(undefined, undefined, dotObj.start, dotObj.end, dotObj.dot);
+        } else {
+            const [y, m] = thLopMonth.split('-');
+            const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+            const start = `${y}-${m}-01`;
+            const end = `${y}-${m}-${p2(lastDay)}`;
+            setThLopTuNgay(start);
+            setThLopDenNgay(end);
+            await fetchThLop(thLopMonth, undefined, start, end, null);
+        }
     };
 
-    const fetchThLop = async (monthStr) => {
-        const [y, m] = monthStr.split('-');
+    const fetchThLop = async (monthStr, customGia, customStart, customEnd, customDot) => {
+        const activeMonthStr = monthStr || thLopMonth;
+        const [y, m] = activeMonthStr.split('-');
         setLoadingThLop(true);
         try {
-            const res = await api.get(`/api/baocao/tong-hop-lop/?thang=${m}&nam=${y}`);
-            if (res.data?.ok) setThLopData(res.data);
+            const donGiaParam = customGia !== undefined ? customGia : thLopDonGiaAn;
+            const startParam = customStart !== undefined ? customStart : thLopTuNgay;
+            const endParam = customEnd !== undefined ? customEnd : thLopDenNgay;
+            const dotParam = customDot !== undefined ? customDot : (thLopCheDo === 'dot' ? thLopDotSelected : null);
+            let url = `/api/baocao/tong-hop-lop/?thang=${m}&nam=${y}&don_gia_an=${donGiaParam}`;
+            if (startParam) url += `&tu_ngay=${startParam}`;
+            if (endParam) url += `&den_ngay=${endParam}`;
+            if (dotParam) url += `&dot=${dotParam}`;
+            const res = await api.get(url);
+            if (res.data?.ok) {
+                setThLopData(res.data);
+                if (res.data.gia_an && res.data.gia_an > 0) {
+                    setThLopDonGiaAn(res.data.gia_an);
+                }
+                if (res.data.tu_ngay && !customStart && !thLopTuNgay) setThLopTuNgay(res.data.tu_ngay);
+                if (res.data.den_ngay && !customEnd && !thLopDenNgay) setThLopDenNgay(res.data.den_ngay);
+            }
         } catch { /* ignore */ }
         finally { setLoadingThLop(false); }
     };
 
+    const handleThLopDotChange = (dotVal) => {
+        setThLopDotSelected(dotVal);
+        const dotObj = DOT_THANH_TOAN_CONFIG.find(d => String(d.dot) === String(dotVal));
+        if (dotObj) {
+            setThLopTuNgay(dotObj.start);
+            setThLopDenNgay(dotObj.end);
+            fetchThLop(undefined, undefined, dotObj.start, dotObj.end, dotObj.dot);
+        }
+    };
+
+    const handleThLopCheDoChange = (mode) => {
+        setThLopCheDo(mode);
+        if (mode === 'dot') {
+            const dotObj = DOT_THANH_TOAN_CONFIG.find(d => String(d.dot) === String(thLopDotSelected)) || DOT_THANH_TOAN_CONFIG[0];
+            setThLopTuNgay(dotObj.start);
+            setThLopDenNgay(dotObj.end);
+            fetchThLop(undefined, undefined, dotObj.start, dotObj.end, dotObj.dot);
+        } else {
+            const [y, m] = thLopMonth.split('-');
+            const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+            const start = `${y}-${m}-01`;
+            const end = `${y}-${m}-${p2(lastDay)}`;
+            setThLopTuNgay(start);
+            setThLopDenNgay(end);
+            fetchThLop(thLopMonth, undefined, start, end, null);
+        }
+    };
+
+    const handleAdd4Weeks = () => {
+        if (!thLopTuNgay) return;
+        const d = new Date(thLopTuNgay + 'T00:00:00');
+        const endD = new Date(d);
+        endD.setDate(d.getDate() + 25); // 4 tuần: T2 + 25 ngày = T6 tuần 4
+        const endStr = endD.getFullYear() + '-' + p2(endD.getMonth() + 1) + '-' + p2(endD.getDate());
+        setThLopDenNgay(endStr);
+        fetchThLop(thLopMonth, undefined, thLopTuNgay, endStr);
+    };
+
+    const handleThLopMonthChange = (newMonth) => {
+        setThLopMonth(newMonth);
+        const [y, m] = newMonth.split('-');
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        const start = `${y}-${m}-01`;
+        const end = `${y}-${m}-${p2(lastDay)}`;
+        setThLopTuNgay(start);
+        setThLopDenNgay(end);
+        fetchThLop(newMonth, undefined, start, end);
+    };
+
+    const handleApplyThLopPreset = (type) => {
+        const [y, m] = thLopMonth.split('-');
+        let start, end;
+        if (type === 'week') {
+            const def = getDefaultSuatAnRange(parseInt(m), parseInt(y));
+            start = def.startStr;
+            end = def.endStr;
+        } else {
+            const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+            start = `${y}-${m}-01`;
+            end = `${y}-${m}-${p2(lastDay)}`;
+        }
+        setThLopTuNgay(start);
+        setThLopDenNgay(end);
+        fetchThLop(thLopMonth, undefined, start, end);
+    };
+
     const exportThLopExcel = () => {
         if (!thLopData) return;
-        const { data, so_thang, so_nam, tong_buoi_an, tong_buoi_ngu, gia_an, gia_ngu } = thLopData;
+        const { data, so_thang, so_nam } = thLopData;
         const filteredData = thLopSelected ? data.filter(h => h.lop === thLopSelected) : data;
-        if (filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
+        if (!filteredData || filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
 
-        const lopMap = {};
-        filteredData.forEach(h => { if (!lopMap[h.lop]) lopMap[h.lop] = []; lopMap[h.lop].push(h); });
-        const wb = XLSX.utils.book_new();
-        // Sheet tổng hợp toàn trường
-        const headerAll = ['STT', 'Mã số BT', 'Họ và tên', 'Lớp', 'GT',
-            'TS Buổi ăn', 'Ăn thực tế', 'Vắng ăn', 'Phép ăn',
-            'TS Buổi ngủ', 'Ngủ thực tế', 'Vắng ngủ', 'Phép ngủ',
-            'Tiền ăn (đ)', 'Tiền ngủ (đ)', 'TỔNG TIỀN (đ)', 'Ghi chú'
-        ];
-        const aoaAll = [
-            [`BẢNG TỔNG HỢP CHUYÊN CẦN VÀ THU TIỀN BÁN TRÚ – THÁNG ${so_thang}/${so_nam}`],
-            [`Tổng buổi ăn: ${tong_buoi_an} | Tổng buổi ngủ: ${tong_buoi_ngu} | Đơn giá ăn: ${gia_an.toLocaleString('vi-VN')}đ | Đơn giá ngủ: ${gia_ngu.toLocaleString('vi-VN')}đ`],
-            [],
-            headerAll,
-            ...data.map((h, i) => [
-                i + 1, h.id, h.ho_ten, h.lop, h.gioi_tinh === 0 ? 'Nam' : 'Nữ',
-                h.tong_buoi_an, h.buoi_an_thuc_te, h.vang_an, h.phep_an,
-                h.tong_buoi_ngu, h.buoi_ngu_thuc_te, h.vang_ngu, h.phep_ngu,
-                h.tien_an, h.tien_ngu, h.tong_tien, h.ghi_chu || ''
-            ])
-        ];
-        const wsAll = XLSX.utils.aoa_to_sheet(aoaAll);
-        wsAll['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 8 }, { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
-        if (!thLopSelected) XLSX.utils.book_append_sheet(wb, wsAll, 'Toan_truong');
-        // Sheet từng lớp
-        Object.entries(lopMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([lop, hsArr]) => {
-            const maxBuoiAnLop = Math.max(...hsArr.map(h => h.tong_buoi_an));
-            const maxBuoiNguLop = Math.max(...hsArr.map(h => h.tong_buoi_ngu));
-            const aoa = [
-                [`BẢNG THU TIỀN BÁN TRÚ – LỚP ${lop} – THÁNG ${so_thang}/${so_nam}`],
-                [`Tổng buổi ăn: ${maxBuoiAnLop} | Tổng buổi ngủ: ${maxBuoiNguLop} | Đơn giá ăn: ${gia_an.toLocaleString('vi-VN')}đ | Đơn giá ngủ: ${gia_ngu.toLocaleString('vi-VN')}đ`],
-                [],
-                headerAll,
-                ...hsArr.map((h, i) => [
-                    i + 1, h.id, h.ho_ten, h.lop, h.gioi_tinh === 0 ? 'Nam' : 'Nữ',
-                    h.tong_buoi_an, h.buoi_an_thuc_te, h.vang_an, h.phep_an,
-                    h.tong_buoi_ngu, h.buoi_ngu_thuc_te, h.vang_ngu, h.phep_ngu,
-                    h.tien_an, h.tien_ngu, h.tong_tien, h.ghi_chu || ''
-                ]),
-                ['', '', '', '', 'TỔNG',
-                    hsArr.reduce((a, h) => a + h.tong_buoi_an, 0), '', '', '',
-                    hsArr.reduce((a, h) => a + h.tong_buoi_ngu, 0), '', '', '',
-                    hsArr.reduce((a, h) => a + h.tien_an, 0),
-                    hsArr.reduce((a, h) => a + h.tien_ngu, 0),
-                    hsArr.reduce((a, h) => a + h.tong_tien, 0), ''
-                ]
+        const currentDonGiaAn = thLopDonGiaAn || 0;
+        const activeDot = thLopCheDo === 'dot' ? (thLopDotSelected || thLopData?.dot || '1') : null;
+        const baseTitle = activeDot
+            ? `BẢNG THỐNG KÊ BÁN TRÚ ĐỢT ${activeDot} (CHU KỲ 4 TUẦN)`
+            : `BẢNG THỐNG KÊ BÁN TRÚ THÁNG ${so_thang}/${so_nam}`;
+        const rangeText = (thLopTuNgay && thLopDenNgay)
+            ? ` (Từ ngày ${formatDateDMY(thLopTuNgay)} đến ngày ${formatDateDMY(thLopDenNgay)})`
+            : '';
+        const headerAnText = currentDonGiaAn > 0
+            ? `ĂN BÁN TRÚ (${currentDonGiaAn.toLocaleString('vi-VN')} Đ/NGÀY)`
+            : 'ĂN BÁN TRÚ (GIÁ TIỀN/NGÀY )';
+
+        const buildWorksheet = (hsList, titleText) => {
+            const sortedHs = sortStudentsByABC(hsList);
+            const dataRows = sortedHs.map((h, i) => [
+                i + 1,
+                h.lop || '',
+                h.id || '',
+                h.ho_ten || '',
+                h.tong_buoi_ngu || 0,
+                h.buoi_ngu_thuc_te || 0,
+                h.vang_ngu || 0,
+                h.phep_ngu || 0,
+                h.tong_buoi_an || 0,
+                h.buoi_an_thuc_te || 0,
+                h.vang_an || 0,
+                h.phep_an || 0,
+                calcHsThanhTien(h, currentDonGiaAn)
+            ]);
+
+            const sumTongBuoiNgu = sortedHs.reduce((s, h) => s + (h.tong_buoi_ngu || 0), 0);
+            const sumNguThucTe = sortedHs.reduce((s, h) => s + (h.buoi_ngu_thuc_te || 0), 0);
+            const sumVangNgu = sortedHs.reduce((s, h) => s + (h.vang_ngu || 0), 0);
+            const sumPhepNgu = sortedHs.reduce((s, h) => s + (h.phep_ngu || 0), 0);
+            const sumTongBuoiAn = sortedHs.reduce((s, h) => s + (h.tong_buoi_an || 0), 0);
+            const sumAnThucTe = sortedHs.reduce((s, h) => s + (h.buoi_an_thuc_te || 0), 0);
+            const sumVangAn = sortedHs.reduce((s, h) => s + (h.vang_an || 0), 0);
+            const sumPhepAn = sortedHs.reduce((s, h) => s + (h.phep_an || 0), 0);
+            const sumThanhTien = sortedHs.reduce((s, h) => s + calcHsThanhTien(h, currentDonGiaAn), 0);
+
+            const totalRow = [
+                'TỔNG CỘNG', '', '', '',
+                sumTongBuoiNgu, sumNguThucTe, sumVangNgu, sumPhepNgu,
+                sumTongBuoiAn, sumAnThucTe, sumVangAn, sumPhepAn,
+                sumThanhTien
             ];
+
+            const aoa = [
+                ['SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH', '', '', '', '', '', '', '', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', '', '', '', ''],
+                ['TRƯỜNG THPT LÊ THỊ HỒNG GẤM', '', '', '', '', '', '', '', 'Độc lập - Tự do - Hạnh phúc', '', '', '', ''],
+                ['BỘ PHẬN BÁN TRÚ', '', '', '', '', '', '', '', '', '', '', '', ''],
+                [],
+                [titleText + rangeText],
+                ['STT', 'LỚP', 'MÃ BT', 'HỌ TÊN ABC', 'NGỦ BÁN TRÚ', '', '', '', headerAnText, '', '', '', ''],
+                ['', '', '', '', 'TỔNG SỐ BUỔI', 'SỐ NGÀY THỰC TẾ', 'VẮNG', 'PHÉP', 'TỔNG SỐ BUỔI', 'SỐ NGÀY THỰC TẾ', 'VẮNG', 'PHÉP', 'THÀNH TIỀN'],
+                ...dataRows,
+                totalRow
+            ];
+
             const ws = XLSX.utils.aoa_to_sheet(aoa);
-            ws['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 28 }, { wch: 8 }, { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
-            XLSX.utils.book_append_sheet(wb, ws, `Lop_${lop}`.substring(0, 31));
+            const totalRowIdx = 7 + sortedHs.length;
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },  // SỞ GD
+                { s: { r: 0, c: 8 }, e: { r: 0, c: 12 } }, // CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },  // TRƯỜNG THPT LÊ THỊ HỒNG GẤM
+                { s: { r: 1, c: 8 }, e: { r: 1, c: 12 } }, // Độc lập - Tự do - Hạnh phúc
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },  // BỘ PHẬN BÁN TRÚ
+                { s: { r: 4, c: 0 }, e: { r: 4, c: 12 } }, // Tiêu đề bảng
+                { s: { r: 5, c: 0 }, e: { r: 6, c: 0 } },  // STT
+                { s: { r: 5, c: 1 }, e: { r: 6, c: 1 } },  // LỚP
+                { s: { r: 5, c: 2 }, e: { r: 6, c: 2 } },  // MÃ BT
+                { s: { r: 5, c: 3 }, e: { r: 6, c: 3 } },  // HỌ TÊN ABC
+                { s: { r: 5, c: 4 }, e: { r: 5, c: 7 } },  // NGỦ BÁN TRÚ (4 cột)
+                { s: { r: 5, c: 8 }, e: { r: 5, c: 12 } }, // ĂN BÁN TRÚ (5 cột)
+                { s: { r: totalRowIdx, c: 0 }, e: { r: totalRowIdx, c: 3 } } // TỔNG CỘNG (4 cột đầu)
+            ];
+
+            ws['!cols'] = [
+                { wch: 6 },   // STT
+                { wch: 8 },   // LỚP
+                { wch: 10 },  // MÃ BT
+                { wch: 28 },  // HỌ TÊN ABC
+                { wch: 15 },  // TỔNG SỐ BUỔI ngủ
+                { wch: 18 },  // SỐ NGÀY THỰC TẾ ngủ
+                { wch: 8 },   // VẮNG ngủ
+                { wch: 8 },   // PHÉP ngủ
+                { wch: 15 },  // TỔNG SỐ BUỔI ăn
+                { wch: 18 },  // SỐ NGÀY THỰC TẾ ăn
+                { wch: 8 },   // VẮNG ăn
+                { wch: 8 },   // PHÉP ăn
+                { wch: 16 }   // THÀNH TIỀN
+            ];
+            return ws;
+        };
+
+        const wb = XLSX.utils.book_new();
+        const lopMap = {};
+        filteredData.forEach(h => {
+            if (!lopMap[h.lop]) lopMap[h.lop] = [];
+            lopMap[h.lop].push(h);
         });
-        XLSX.writeFile(wb, `TongHop_BanTru_Thang${so_thang}_${so_nam}.xlsx`);
+
+        if (!thLopSelected) {
+            // Sheet Toàn trường (sắp xếp theo Lớp rồi theo ABC)
+            const sortedAll = [...filteredData].sort((a, b) => {
+                const cmpLop = (a.lop || '').localeCompare(b.lop || '', 'vi', { numeric: true });
+                if (cmpLop !== 0) return cmpLop;
+                const nameA = getSortNames(a.ho_ten);
+                const nameB = getSortNames(b.ho_ten);
+                let cmp = (nameA.first || '').localeCompare(nameB.first || '', 'vi');
+                if (cmp !== 0) return cmp;
+                cmp = (nameA.last || '').localeCompare(nameB.last || '', 'vi');
+                if (cmp !== 0) return cmp;
+                return (nameA.middle || '').localeCompare(nameB.middle || '', 'vi');
+            });
+            const wsAll = buildWorksheet(sortedAll, baseTitle);
+            XLSX.utils.book_append_sheet(wb, wsAll, 'Toan_truong');
+        }
+
+        // Từng lớp
+        Object.entries(lopMap).sort(([a], [b]) => a.localeCompare(b, 'vi', { numeric: true })).forEach(([lop, hsArr]) => {
+            const wsLop = buildWorksheet(hsArr, `${baseTitle} - LỚP ${lop}`);
+            XLSX.utils.book_append_sheet(wb, wsLop, `Lop_${lop}`.substring(0, 31));
+        });
+
+        const fileName = activeDot
+            ? `ThongKe_BanTru_Dot${activeDot}${thLopSelected ? `_Lop_${thLopSelected}` : ''}.xlsx`
+            : (thLopSelected
+                ? `ThongKe_BanTru_Thang${so_thang}_${so_nam}_Lop_${thLopSelected}.xlsx`
+                : `ThongKe_BanTru_Thang${so_thang}_${so_nam}.xlsx`);
+        XLSX.writeFile(wb, fileName);
     };
 
     const exportThLopPDF = () => {
         if (!thLopData) return;
-        const { data, so_thang, so_nam, gia_an, gia_ngu, nam_hoc, nguoi_phu_trach } = thLopData;
+        const { data, so_thang, so_nam, nam_hoc, nguoi_phu_trach } = thLopData;
         const filteredData = thLopSelected ? data.filter(h => h.lop === thLopSelected) : data;
-        if (filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
+        if (!filteredData || filteredData.length === 0) { alert('Không có dữ liệu!'); return; }
 
-        const fmtM = n => n.toLocaleString('vi-VN');
+        const fmtM = n => (n || 0).toLocaleString('vi-VN');
+        const currentDonGiaAn = thLopDonGiaAn || 0;
+        const activeDot = thLopCheDo === 'dot' ? (thLopDotSelected || thLopData?.dot || '1') : null;
+        const baseTitle = activeDot
+            ? `BẢNG THỐNG KÊ BÁN TRÚ ĐỢT ${activeDot} (CHU KỲ 4 TUẦN)`
+            : `BẢNG THỐNG KÊ BÁN TRÚ THÁNG ${so_thang}/${so_nam}`;
+        const rangeText = (thLopTuNgay && thLopDenNgay)
+            ? ` (Từ ngày ${formatDateDMY(thLopTuNgay)} đến ngày ${formatDateDMY(thLopDenNgay)})`
+            : '';
+
         const lopMap = {};
-        filteredData.forEach(h => { if (!lopMap[h.lop]) lopMap[h.lop] = []; lopMap[h.lop].push(h); });
+        filteredData.forEach(h => {
+            if (!lopMap[h.lop]) lopMap[h.lop] = [];
+            lopMap[h.lop].push(h);
+        });
+
         const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
-        const htmlPages = Object.entries(lopMap).sort(([a], [b]) => a.localeCompare(b)).map(([lop, hsArr]) => {
-            const tongTienLop = hsArr.reduce((a, h) => a + h.tong_tien, 0);
-            const maxBuoiAnLop = Math.max(...hsArr.map(h => h.tong_buoi_an));
-            const maxBuoiNguLop = Math.max(...hsArr.map(h => h.tong_buoi_ngu));
-            const rows = hsArr.map((h, i) => `<tr>
+
+        const htmlPages = Object.entries(lopMap).sort(([a], [b]) => a.localeCompare(b, 'vi', { numeric: true })).map(([lop, hsArr]) => {
+            const sortedHs = sortStudentsByABC(hsArr);
+            const sumTongBuoiNgu = sortedHs.reduce((s, h) => s + (h.tong_buoi_ngu || 0), 0);
+            const sumNguThucTe = sortedHs.reduce((s, h) => s + (h.buoi_ngu_thuc_te || 0), 0);
+            const sumVangNgu = sortedHs.reduce((s, h) => s + (h.vang_ngu || 0), 0);
+            const sumPhepNgu = sortedHs.reduce((s, h) => s + (h.phep_ngu || 0), 0);
+            const sumTongBuoiAn = sortedHs.reduce((s, h) => s + (h.tong_buoi_an || 0), 0);
+            const sumAnThucTe = sortedHs.reduce((s, h) => s + (h.buoi_an_thuc_te || 0), 0);
+            const sumVangAn = sortedHs.reduce((s, h) => s + (h.vang_an || 0), 0);
+            const sumPhepAn = sortedHs.reduce((s, h) => s + (h.phep_an || 0), 0);
+            const sumThanhTien = sortedHs.reduce((s, h) => s + calcHsThanhTien(h, currentDonGiaAn), 0);
+
+            const rows = sortedHs.map((h, i) => {
+                const tt = calcHsThanhTien(h, currentDonGiaAn);
+                return `<tr>
         <td class="c">${i + 1}</td>
-        <td class="c b">${h.id}</td>
-        <td class="l">${h.ho_ten}</td>
-        <td class="c">${h.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
-        <td class="c">${h.tong_buoi_an}</td><td class="c hl">${h.buoi_an_thuc_te}</td><td class="c r">${h.vang_an}</td><td class="c r">${h.phep_an}</td>
-        <td class="c">${h.tong_buoi_ngu}</td><td class="c hl">${h.buoi_ngu_thuc_te}</td><td class="c r">${h.vang_ngu}</td><td class="c r">${h.phep_ngu}</td>
-        <td class="r">${fmtM(h.tien_an)}</td><td class="r">${fmtM(h.tien_ngu)}</td>
-        <td class="r b total">${fmtM(h.tong_tien)}</td>
-        <td class="ghichu" style="font-size:7.5pt;text-align:center;">${h.ghi_chu || ''}</td>
-      </tr>`).join('');
+        <td class="c">${h.lop || ''}</td>
+        <td class="c b">${h.id || ''}</td>
+        <td class="l">${h.ho_ten || ''}</td>
+        <td class="c">${h.tong_buoi_ngu || 0}</td>
+        <td class="c hl">${h.buoi_ngu_thuc_te || 0}</td>
+        <td class="c">${h.vang_ngu || 0}</td>
+        <td class="c">${h.phep_ngu || 0}</td>
+        <td class="c">${h.tong_buoi_an || 0}</td>
+        <td class="c hl">${h.buoi_an_thuc_te || 0}</td>
+        <td class="c">${h.vang_an || 0}</td>
+        <td class="c">${h.phep_an || 0}</td>
+        <td class="r b total-cell">${fmtM(tt)}</td>
+      </tr>`;
+            }).join('');
+
             return `<div class="page">
-<table class="hdr"><tr>
-  <td class="hdr-l" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
-  <td class="hdr-c"><h1>BẢNG THU TIỀN BÁN TRÚ</h1></td>
-</tr><tr><td class="hdr-c">
-  <h2>NĂM HỌC ${nam_hoc} | THÁNG ${so_thang}/${so_nam} | LỚP ${lop}</h2>
-  <div class="sub">Tổng: ${maxBuoiAnLop} buổi ăn | ${maxBuoiNguLop} buổi ngủ | Đơn giá ăn: ${fmtM(gia_an)}đ | Đơn giá ngủ: ${fmtM(gia_ngu)}đ</div>
-</td></tr></table>
-<table class="dt">
-<thead><tr>
-  <th rowspan="2" class="c" style="width:5mm">STT</th>
-  <th rowspan="2" class="c" style="width:9mm;color:#c00">Mã<br>số BT</th>
-  <th rowspan="2" style="width:38mm">HỌC SINH</th>
-  <th rowspan="2" class="c" style="width:7mm">GT</th>
-  <th colspan="4" class="c an-col">ĂN TRƯA</th>
-  <th colspan="4" class="c ngu-col">NGỦ TRƯA</th>
-  <th colspan="2" class="c tien-col">TIỀN (đ)</th>
-  <th rowspan="2" class="c total-col">TỔNG TIỀN (đ)</th>
-  <th rowspan="2" class="c" style="width:14mm">Ghi chú</th>
-</tr><tr>
-  <th class="c an-col" style="width:10mm">TS<br>buổi</th><th class="c hl" style="width:10mm">Thực<br>tế</th><th class="c" style="width:8mm">Vắng</th><th class="c" style="width:8mm">Phép</th>
-  <th class="c ngu-col" style="width:10mm">TS<br>buổi</th><th class="c hl" style="width:10mm">Thực<br>tế</th><th class="c" style="width:8mm">Vắng</th><th class="c" style="width:8mm">Phép</th>
-  <th class="c tien-col" style="width:16mm">Tiền ăn</th><th class="c tien-col" style="width:16mm">Tiền ngủ</th>
-</tr></thead>
-<tbody>${rows}</tbody>
-<tfoot><tr>
-  <td colspan="4" class="b r">TỔNG CỘNG</td>
-  <td class="c">${hsArr.reduce((a, h) => a + h.tong_buoi_an, 0)}</td><td class="c hl b">${hsArr.reduce((a, h) => a + h.buoi_an_thuc_te, 0)}</td><td class="c">${hsArr.reduce((a, h) => a + h.vang_an, 0)}</td><td class="c">${hsArr.reduce((a, h) => a + h.phep_an, 0)}</td>
-  <td class="c">${hsArr.reduce((a, h) => a + h.tong_buoi_ngu, 0)}</td><td class="c hl b">${hsArr.reduce((a, h) => a + h.buoi_ngu_thuc_te, 0)}</td><td class="c">${hsArr.reduce((a, h) => a + h.vang_ngu, 0)}</td><td class="c">${hsArr.reduce((a, h) => a + h.phep_ngu, 0)}</td>
-  <td class="r b">${fmtM(hsArr.reduce((a, h) => a + h.tien_an, 0))}</td><td class="r b">${fmtM(hsArr.reduce((a, h) => a + h.tien_ngu, 0))}</td>
-  <td class="r b total">${fmtM(tongTienLop)}</td><td></td>
-</tr></tfoot>
+<table class="hdr" style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+  <tr>
+    <td style="width: 45%; text-align: center; vertical-align: top; border: none; padding: 0;">
+      <div style="font-size: 8.5pt; text-transform: uppercase;">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</div>
+      <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase;">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
+      <div style="font-size: 8pt; font-weight: bold; margin-top: 1px;">BỘ PHẬN BÁN TRÚ</div>
+      <div style="border-top: 1px solid #000; width: 80px; margin: 3px auto 0;"></div>
+    </td>
+    <td style="width: 55%; text-align: center; vertical-align: top; border: none; padding: 0;">
+      <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div style="font-size: 9.5pt; font-weight: bold;">Độc lập - Tự do - Hạnh phúc</div>
+      <div style="border-top: 1px solid #000; width: 120px; margin: 3px auto 0;"></div>
+    </td>
+  </tr>
 </table>
-<div style="margin-top: 8px; margin-bottom: 10px; font-size: 9pt; line-height: 1.45; text-align: left;">
-  * Lớp ${lop}: <strong>${hsArr.length} học sinh</strong> | Tổng thu: <strong>${fmtM(tongTienLop)} đồng</strong>
+<div class="main-title" style="text-align: center; margin: 6px 0 8px 0;">
+  <h1 style="font-size: 13pt; font-weight: bold; text-transform: uppercase; margin: 0;">${baseTitle}</h1>
+  <h2 style="font-size: 9.5pt; font-weight: bold; margin-top: 3px;">
+    LỚP: ${lop} &nbsp;|&nbsp; NĂM HỌC: ${nam_hoc || '2026-2027'}
+    ${rangeText ? `<span style="font-weight:normal; font-size:8.5pt; margin-left:8px; color:#475569;">${rangeText}</span>` : ''}
+  </h2>
+</div>
+<table class="dt">
+<thead>
+  <tr>
+    <th rowspan="2" class="c" style="width:30px">STT</th>
+    <th rowspan="2" class="c" style="width:45px">LỚP</th>
+    <th rowspan="2" class="c" style="width:60px">MÃ BT</th>
+    <th rowspan="2" class="l" style="width:180px">HỌ TÊN ABC</th>
+    <th colspan="4" class="c ngu-hdr">NGỦ BÁN TRÚ</th>
+    <th colspan="5" class="c an-hdr">ĂN BÁN TRÚ <span class="price-tag">(${currentDonGiaAn > 0 ? (fmtM(currentDonGiaAn) + ' Đ/NGÀY') : 'GIÁ TIỀN/NGÀY '})</span></th>
+  </tr>
+  <tr>
+    <th class="c" style="width:65px">TỔNG SỐ BUỔI</th>
+    <th class="c" style="width:70px">SỐ NGÀY THỰC TẾ</th>
+    <th class="c" style="width:40px">VẮNG</th>
+    <th class="c" style="width:40px">PHÉP</th>
+    <th class="c" style="width:65px">TỔNG SỐ BUỔI</th>
+    <th class="c" style="width:70px">SỐ NGÀY THỰC TẾ</th>
+    <th class="c" style="width:40px">VẮNG</th>
+    <th class="c" style="width:40px">PHÉP</th>
+    <th class="c" style="width:85px">THÀNH TIỀN</th>
+  </tr>
+</thead>
+<tbody>${rows}</tbody>
+<tfoot>
+  <tr>
+    <td colspan="4" class="c b">TỔNG CỘNG</td>
+    <td class="c b">${sumTongBuoiNgu}</td>
+    <td class="c b hl">${sumNguThucTe}</td>
+    <td class="c b">${sumVangNgu}</td>
+    <td class="c b">${sumPhepNgu}</td>
+    <td class="c b">${sumTongBuoiAn}</td>
+    <td class="c b hl">${sumAnThucTe}</td>
+    <td class="c b">${sumVangAn}</td>
+    <td class="c b">${sumPhepAn}</td>
+    <td class="r b total-cell">${fmtM(sumThanhTien)}</td>
+  </tr>
+</tfoot>
+</table>
+<div style="margin-top: 8px; margin-bottom: 10px; font-size: 8.5pt; line-height: 1.45; text-align: left;">
+  * Lớp ${lop}: <strong>${hsArr.length} học sinh</strong> | Tổng thành tiền: <strong>${fmtM(sumThanhTien)} đồng</strong>
 </div>
 <div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; page-break-inside: avoid;">
   <div style="width: 42%; text-align: center;">
     <div style="height: 18px;"></div>
-    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-weight: bold; font-size: 9pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
     <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
     <div style="height: 45px;"></div>
-    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
   <div style="width: 45%; text-align: center;">
     <div style="font-style: italic; font-size: 8.5pt; height: 18px; line-height: 18px;">${todayStr}</div>
-    <div style="font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-weight: bold; font-size: 9pt; text-transform: uppercase;">GIÁM ĐỐC</div>
     <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
     <div style="height: 45px;"></div>
-    <div style="font-weight: bold; font-style: italic; font-size: 9.5pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
+    <div style="font-weight: bold; font-style: italic; font-size: 9pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
   </div>
 </div>
 </div>`;
         }).join('');
+
         const css = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Times New Roman',serif;font-size:9pt;color:#000}
-.page{page-break-before:always}.page:first-of-type{page-break-before:auto}
-.hdr{width:100%;border-collapse:collapse;margin-bottom:4px}
-.hdr td{border:none;padding:2px 6px;vertical-align:middle}
-.hdr-l{width:22%;text-align:center;font-size:9pt;line-height:1.5}
-.hdr-c{text-align:center}
-.hdr-c h1{font-size:13pt;font-weight:bold;text-transform:uppercase}
-.hdr-c h2{font-size:10pt;font-weight:bold;margin-top:2px}
-.hdr-c .sub{font-size:8.5pt;margin-top:2px}
-.dt{width:100%;border-collapse:collapse;margin-top:4px;border:1px solid #000}
-.dt th,.dt td{border:1px solid #000;padding:2px;vertical-align:middle;font-size:8.5pt}
-.dt th{text-align:center;background:#ececec;font-size:8pt;font-weight:bold;line-height:1.2}
+body{font-family:'Times New Roman',Times,serif;font-size:8.5pt;color:#000;background:#fff}
+.page{page-break-before:always;padding:8mm 10mm}.page:first-of-type{page-break-before:auto}
+.hdr td{border:none!important;padding:0}
+.main-title{text-align:center;margin-bottom:8px}
+.main-title h1{font-size:13pt;font-weight:bold;text-transform:uppercase}
+.main-title h2{font-size:10pt;font-weight:bold;margin-top:3px}
+.dt{width:100%;border-collapse:collapse;margin-top:4px;border:1.2px solid #000}
+.dt th,.dt td{border:1px solid #000;padding:3px 2px;vertical-align:middle;font-size:8pt;line-height:1.2}
+.dt th{text-align:center;background:#f2f2f2;font-size:7.5pt;font-weight:bold}
 .c{text-align:center}.l{text-align:left;padding-left:4px}.r{text-align:right;padding-right:4px}.b{font-weight:bold}
-.hl{background:#f0fff0;font-weight:bold}
-.an-col{background:#fff8f0}.ngu-col{background:#f8f0ff}.tien-col{background:#f0f8ff}
-.total-col{width:18mm;background:#fffde7;font-weight:bold}
-.ghichu{width:14mm}
-.total{color:#16a34a;font-weight:bold}
-.r.b.total{color:#dc2626}
-.ft{width:100%;margin-top:10px;display:flex;justify-content:space-between;font-size:9pt;page-break-inside:avoid}
-.ft-l{flex:1;line-height:1.8}.ft-r{flex:1;text-align:center}
-.sig-t{font-weight:bold;margin-top:4px}.sig-s{height:40px}.sig-n{font-weight:bold;font-style:italic}
-@page{size:A4 landscape;margin:.8cm .8cm 1.2cm 1cm}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.hl{background:#f0fff0!important}.total-col{background:#fffde7!important}}`;
+.hl{font-weight:bold;color:#059669}
+.ngu-hdr{background:#eef2ff!important}.an-hdr{background:#fefce8!important}
+.price-tag{color:#dc2626!important;font-weight:bold}
+.total-cell{color:#dc2626;font-weight:bold}
+@page{size:A4 landscape;margin:.6cm .8cm .8cm .8cm}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.price-tag,.total-cell{color:#dc2626!important}.hl{color:#059669!important}}`;
+
         const w = window.open('', '_blank');
         if (!w) { alert('Trình duyệt chặn popup!'); return; }
-        w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Tổng hợp bán trú tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+        w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng thống kê bán trú tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
         w.document.close();
     };
 
@@ -1925,6 +2242,302 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         XLSX.writeFile(wb, `DS_HS_Vang_${hsVangLoai}_${hsVangDate}.xlsx`);
     };
 
+    // ── Xử lý Báo cáo Suất ăn hàng tháng cho bên cung cấp ──
+    const fetchSuatAnData = async (m, y, tu, den) => {
+        const targetMonth = m !== undefined ? m : suatAnMonth;
+        const targetYear = y !== undefined ? y : suatAnYear;
+        const targetTu = tu !== undefined ? tu : suatAnTuNgay;
+        const targetDen = den !== undefined ? den : suatAnDenNgay;
+
+        setSuatAnLoading(true);
+        try {
+            let url = `/api/baocao/suat-an-thang/?thang=${targetMonth}&nam=${targetYear}`;
+            if (targetTu) url += `&tu_ngay=${targetTu}`;
+            if (targetDen) url += `&den_ngay=${targetDen}`;
+            const res = await api.get(url);
+            if (res.data?.ok) {
+                const d = res.data;
+                setSuatAnData(d);
+                setSuatAnRows((d.days || []).map(r => ({
+                    ...r,
+                    sl_suat_an: r.sl_suat_an,
+                    hs_phep: r.hs_phep,
+                    ghi_chu: r.ghi_chu || ''
+                })));
+                if (d.tu_ngay) setSuatAnTuNgay(d.tu_ngay);
+                if (d.den_ngay) setSuatAnDenNgay(d.den_ngay);
+                if (d.nguoi_lap_bang) setSuatAnNguoiLap(d.nguoi_lap_bang);
+                if (d.dai_dien_cong_ty) setSuatAnDaiDienCT(d.dai_dien_cong_ty);
+                if (d.giam_doc) setSuatAnGiamDoc(d.giam_doc);
+                if (d.dia_danh) setSuatAnDiaDanh(d.dia_danh);
+                if (d.so_gd) setSuatAnSoGD(d.so_gd);
+                if (d.ten_truong) {
+                    const fullTen = (d.ten_truong.includes('TRƯỜNG') || d.ten_truong.includes('TRUNG TÂM'))
+                        ? d.ten_truong
+                        : `TRƯỜNG THPT ${d.ten_truong}`;
+                    setSuatAnTenTruong(fullTen);
+                }
+                if (d.bo_phan) setSuatAnBoPhan(d.bo_phan);
+            } else {
+                alert('Lỗi tải dữ liệu: ' + (res.data?.error || ''));
+            }
+        } catch (err) {
+            console.error('Error fetching suat-an:', err);
+            alert('Lỗi khi tải dữ liệu suất ăn: ' + err.message);
+        } finally {
+            setSuatAnLoading(false);
+        }
+    };
+
+    const openSuatAnModal = async (m, y) => {
+        const targetMonth = m !== undefined ? m : suatAnMonth;
+        const targetYear = y !== undefined ? y : suatAnYear;
+        const def = getDefaultSuatAnRange(targetMonth, targetYear);
+        setSuatAnMonth(targetMonth);
+        setSuatAnYear(targetYear);
+        setSuatAnTuNgay(def.startStr);
+        setSuatAnDenNgay(def.endStr);
+        setShowSuatAnModal(true);
+        await fetchSuatAnData(targetMonth, targetYear, def.startStr, def.endStr);
+    };
+
+    const handleSuatAnMonthChange = (m, y) => {
+        const def = getDefaultSuatAnRange(m, y);
+        setSuatAnMonth(m);
+        setSuatAnYear(y);
+        setSuatAnTuNgay(def.startStr);
+        setSuatAnDenNgay(def.endStr);
+        fetchSuatAnData(m, y, def.startStr, def.endStr);
+    };
+
+    const handleApplyRangePreset = (type) => {
+        if (type === 'week') {
+            const def = getDefaultSuatAnRange(suatAnMonth, suatAnYear);
+            setSuatAnTuNgay(def.startStr);
+            setSuatAnDenNgay(def.endStr);
+            fetchSuatAnData(suatAnMonth, suatAnYear, def.startStr, def.endStr);
+        } else if (type === 'month') {
+            const pM = p2(suatAnMonth);
+            const lastDayNum = new Date(suatAnYear, suatAnMonth, 0).getDate();
+            const startStr = `${suatAnYear}-${pM}-01`;
+            const endStr = `${suatAnYear}-${pM}-${p2(lastDayNum)}`;
+            setSuatAnTuNgay(startStr);
+            setSuatAnDenNgay(endStr);
+            fetchSuatAnData(suatAnMonth, suatAnYear, startStr, endStr);
+        }
+    };
+
+    const handleSuatAnRowChange = (index, field, value) => {
+        if (field !== 'ghi_chu') return; // Số suất ăn và HS phép lấy từ CSDL điểm danh, không cho sửa
+        setSuatAnRows(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], [field]: value };
+            return next;
+        });
+    };
+
+    const exportSuatAnPDF = () => {
+        if (!suatAnRows || suatAnRows.length === 0) return alert('Không có dữ liệu để in!');
+        const pM = p2(suatAnMonth);
+        const title = `TỔNG HỢP SỐ LƯỢNG SUẤT ĂN HÀNG NGÀY THÁNG ${pM}/${suatAnYear}`;
+        const subTitle = (suatAnTuNgay && suatAnDenNgay)
+            ? `(Từ ngày ${formatDateDMY(suatAnTuNgay)} đến ngày ${formatDateDMY(suatAnDenNgay)})`
+            : '';
+
+        let sumSuatAn = 0;
+        let sumPhep = 0;
+
+        const tbodyHtml = suatAnRows.map(r => {
+            const sa = Number(r.sl_suat_an) || 0;
+            const hp = Number(r.hs_phep) || 0;
+            sumSuatAn += sa;
+            sumPhep += hp;
+            return `
+            <tr>
+              <td class="tc">${r.stt}</td>
+              <td class="tc">${r.ngay_format || r.ngay}</td>
+              <td class="tc" style="font-weight:600;">${sa > 0 ? sa.toLocaleString('vi-VN') : ''}</td>
+              <td class="tc">${hp > 0 ? hp.toLocaleString('vi-VN') : (hp === 0 ? '0' : '')}</td>
+              <td>${r.ghi_chu || ''}</td>
+            </tr>`;
+        }).join('');
+
+        const todayStr = suatAnNgayKy || `${suatAnDiaDanh || 'Thành phố Hồ Chí Minh'}, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+
+        const htmlPage = `
+        <div class="page">
+          <table style="width:100%; border:none; margin-bottom:12px;">
+            <tr>
+              <td style="width:48%; text-align:center; vertical-align:top; border:none; padding:0;">
+                <div style="font-size:9.5pt; text-transform:uppercase; letter-spacing:0.2px;">${suatAnSoGD || 'SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH'}</div>
+                <div style="font-size:10.5pt; font-weight:bold; text-transform:uppercase; margin-top:2px;">${suatAnTenTruong || 'TRƯỜNG THPT LÊ THI HỒNG GẤM'}</div>
+                <div style="font-size:10pt; font-weight:bold; text-transform:uppercase; margin-top:2px;">${suatAnBoPhan || 'BỘ PHẬN BÁN TRÚ'}</div>
+                <div style="border-top:1px solid #000; width:75px; margin:4px auto 0;"></div>
+              </td>
+              <td style="width:52%; text-align:center; vertical-align:top; border:none; padding:0;">
+                <div style="font-size:10pt; font-weight:bold; text-transform:uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div style="font-size:10.5pt; font-weight:bold; margin-top:2px;">Độc lập - Tự do - Hạnh phúc</div>
+                <div style="border-top:1px solid #000; width:125px; margin:4px auto 0;"></div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="text-align:center; margin: 20px 0 14px 0;">
+            <h1 style="font-size:15pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin:0;">
+              ${title}
+            </h1>
+            ${subTitle ? `<div style="font-size:10.5pt; font-style:italic; margin-top:4px;">${subTitle}</div>` : ''}
+          </div>
+
+          <table class="dt-suat-an">
+            <thead>
+              <tr>
+                <th style="width: 50px;">STT</th>
+                <th style="width: 130px;">NGÀY THÁNG</th>
+                <th style="width: 140px;">SL SUẤT ĂN</th>
+                <th style="width: 180px;">HỌC SINH VẮNG (PHÉP)</th>
+                <th>GHI CHÚ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tbodyHtml}
+              <tr style="font-weight:bold; background:#fafafa;">
+                <td colspan="2" style="text-align:center; font-weight:bold; text-transform:uppercase;">TỔNG CỘNG</td>
+                <td class="tc" style="font-weight:bold; font-size:11pt;">${sumSuatAn.toLocaleString('vi-VN')}</td>
+                <td class="tc" style="font-weight:bold; font-size:11pt;">${sumPhep.toLocaleString('vi-VN')}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 25px; page-break-inside: avoid;">
+            <div style="text-align: right; font-style: italic; font-size: 10.5pt; margin-bottom: 8px; padding-right: 15px;">
+              ${todayStr}
+            </div>
+            <table style="width: 100%; border: none; text-align: center;">
+              <tr>
+                <td style="width: 33.33%; vertical-align: top; border: none; padding: 0;">
+                  <div style="font-weight: bold; font-size: 10.5pt;">Người lập bảng</div>
+                  <div style="font-size: 9.5pt; font-style: italic; color: #444;">(Ký, ghi rõ họ tên)</div>
+                  <div style="height: 75px;"></div>
+                  <div style="font-weight: bold; font-size: 11pt;">${suatAnNguoiLap || 'Mai Quỳnh Châu'}</div>
+                </td>
+                <td style="width: 33.33%; vertical-align: top; border: none; padding: 0;">
+                  <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">ĐẠI DIỆN CÔNG TY</div>
+                  <div style="font-size: 9.5pt; font-style: italic; color: #444;">(Ký, đóng dấu, ghi rõ họ tên)</div>
+                  <div style="height: 75px;"></div>
+                  <div style="font-weight: bold; font-size: 11pt;">${suatAnDaiDienCT || 'Lê Thị Ngọc Bích'}</div>
+                </td>
+                <td style="width: 33.33%; vertical-align: top; border: none; padding: 0;">
+                  <div style="font-weight: bold; font-size: 10.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+                  <div style="font-size: 9.5pt; font-style: italic; color: #444;">(Ký, đóng dấu, ghi rõ họ tên)</div>
+                  <div style="height: 75px;"></div>
+                  <div style="font-weight: bold; font-size: 11pt;">${suatAnGiamDoc || 'Vũ Quốc Phong'}</div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>`;
+
+        const css = `
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; background:#fff; padding: 20px; }
+        .tc { text-align:center; } .tr { text-align:right; }
+        .dt-suat-an { width:100%; border-collapse:collapse; margin-top: 10px; margin-bottom: 15px; border: 1px solid #000; }
+        .dt-suat-an th, .dt-suat-an td { border: 1px solid #000; padding: 8px 6px; vertical-align: middle; }
+        .dt-suat-an th { text-align: center; background: #ececec; font-weight: bold; text-transform: uppercase; font-size: 10pt; }
+        @page { size: A4 portrait; margin: 15mm 15mm 15mm 15mm; }
+        @media print {
+          body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .dt-suat-an th { background: #ececec !important; }
+        }`;
+
+        const w = window.open('', '_blank');
+        if (!w) return alert('Trình duyệt chặn popup! Vui lòng cho phép mở popup để in.');
+        w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>${title}</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+        w.document.close();
+    };
+
+    const exportSuatAnExcel = () => {
+        if (!suatAnRows || suatAnRows.length === 0) return alert('Không có dữ liệu để xuất!');
+        const pM = p2(suatAnMonth);
+        const title = `TỔNG HỢP SỐ LƯỢNG SUẤT ĂN HÀNG NGÀY THÁNG ${pM}/${suatAnYear}`;
+        const subTitle = (suatAnTuNgay && suatAnDenNgay)
+            ? `(Từ ngày ${formatDateDMY(suatAnTuNgay)} đến ngày ${formatDateDMY(suatAnDenNgay)})`
+            : '';
+
+        const aoa = [
+            [suatAnSoGD || 'SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH', '', '', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM'],
+            [suatAnTenTruong || 'TRƯỜNG THPT LÊ THI HỒNG GẤM', '', '', 'Độc lập - Tự do - Hạnh phúc'],
+            [suatAnBoPhan || 'BỘ PHẬN BÁN TRÚ', '', '', ''],
+            ['', '', '', ''],
+            [title, '', '', '', ''],
+        ];
+
+        if (subTitle) {
+            aoa.push([subTitle, '', '', '', '']);
+        }
+        aoa.push(['', '', '', '', '']);
+        aoa.push(['STT', 'NGÀY THÁNG', 'SL SUẤT ĂN', 'HỌC SINH VẮNG (PHÉP)', 'GHI CHÚ']);
+
+        let sumSuatAn = 0;
+        let sumPhep = 0;
+
+        suatAnRows.forEach(r => {
+            const sa = Number(r.sl_suat_an) || 0;
+            const hp = Number(r.hs_phep) || 0;
+            sumSuatAn += sa;
+            sumPhep += hp;
+            aoa.push([
+                r.stt,
+                r.ngay_format || r.ngay,
+                sa,
+                hp,
+                r.ghi_chu || ''
+            ]);
+        });
+
+        // Summary row
+        aoa.push(['', 'TỔNG CỘNG', sumSuatAn, sumPhep, '']);
+        aoa.push(['', '', '', '', '']);
+
+        const dateLine = suatAnNgayKy || `${suatAnDiaDanh || 'Thành phố Hồ Chí Minh'}, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+        aoa.push(['', '', '', dateLine, '']);
+        aoa.push(['Người lập bảng', '', 'ĐẠI DIỆN CÔNG TY', '', 'GIÁM ĐỐC']);
+        aoa.push(['(Ký, ghi rõ họ tên)', '', '(Ký, đóng dấu, ghi rõ họ tên)', '', '(Ký, đóng dấu, ghi rõ họ tên)']);
+        aoa.push(['', '', '', '', '']);
+        aoa.push(['', '', '', '', '']);
+        aoa.push(['', '', '', '', '']);
+        aoa.push([suatAnNguoiLap || 'Mai Quỳnh Châu', '', suatAnDaiDienCT || 'Lê Thị Ngọc Bích', '', suatAnGiamDoc || 'Vũ Quốc Phong']);
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // Merge tiêu đề & Quốc hiệu
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+            { s: { r: 0, c: 3 }, e: { r: 0, c: 4 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+            { s: { r: 1, c: 3 }, e: { r: 1, c: 4 } },
+            { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
+            { s: { r: 4, c: 0 }, e: { r: 4, c: 4 } }, // Tiêu đề
+        ];
+        if (subTitle) {
+            ws['!merges'].push({ s: { r: 5, c: 0 }, e: { r: 5, c: 4 } });
+        }
+
+        ws['!cols'] = [
+            { wch: 8 },
+            { wch: 18 },
+            { wch: 16 },
+            { wch: 25 },
+            { wch: 25 },
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Suat_An_T${pM}_${suatAnYear}`);
+        XLSX.writeFile(wb, `Bao_Cao_Suat_An_Thang_${pM}_${suatAnYear}.xlsx`);
+    };
+
     if (user?.role === 'giao_vien' || user?.is_giao_vien) {
         return (
             <div style={{ padding: '60px', textAlign: 'center' }}>
@@ -1979,6 +2592,9 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         <button className="btn btn-outline btn-sm" onClick={() => setMonthHS(today.slice(0, 7))}>Tháng này</button>
                         {canExportHS && (
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button className="btn btn-primary btn-sm" style={{ background: '#ea580c', borderColor: '#ea580c', fontWeight: 600 }} onClick={() => openSuatAnModal()}>
+                                <i className="fas fa-utensils"></i> Báo cáo Suất ăn NCC
+                            </button>
                             <button className="btn btn-primary btn-sm" style={{ background: '#e11d48', borderColor: '#e11d48', fontWeight: 600 }} onClick={() => openHsVangModal('all')}>
                                 <i className="fas fa-user-times"></i> In HS vắng / phép theo ngày
                             </button>
@@ -1990,6 +2606,7 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     <i className="fas fa-utensils"></i> Báo cáo Điểm danh Ăn <i className="fas fa-chevron-down" style={{ marginLeft: 4 }}></i>
                                 </button>
                                 <div className="bc-dropdown-content">
+                                    <button onClick={() => openSuatAnModal()}><i className="fas fa-truck-loading" style={{ color: '#ea580c' }}></i> Báo cáo suất ăn NCC (tháng)</button>
                                     <button onClick={openExportAnModal}><i className="fas fa-file-pdf" style={{ color: '#0ea5e9' }}></i> In DS chính thức</button>
                                     <button onClick={() => { setSpecialLoai('an'); setSpecialDate(today); setShowSpecialModal(true); }}><i className="fas fa-print" style={{ color: '#f59e0b' }}></i> In ngày đặc biệt</button>
                                     <button onClick={() => openHsVangModal('an')}><i className="fas fa-user-times" style={{ color: '#e11d48' }}></i> In HS vắng ăn theo ngày</button>
@@ -2500,41 +3117,223 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                             </div>
                         </div>
                         <div className="export-modal-body">
+                            {/* BỘ CHUYỂN ĐỔI CHẾ ĐỘ: CHU KỲ 4 TUẦN (1 LẦN THANH TOÁN) vs THEO THÁNG */}
+                            <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10, marginBottom: 16 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleThLopCheDoChange('dot')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px 12px',
+                                        borderRadius: 8,
+                                        border: 'none',
+                                        fontSize: '0.88rem',
+                                        fontWeight: thLopCheDo === 'dot' ? 700 : 500,
+                                        background: thLopCheDo === 'dot' ? '#10b981' : 'transparent',
+                                        color: thLopCheDo === 'dot' ? '#fff' : '#475569',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 6,
+                                        boxShadow: thLopCheDo === 'dot' ? '0 2px 4px rgba(16,185,129,0.25)' : 'none'
+                                    }}
+                                >
+                                    <i className="fas fa-sync-alt"></i> Chu kỳ 4 tuần (Thanh toán 1 lần)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleThLopCheDoChange('thang')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px 12px',
+                                        borderRadius: 8,
+                                        border: 'none',
+                                        fontSize: '0.88rem',
+                                        fontWeight: thLopCheDo === 'thang' ? 700 : 500,
+                                        background: thLopCheDo === 'thang' ? '#10b981' : 'transparent',
+                                        color: thLopCheDo === 'thang' ? '#fff' : '#475569',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 6,
+                                        boxShadow: thLopCheDo === 'thang' ? '0 2px 4px rgba(16,185,129,0.25)' : 'none'
+                                    }}
+                                >
+                                    <i className="fas fa-calendar-alt"></i> Theo Tháng dương lịch
+                                </button>
+                            </div>
+
+                            {/* CHỌN ĐỢT HOẶC CHỌN THÁNG */}
                             <div className="export-modal-group" style={{ display: 'flex', gap: 16 }}>
-                                <div style={{ flex: 1 }}>
-                                    <div className="export-modal-section-title"><i className="fas fa-calendar-alt" style={{ color: '#10b981' }}></i> CHỌN THÁNG</div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <input type="month" value={thLopMonth}
-                                            onChange={e => { setThLopMonth(e.target.value); fetchThLop(e.target.value); }}
-                                            style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '1rem' }} />
-                                        {loadingThLop && <span style={{ color: '#10b981' }}><i className="fas fa-spinner fa-spin"></i> Đang tải...</span>}
+                                {thLopCheDo === 'dot' ? (
+                                    <div style={{ flex: 1 }}>
+                                        <div className="export-modal-section-title">
+                                            <i className="fas fa-clock" style={{ color: '#10b981' }}></i> CHỌN ĐỢT THANH TOÁN (4 TUẦN)
+                                        </div>
+                                        <select
+                                            value={thLopDotSelected}
+                                            onChange={e => handleThLopDotChange(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '9px 12px',
+                                                borderRadius: 8,
+                                                border: '2px solid #10b981',
+                                                fontFamily: 'inherit',
+                                                fontSize: '0.92rem',
+                                                fontWeight: 600,
+                                                background: '#fff',
+                                                color: '#065f46'
+                                            }}
+                                        >
+                                            {DOT_THANH_TOAN_CONFIG.map(d => (
+                                                <option key={d.dot} value={d.dot}>
+                                                    {d.label}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div style={{ flex: 1 }}>
+                                        <div className="export-modal-section-title">
+                                            <i className="fas fa-calendar-alt" style={{ color: '#10b981' }}></i> CHỌN THÁNG DƯƠNG LỊCH
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <input
+                                                type="month"
+                                                value={thLopMonth}
+                                                onChange={e => handleThLopMonthChange(e.target.value)}
+                                                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '1rem' }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div style={{ flex: 1 }}>
-                                    <div className="export-modal-section-title"><i className="fas fa-chalkboard" style={{ color: '#10b981' }}></i> CHỌN LỚP</div>
-                                    <select value={thLopSelected} onChange={e => setThLopSelected(e.target.value)} disabled={!thLopData || loadingThLop}
-                                        style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '1rem', background: !thLopData ? '#f8fafc' : '#fff' }}>
+                                    <div className="export-modal-section-title">
+                                        <i className="fas fa-chalkboard" style={{ color: '#10b981' }}></i> CHỌN LỚP
+                                    </div>
+                                    <select
+                                        value={thLopSelected}
+                                        onChange={e => setThLopSelected(e.target.value)}
+                                        disabled={!thLopData || loadingThLop}
+                                        style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.95rem', background: !thLopData ? '#f8fafc' : '#fff' }}
+                                    >
                                         <option value="">-- Tất cả các lớp --</option>
                                         {thLopData && [...new Set(thLopData.data.map(h => h.lop))].sort().map(l => <option key={l} value={l}>{l}</option>)}
                                     </select>
                                 </div>
                             </div>
+
+                            {/* THÔNG TIN CHU KỲ 4 TUẦN */}
+                            {thLopCheDo === 'dot' && (
+                                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '8px 12px', marginTop: 10, fontSize: '0.82rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <i className="fas fa-check-circle" style={{ fontSize: '1rem', color: '#059669', flexShrink: 0 }}></i>
+                                    <span>
+                                        <strong>Đợt {thLopDotSelected}:</strong> Chu kỳ thanh toán 4 tuần từ <strong>{formatDateDMY(thLopTuNgay)}</strong> đến <strong>{formatDateDMY(thLopDenNgay)}</strong> (thanh toán 1 lần theo chu kỳ 4 tuần).
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* KHOẢNG NGÀY THỰC TẾ */}
+                            <div className="export-modal-group" style={{ marginTop: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                    <div className="export-modal-section-title" style={{ margin: 0, fontSize: '0.8rem' }}>
+                                        <i className="fas fa-calendar-week" style={{ color: '#0ea5e9' }}></i> KHOẢNG NGÀY TÍNH TOÁN CỤ THỂ
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleAdd4Weeks}
+                                            title="Tự động tính đến ngày thứ Sáu sau đúng 4 tuần"
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: 5, border: '1px solid #0ea5e9', background: '#f0f9ff', color: '#0284c7', cursor: 'pointer', fontWeight: 600 }}
+                                        >
+                                            <i className="fas fa-plus"></i> Tròn 4 tuần (20 ngày)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApplyThLopPreset('month')}
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: 5, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 500 }}
+                                        >
+                                            Tròn tháng
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: 2 }}>Từ ngày:</label>
+                                        <input
+                                            type="date"
+                                            value={thLopTuNgay}
+                                            onChange={e => {
+                                                setThLopTuNgay(e.target.value);
+                                                fetchThLop(thLopMonth, undefined, e.target.value, thLopDenNgay);
+                                            }}
+                                            style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+                                    <span style={{ color: '#94a3b8', marginTop: 16 }}>→</span>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: 2 }}>Đến ngày:</label>
+                                        <input
+                                            type="date"
+                                            value={thLopDenNgay}
+                                            onChange={e => {
+                                                setThLopDenNgay(e.target.value);
+                                                fetchThLop(thLopMonth, undefined, thLopTuNgay, e.target.value);
+                                            }}
+                                            style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            {/* THÔNG TIN TIỀN ĂN (LẤY TỪ THIẾT LẬP) & CÔNG THỨC THANH TOÁN */}
+                            <div className="export-modal-group" style={{ marginTop: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.78rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <i className="fas fa-utensils" style={{ color: '#10b981' }}></i> Tiền ăn Học sinh (Từ Thiết lập)
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
+                                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#047857' }}>
+                                                {(thLopDonGiaAn || 35000).toLocaleString('vi-VN')}
+                                            </span>
+                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>VNĐ/ngày</span>
+                                            <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: 4, border: '1px solid #a7f3d0' }}>
+                                                <i className="fas fa-check"></i> Cố định từ Thiết lập
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '0.78rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
+                                            <i className="fas fa-calculator" style={{ color: '#0284c7' }}></i> Công thức thanh toán:
+                                        </div>
+                                        <div style={{ marginTop: 4 }}>
+                                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0369a1', background: '#e0f2fe', padding: '4px 10px', borderRadius: 6, border: '1px solid #bae6fd', display: 'inline-block' }}>
+                                                Thành tiền = (Tổng số buổi − Phép) × Tiền ăn
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             {thLopData && (
-                                <div className="export-modal-group" style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px' }}>
+                                <div className="export-modal-group" style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginTop: 12 }}>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
                                         <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Buổi ăn:</span> <strong style={{ color: '#0ea5e9' }}>{thLopData.tong_buoi_an}</strong></div>
                                         <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Buổi ngủ:</span> <strong style={{ color: '#6366f1' }}>{thLopData.tong_buoi_ngu}</strong></div>
-                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Đơn giá ăn:</span> <strong style={{ color: '#f59e0b' }}>{(thLopData.gia_an || 0).toLocaleString('vi-VN')}đ</strong></div>
-                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Đơn giá ngủ:</span> <strong style={{ color: '#8b5cf6' }}>{(thLopData.gia_ngu || 0).toLocaleString('vi-VN')}đ</strong></div>
+                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Đơn giá ăn:</span> <strong style={{ color: '#f59e0b' }}>{(thLopDonGiaAn || 0).toLocaleString('vi-VN')}đ</strong></div>
                                         <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Tổng HS:</span> <strong>{thLopData.data?.length || 0}</strong></div>
                                     </div>
                                     <div style={{ marginTop: 8, fontSize: '.8rem', color: '#059669' }}>
-                                        <i className="fas fa-check-circle"></i> Dữ liệu sẵn sàng — xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data || []).map(h => h.lop))].length} lớp`}
+                                        <i className="fas fa-check-circle"></i> Dữ liệu sẵn sàng — chuẩn bị xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data || []).map(h => h.lop))].length} lớp`} (Mẫu 13 cột chuẩn)
                                     </div>
                                 </div>
                             )}
-                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 4 }}>
-                                <i className="fas fa-info-circle" style={{ color: '#10b981' }}></i> Mỗi lớp sẽ xuất ra 1 sheet Excel / 1 trang PDF riêng. Đơn giá lấy từ cấu hình hệ thống.
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 8 }}>
+                                <i className="fas fa-info-circle" style={{ color: '#10b981' }}></i> Mẫu xuất theo chuẩn thống kê 13 cột (STT, Lớp, Mã BT, Họ tên ABC, Ngủ bán trú 4 cột, Ăn bán trú 5 cột kèm Thành tiền).
                             </div>
                         </div>
                         <div className="export-modal-footer">
@@ -2686,122 +3485,126 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     {loadingHsVang && <span style={{ color: '#e11d48', fontSize: '0.8rem', fontWeight: 500 }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</span>}
                                 </div>
 
-                                <div style={{ maxHeight: 340, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                     {/* 1. BẢNG CA ĂN TRƯA */}
                                     {(hsVangLoai === 'all' || hsVangLoai === 'an') && (
-                                        <div style={{ border: '1px solid #fecdd3', borderRadius: 8, overflow: 'hidden' }}>
-                                            <div style={{ background: '#fff1f2', padding: '6px 12px', fontWeight: 'bold', color: '#b91c1c', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                                        <div style={{ border: '1px solid #fecdd3', borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#fff' }}>
+                                            <div style={{ background: '#fff1f2', padding: '7px 12px', fontWeight: 'bold', color: '#b91c1c', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #fecdd3' }}>
                                                 <span><i className="fas fa-utensils"></i> {hsVangLoai === 'all' ? 'I. ' : ''}CA ĂN TRƯA ({dsHsVangAn.length} học sinh)</span>
                                                 <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Vắng: <strong>{hsVangStats.vangAn}</strong> | Phép: <strong>{hsVangStats.phepAn}</strong></span>
                                             </div>
-                                            <table className="data-table" style={{ width: '100%', fontSize: '0.82rem', margin: 0 }}>
-                                                <thead>
-                                                    <tr style={{ background: '#f8fafc' }}>
-                                                        <th style={{ width: 40, textAlign: 'center' }}>STT</th>
-                                                        <th style={{ width: 60, textAlign: 'center' }}>Mã BT</th>
-                                                        <th>Họ và tên</th>
-                                                        <th style={{ width: 45, textAlign: 'center' }}>GT</th>
-                                                        <th style={{ width: 60, textAlign: 'center' }}>Lớp</th>
-                                                        <th style={{ width: 70, textAlign: 'center' }}>Phòng ăn</th>
-                                                        <th style={{ width: 95, textAlign: 'center' }}>Trạng thái</th>
-                                                        <th>Ghi chú</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {dsHsVangAn.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px 10px', color: '#64748b' }}>
-                                                                <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 6 }}></i>
-                                                                Không có học sinh vắng hoặc nghỉ phép ca ăn.
-                                                            </td>
+                                            <div style={{ maxHeight: hsVangLoai === 'all' ? 220 : 380, overflowY: 'auto', overflowX: 'auto' }}>
+                                                <table className="data-table" style={{ width: '100%', fontSize: '0.82rem', margin: 0 }}>
+                                                    <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>
+                                                        <tr style={{ background: '#f8fafc' }}>
+                                                            <th style={{ width: 40, textAlign: 'center', padding: '8px 6px' }}>STT</th>
+                                                            <th style={{ width: 60, textAlign: 'center', padding: '8px 6px' }}>Mã BT</th>
+                                                            <th style={{ padding: '8px 10px' }}>Họ và tên</th>
+                                                            <th style={{ width: 45, textAlign: 'center', padding: '8px 6px' }}>GT</th>
+                                                            <th style={{ width: 60, textAlign: 'center', padding: '8px 6px' }}>Lớp</th>
+                                                            <th style={{ width: 70, textAlign: 'center', padding: '8px 6px' }}>Phòng ăn</th>
+                                                            <th style={{ width: 95, textAlign: 'center', padding: '8px 6px' }}>Trạng thái</th>
+                                                            <th style={{ padding: '8px 10px' }}>Ghi chú</th>
                                                         </tr>
-                                                    ) : (
-                                                        dsHsVangAn.map((s, idx) => (
-                                                            <tr key={'an-' + s.id}>
-                                                                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
-                                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#b91c1c' }}>{s.id}</td>
-                                                                <td style={{ fontWeight: 600 }}>{s.ho_ten}</td>
-                                                                <td style={{ textAlign: 'center' }}>{s.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
-                                                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{s.lop}</td>
-                                                                <td style={{ textAlign: 'center' }}>{s.ma_phong_an_id || '-'}</td>
-                                                                <td style={{ textAlign: 'center' }}>
-                                                                    {s.diem_danh_an === 1 && <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Vắng ăn</span>}
-                                                                    {s.diem_danh_an === 2 && <span className="status-badge" style={{ background: '#fef3c7', color: '#d97706' }}>Phép ăn</span>}
+                                                    </thead>
+                                                    <tbody>
+                                                        {dsHsVangAn.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={8} style={{ textAlign: 'center', padding: '16px 10px', color: '#64748b' }}>
+                                                                    <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 6 }}></i>
+                                                                    Không có học sinh vắng hoặc nghỉ phép ca ăn.
                                                                 </td>
-                                                                <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{s.ghi_chu || '-'}</td>
                                                             </tr>
-                                                        ))
+                                                        ) : (
+                                                            dsHsVangAn.map((s, idx) => (
+                                                                <tr key={'an-' + s.id}>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>{idx + 1}</td>
+                                                                    <td style={{ textAlign: 'center', fontWeight: 600, color: '#b91c1c', padding: '6px 4px' }}>{s.id}</td>
+                                                                    <td style={{ fontWeight: 600, padding: '6px 8px' }}>{s.ho_ten}</td>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>{s.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
+                                                                    <td style={{ textAlign: 'center', fontWeight: 600, padding: '6px 4px' }}>{s.lop}</td>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>{s.ma_phong_an_id || '-'}</td>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                                                        {s.diem_danh_an === 1 && <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Vắng ăn</span>}
+                                                                        {s.diem_danh_an === 2 && <span className="status-badge" style={{ background: '#fef3c7', color: '#d97706' }}>Phép ăn</span>}
+                                                                    </td>
+                                                                    <td style={{ fontSize: '0.8rem', color: '#64748b', padding: '6px 8px' }}>{s.ghi_chu || '-'}</td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                    {dsHsVangAn.length > 0 && (
+                                                        <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 2, background: '#f1f5f9' }}>
+                                                            <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
+                                                                <td colSpan={6} style={{ textAlign: 'right', padding: '7px 10px' }}>TỔNG CỘNG CA ĂN:</td>
+                                                                <td style={{ textAlign: 'center', color: '#b91c1c', padding: '7px 4px' }}>{dsHsVangAn.length} HS</td>
+                                                                <td style={{ fontSize: '0.78rem', color: '#64748b', padding: '7px 8px' }}>Vắng: {hsVangStats.vangAn} | Phép: {hsVangStats.phepAn}</td>
+                                                            </tr>
+                                                        </tfoot>
                                                     )}
-                                                </tbody>
-                                                {dsHsVangAn.length > 0 && (
-                                                    <tfoot>
-                                                        <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
-                                                            <td colSpan={6} style={{ textAlign: 'right', paddingRight: 10 }}>TỔNG CỘNG CA ĂN:</td>
-                                                            <td style={{ textAlign: 'center', color: '#b91c1c' }}>{dsHsVangAn.length} HS</td>
-                                                            <td style={{ fontSize: '0.78rem', color: '#64748b' }}>Vắng: {hsVangStats.vangAn} | Phép: {hsVangStats.phepAn}</td>
-                                                        </tr>
-                                                    </tfoot>
-                                                )}
-                                            </table>
+                                                </table>
+                                            </div>
                                         </div>
                                     )}
 
                                     {/* 2. BẢNG CA NGỦ TRƯA */}
                                     {(hsVangLoai === 'all' || hsVangLoai === 'ngu') && (
-                                        <div style={{ border: '1px solid #bfdbfe', borderRadius: 8, overflow: 'hidden' }}>
-                                            <div style={{ background: '#eff6ff', padding: '6px 12px', fontWeight: 'bold', color: '#1e40af', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                                        <div style={{ border: '1px solid #bfdbfe', borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#fff' }}>
+                                            <div style={{ background: '#eff6ff', padding: '7px 12px', fontWeight: 'bold', color: '#1e40af', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #bfdbfe' }}>
                                                 <span><i className="fas fa-bed"></i> {hsVangLoai === 'all' ? 'II. ' : ''}CA NGỦ TRƯA ({dsHsVangNgu.length} học sinh)</span>
                                                 <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Vắng: <strong>{hsVangStats.vangNgu}</strong> | Phép: <strong>{hsVangStats.phepNgu}</strong></span>
                                             </div>
-                                            <table className="data-table" style={{ width: '100%', fontSize: '0.82rem', margin: 0 }}>
-                                                <thead>
-                                                    <tr style={{ background: '#f8fafc' }}>
-                                                        <th style={{ width: 40, textAlign: 'center' }}>STT</th>
-                                                        <th style={{ width: 60, textAlign: 'center' }}>Mã BT</th>
-                                                        <th>Họ và tên</th>
-                                                        <th style={{ width: 45, textAlign: 'center' }}>GT</th>
-                                                        <th style={{ width: 60, textAlign: 'center' }}>Lớp</th>
-                                                        <th style={{ width: 70, textAlign: 'center' }}>Phòng ngủ</th>
-                                                        <th style={{ width: 95, textAlign: 'center' }}>Trạng thái</th>
-                                                        <th>Ghi chú</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {dsHsVangNgu.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px 10px', color: '#64748b' }}>
-                                                                <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 6 }}></i>
-                                                                Không có học sinh vắng hoặc nghỉ phép ca ngủ.
-                                                            </td>
+                                            <div style={{ maxHeight: hsVangLoai === 'all' ? 220 : 380, overflowY: 'auto', overflowX: 'auto' }}>
+                                                <table className="data-table" style={{ width: '100%', fontSize: '0.82rem', margin: 0 }}>
+                                                    <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>
+                                                        <tr style={{ background: '#f8fafc' }}>
+                                                            <th style={{ width: 40, textAlign: 'center', padding: '8px 6px' }}>STT</th>
+                                                            <th style={{ width: 60, textAlign: 'center', padding: '8px 6px' }}>Mã BT</th>
+                                                            <th style={{ padding: '8px 10px' }}>Họ và tên</th>
+                                                            <th style={{ width: 45, textAlign: 'center', padding: '8px 6px' }}>GT</th>
+                                                            <th style={{ width: 60, textAlign: 'center', padding: '8px 6px' }}>Lớp</th>
+                                                            <th style={{ width: 70, textAlign: 'center', padding: '8px 6px' }}>Phòng ngủ</th>
+                                                            <th style={{ width: 95, textAlign: 'center', padding: '8px 6px' }}>Trạng thái</th>
+                                                            <th style={{ padding: '8px 10px' }}>Ghi chú</th>
                                                         </tr>
-                                                    ) : (
-                                                        dsHsVangNgu.map((s, idx) => (
-                                                            <tr key={'ngu-' + s.id}>
-                                                                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
-                                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#b91c1c' }}>{s.id}</td>
-                                                                <td style={{ fontWeight: 600 }}>{s.ho_ten}</td>
-                                                                <td style={{ textAlign: 'center' }}>{s.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
-                                                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{s.lop}</td>
-                                                                <td style={{ textAlign: 'center' }}>{s.ma_phong_ngu_id || '-'}</td>
-                                                                <td style={{ textAlign: 'center' }}>
-                                                                    {s.diem_danh_ngu === 1 && <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Vắng ngủ</span>}
-                                                                    {s.diem_danh_ngu === 2 && <span className="status-badge" style={{ background: '#fef3c7', color: '#d97706' }}>Phép ngủ</span>}
+                                                    </thead>
+                                                    <tbody>
+                                                        {dsHsVangNgu.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={8} style={{ textAlign: 'center', padding: '16px 10px', color: '#64748b' }}>
+                                                                    <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 6 }}></i>
+                                                                    Không có học sinh vắng hoặc nghỉ phép ca ngủ.
                                                                 </td>
-                                                                <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{s.ghi_chu || '-'}</td>
                                                             </tr>
-                                                        ))
+                                                        ) : (
+                                                            dsHsVangNgu.map((s, idx) => (
+                                                                <tr key={'ngu-' + s.id}>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>{idx + 1}</td>
+                                                                    <td style={{ textAlign: 'center', fontWeight: 600, color: '#b91c1c', padding: '6px 4px' }}>{s.id}</td>
+                                                                    <td style={{ fontWeight: 600, padding: '6px 8px' }}>{s.ho_ten}</td>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>{s.gioi_tinh === 0 ? 'Nam' : 'Nữ'}</td>
+                                                                    <td style={{ textAlign: 'center', fontWeight: 600, padding: '6px 4px' }}>{s.lop}</td>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>{s.ma_phong_ngu_id || '-'}</td>
+                                                                    <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                                                        {s.diem_danh_ngu === 1 && <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Vắng ngủ</span>}
+                                                                        {s.diem_danh_ngu === 2 && <span className="status-badge" style={{ background: '#fef3c7', color: '#d97706' }}>Phép ngủ</span>}
+                                                                    </td>
+                                                                    <td style={{ fontSize: '0.8rem', color: '#64748b', padding: '6px 8px' }}>{s.ghi_chu || '-'}</td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                    {dsHsVangNgu.length > 0 && (
+                                                        <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 2, background: '#f1f5f9' }}>
+                                                            <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
+                                                                <td colSpan={6} style={{ textAlign: 'right', padding: '7px 10px' }}>TỔNG CỘNG CA NGỦ:</td>
+                                                                <td style={{ textAlign: 'center', color: '#1e40af', padding: '7px 4px' }}>{dsHsVangNgu.length} HS</td>
+                                                                <td style={{ fontSize: '0.78rem', color: '#64748b', padding: '7px 8px' }}>Vắng: {hsVangStats.vangNgu} | Phép: {hsVangStats.phepNgu}</td>
+                                                            </tr>
+                                                        </tfoot>
                                                     )}
-                                                </tbody>
-                                                {dsHsVangNgu.length > 0 && (
-                                                    <tfoot>
-                                                        <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
-                                                            <td colSpan={6} style={{ textAlign: 'right', paddingRight: 10 }}>TỔNG CỘNG CA NGỦ:</td>
-                                                            <td style={{ textAlign: 'center', color: '#1e40af' }}>{dsHsVangNgu.length} HS</td>
-                                                            <td style={{ fontSize: '0.78rem', color: '#64748b' }}>Vắng: {hsVangStats.vangNgu} | Phép: {hsVangStats.phepNgu}</td>
-                                                        </tr>
-                                                    </tfoot>
-                                                )}
-                                            </table>
+                                                </table>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -2837,6 +3640,325 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 style={{ background: '#e11d48', borderColor: '#e11d48' }}
                             >
                                 <i className="fas fa-print"></i> In danh sách (A4)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL BÁO CÁO SUẤT ĂN BÊN CUNG CẤP ── */}
+            {showSuatAnModal && (
+                <div className="export-modal-overlay">
+                    <div className="export-modal" style={{ maxWidth: 880, width: '95vw' }}>
+                        <div className="export-modal-header" style={{ background: 'linear-gradient(90deg,#ea580c,#c2410c)' }}>
+                            <div className="icon"><i className="fas fa-utensils"></i></div>
+                            <div>
+                                <h3>Tổng hợp Số lượng Suất ăn Bên Cung Cấp</h3>
+                                <p>Báo cáo đối soát suất ăn hàng ngày theo tháng (Mẫu chuẩn có Quốc hiệu - Tiêu ngữ)</p>
+                            </div>
+                        </div>
+                        <div className="export-modal-body" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
+                            {/* Hàng chọn tháng & khoảng ngày đối soát */}
+                            <div style={{ background: '#fff7ed', padding: '12px 14px', borderRadius: 8, border: '1px solid #fed7aa', marginBottom: 14 }}>
+                                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <label style={{ fontWeight: 700, fontSize: '0.88rem', color: '#9a3412', whiteSpace: 'nowrap' }}>
+                                            <i className="fas fa-calendar-alt"></i> Tháng Báo Cáo:
+                                        </label>
+                                        <select
+                                            className="export-modal-select"
+                                            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #fdba74', fontWeight: 600 }}
+                                            value={suatAnMonth}
+                                            onChange={e => handleSuatAnMonthChange(Number(e.target.value), suatAnYear)}
+                                        >
+                                            {[...Array(12)].map((_, i) => <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>)}
+                                        </select>
+                                        <span style={{ color: '#9a3412', fontWeight: 700 }}>/</span>
+                                        <select
+                                            className="export-modal-select"
+                                            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #fdba74', fontWeight: 600 }}
+                                            value={suatAnYear}
+                                            onChange={e => handleSuatAnMonthChange(suatAnMonth, Number(e.target.value))}
+                                        >
+                                            {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y}>{y}</option>; })}
+                                        </select>
+                                    </div>
+
+                                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span style={{ fontSize: '0.82rem', color: '#15803d', background: '#dcfce7', padding: '4px 10px', borderRadius: 20, fontWeight: 600, border: '1px solid #bbf7d0' }}>
+                                            <i className="fas fa-lock" style={{ marginRight: 5 }}></i> Số liệu tự động lấy từ CSDL điểm danh (Cố định)
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Hàng chọn khoảng ngày đối soát thực tế */}
+                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', paddingTop: 8, borderTop: '1px dashed #fdba74' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#c2410c', whiteSpace: 'nowrap' }}>Từ ngày:</label>
+                                        <input
+                                            type="date"
+                                            value={suatAnTuNgay}
+                                            onChange={e => {
+                                                setSuatAnTuNgay(e.target.value);
+                                                fetchSuatAnData(suatAnMonth, suatAnYear, e.target.value, suatAnDenNgay);
+                                            }}
+                                            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600 }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#c2410c', whiteSpace: 'nowrap' }}>Đến ngày:</label>
+                                        <input
+                                            type="date"
+                                            value={suatAnDenNgay}
+                                            onChange={e => {
+                                                setSuatAnDenNgay(e.target.value);
+                                                fetchSuatAnData(suatAnMonth, suatAnYear, suatAnTuNgay, e.target.value);
+                                            }}
+                                            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600 }}
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => fetchSuatAnData(suatAnMonth, suatAnYear, suatAnTuNgay, suatAnDenNgay)}
+                                        style={{ padding: '4px 10px', fontSize: '0.8rem', background: '#ea580c', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                        title="Tải lại số liệu điểm danh theo khoảng ngày"
+                                    >
+                                        <i className="fas fa-sync-alt" style={{ marginRight: 4 }}></i> Lấy số liệu
+                                    </button>
+
+                                    <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApplyRangePreset('week')}
+                                            style={{ padding: '3px 8px', fontSize: '0.76rem', background: '#ffedd5', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                                            title="Tính theo tuần bán trú (nếu ngày 1 rơi vào giữa tuần, sẽ tính từ Thứ Hai ở tháng trước, ví dụ 30/9)"
+                                        >
+                                            <i className="fas fa-calendar-week" style={{ marginRight: 4 }}></i> Chu kỳ tuần (gồm ngày tháng cũ)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApplyRangePreset('month')}
+                                            style={{ padding: '3px 8px', fontSize: '0.76rem', background: '#fff', border: '1px solid #cbd5e1', color: '#475569', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                                            title="Tính đúng từ ngày 01 đến ngày cuối tháng"
+                                        >
+                                            <i className="fas fa-calendar-day" style={{ marginRight: 4 }}></i> Ngày 01 - cuối tháng
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: 6, fontSize: '0.76rem', color: '#78350f', fontStyle: 'italic' }}>
+                                    <i className="fas fa-info-circle" style={{ marginRight: 4 }}></i>
+                                    Khoảng thời gian: từ <strong>{formatDateDMY(suatAnTuNgay)}</strong> đến <strong>{formatDateDMY(suatAnDenNgay)}</strong>. 
+                                    {suatAnTuNgay && !suatAnTuNgay.endsWith('-01') ? ' (Bao gồm các ngày bắt đầu từ tháng cũ theo chu kỳ)' : ''}
+                                </div>
+                            </div>
+
+                            {/* Thống kê tóm tắt nhanh */}
+                            {suatAnData && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Số ngày bán trú</div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0ea5e9' }}>{suatAnRows.length} ngày</div>
+                                    </div>
+                                    <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: '#c2410c' }}>Tổng suất ăn tháng</div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ea580c' }}>
+                                            {suatAnRows.reduce((s, r) => s + (Number(r.sl_suat_an) || 0), 0).toLocaleString('vi-VN')}
+                                        </div>
+                                    </div>
+                                    <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: '#92400e' }}>Tổng lượt vắng (phép)</div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>
+                                            {suatAnRows.reduce((s, r) => s + (Number(r.hs_phep) || 0), 0).toLocaleString('vi-VN')}
+                                        </div>
+                                    </div>
+                                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: '#166534' }}>TB suất ăn / ngày</div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#16a34a' }}>
+                                            {suatAnRows.length > 0 ? Math.round(suatAnRows.reduce((s, r) => s + (Number(r.sl_suat_an) || 0), 0) / suatAnRows.length).toLocaleString('vi-VN') : 0}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Bảng xem trước & chỉnh sửa trực tiếp */}
+                            <div style={{ marginBottom: 14 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>
+                                        <i className="fas fa-table" style={{ color: '#ea580c', marginRight: 6 }}></i>
+                                        BẢNG TỔNG HỢP SỐ LIỆU TỪ CSDL ĐIỂM DANH:
+                                    </span>
+                                    {suatAnLoading && <span style={{ fontSize: '0.82rem', color: '#ea580c' }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</span>}
+                                </div>
+
+                                <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid #cbd5e1', borderRadius: 8 }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'center', fontWeight: 700, position: 'sticky', top: 0, zIndex: 2 }}>
+                                                <th style={{ padding: '8px 4px', width: 50, borderRight: '1px solid #cbd5e1' }}>STT</th>
+                                                <th style={{ padding: '8px 6px', width: 120, borderRight: '1px solid #cbd5e1' }}>NGÀY THÁNG</th>
+                                                <th style={{ padding: '8px 6px', width: 130, borderRight: '1px solid #cbd5e1', color: '#ea580c' }}>SL SUẤT ĂN</th>
+                                                <th style={{ padding: '8px 6px', width: 160, borderRight: '1px solid #cbd5e1', color: '#d97706' }}>HỌC SINH VẮNG (PHÉP)</th>
+                                                <th style={{ padding: '8px 8px' }}>GHI CHÚ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {suatAnRows.map((row, idx) => (
+                                                <tr key={row.stt || idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                                    <td style={{ textAlign: 'center', padding: '8px 4px', borderRight: '1px solid #e2e8f0', fontWeight: 600, color: '#64748b' }}>
+                                                        {row.stt}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px 6px', borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                                        {row.ngay_format || row.ngay}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px 6px', borderRight: '1px solid #e2e8f0', fontWeight: 700, color: '#ea580c', fontSize: '0.95rem' }}>
+                                                        {Number(row.sl_suat_an) > 0 ? Number(row.sl_suat_an).toLocaleString('vi-VN') : (row.sl_suat_an === 0 ? '0' : '')}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px 6px', borderRight: '1px solid #e2e8f0', fontWeight: 600, color: '#d97706', fontSize: '0.95rem' }}>
+                                                        {Number(row.hs_phep) > 0 ? Number(row.hs_phep).toLocaleString('vi-VN') : (row.hs_phep === 0 ? '0' : '0')}
+                                                    </td>
+                                                    <td style={{ padding: '4px 6px' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.ghi_chu || ''}
+                                                            placeholder="Ghi chú..."
+                                                            onChange={e => handleSuatAnRowChange(idx, 'ghi_chu', e.target.value)}
+                                                            style={{ width: '100%', padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff' }}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {suatAnRows.length === 0 && !suatAnLoading && (
+                                                <tr>
+                                                    <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                                                        Không có ngày bán trú nào trong khoảng thời gian ({formatDateDMY(suatAnTuNgay)} - {formatDateDMY(suatAnDenNgay)})
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                        {suatAnRows.length > 0 && (
+                                            <tfoot>
+                                                <tr style={{ background: '#f8fafc', fontWeight: 800, borderTop: '2px solid #cbd5e1' }}>
+                                                    <td colSpan={2} style={{ textAlign: 'center', padding: '8px', borderRight: '1px solid #cbd5e1', textTransform: 'uppercase' }}>
+                                                        TỔNG CỘNG
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px', borderRight: '1px solid #cbd5e1', color: '#ea580c', fontSize: '1rem' }}>
+                                                        {suatAnRows.reduce((s, r) => s + (Number(r.sl_suat_an) || 0), 0).toLocaleString('vi-VN')}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px', borderRight: '1px solid #cbd5e1', color: '#d97706', fontSize: '1rem' }}>
+                                                        {suatAnRows.reduce((s, r) => s + (Number(r.hs_phep) || 0), 0).toLocaleString('vi-VN')}
+                                                    </td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Thông tin đơn vị & tiêu đề */}
+                            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 12px', border: '1px solid #e2e8f0', marginBottom: 10 }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569', marginBottom: 8 }}>
+                                    <i className="fas fa-university" style={{ marginRight: 6 }}></i>
+                                    THÔNG TIN ĐƠN VỊ BAN HÀNH (Góc trái trên cùng báo cáo):
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.8fr', gap: 10 }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Cơ quan cấp trên:</label>
+                                        <input
+                                            type="text"
+                                            value={suatAnSoGD}
+                                            onChange={e => setSuatAnSoGD(e.target.value)}
+                                            style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, marginTop: 3 }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Tên trường / Đơn vị:</label>
+                                        <input
+                                            type="text"
+                                            value={suatAnTenTruong}
+                                            onChange={e => setSuatAnTenTruong(e.target.value)}
+                                            style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 700, marginTop: 3 }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Bộ phận:</label>
+                                        <input
+                                            type="text"
+                                            value={suatAnBoPhan}
+                                            onChange={e => setSuatAnBoPhan(e.target.value)}
+                                            style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, marginTop: 3 }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Thông tin chữ ký 3 bên */}
+                            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 12px', border: '1px solid #e2e8f0' }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569', marginBottom: 8 }}>
+                                    <i className="fas fa-signature" style={{ marginRight: 6 }}></i>
+                                    THÔNG TIN CHỮ KÝ 3 BÊN (In trên báo cáo):
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Người lập bảng:</label>
+                                        <input
+                                            type="text"
+                                            value={suatAnNguoiLap}
+                                            onChange={e => setSuatAnNguoiLap(e.target.value)}
+                                            style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, marginTop: 3 }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Đại diện công ty:</label>
+                                        <input
+                                            type="text"
+                                            value={suatAnDaiDienCT}
+                                            onChange={e => setSuatAnDaiDienCT(e.target.value)}
+                                            style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, marginTop: 3 }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Giám đốc:</label>
+                                        <input
+                                            type="text"
+                                            value={suatAnGiamDoc}
+                                            onChange={e => setSuatAnGiamDoc(e.target.value)}
+                                            style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, marginTop: 3 }}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: 8 }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Địa danh / Ngày ký (dòng trên chức danh Giám đốc):</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Mặc định: Thành phố Hồ Chí Minh, ngày ... tháng ... năm ..."
+                                        value={suatAnNgayKy}
+                                        onChange={e => setSuatAnNgayKy(e.target.value)}
+                                        style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.85rem', marginTop: 3 }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="export-modal-footer">
+                            <button className="btn btn-outline" onClick={() => setShowSuatAnModal(false)}>Đóng</button>
+                            <button
+                                className="btn btn-success"
+                                onClick={exportSuatAnExcel}
+                                disabled={suatAnRows.length === 0 || suatAnLoading}
+                                style={{ background: '#10b981', borderColor: '#10b981' }}
+                            >
+                                <i className="fas fa-file-excel"></i> Xuất Excel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={exportSuatAnPDF}
+                                disabled={suatAnRows.length === 0 || suatAnLoading}
+                                style={{ background: '#ea580c', borderColor: '#ea580c' }}
+                            >
+                                <i className="fas fa-print"></i> In / Xuất PDF (A4)
                             </button>
                         </div>
                     </div>
