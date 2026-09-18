@@ -56,6 +56,27 @@ function getDefaultNgayVao() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Xử lý escape ký tự trong ô CSV (chống lỗi khi có dấu phẩy, nháy kép, xuống dòng)
+function escapeCsvCell(val) {
+  if (val === null || val === undefined) return '';
+  const str = String(val).trim();
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+// Định dạng ngày theo chuẩn Việt Nam DD/MM/YYYY
+function formatVnDate(dateStr) {
+  if (!dateStr) return '';
+  const d = String(dateStr).slice(0, 10);
+  const parts = d.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return d;
+}
+
 export default function HocSinh() {
   const { user } = useAuth();
   const { showAlert, AlertUI } = useAlert();
@@ -99,6 +120,7 @@ export default function HocSinh() {
   const [importing, setImporting]       = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [dragOver, setDragOver]         = useState(false);
+  const [updateExisting, setUpdateExisting] = useState(true);
   const csvInputRef = useRef();
 
   // ── Xuất PDF theo lớp ──
@@ -306,6 +328,9 @@ export default function HocSinh() {
     setImporting(true);
     const fd = new FormData();
     fd.append('file', csvFile);
+    if (updateExisting) {
+      fd.append('update_existing', 'true');
+    }
     try {
       const res = await api.post('/api/hocsinh/import/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setImportResult(res.data);
@@ -333,6 +358,56 @@ export default function HocSinh() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // ── Xuất CSV toàn bộ HS đang tham gia bán trú ──
+  const handleExportCsv = (targetLop = null) => {
+    // Lọc học sinh đang tham gia bán trú (dang_hoc === true hoặc 1)
+    let list = data.filter(s => Boolean(s.dang_hoc));
+    if (targetLop) {
+      list = list.filter(s => s.lop === targetLop);
+    }
+    if (list.length === 0) {
+      return showAlert(targetLop ? `Không có học sinh nào đang tham gia bán trú tại lớp ${targetLop}` : 'Không có học sinh nào đang tham gia bán trú', 'warning');
+    }
+
+    // Sắp xếp theo Lớp (tự nhiên) -> Tên học sinh (alphabet tiếng Việt)
+    list = [...list].sort((a, b) => {
+      const cmpClass = compareClasses(a.lop, b.lop);
+      if (cmpClass !== 0) return cmpClass;
+      return compareVietnameseNames(a.ho_ten, b.ho_ten);
+    });
+
+    const header = '\uFEFFSTT,Mã BT,Họ và tên,Giới tính,Lớp,Phòng ăn,Phòng ngủ,Ngày vào,Trạng thái,Ghi chú\n';
+    const rows = list.map((s, idx) => {
+      const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
+      const pa = s.phong_an?.ma_phong || s.ma_phong_an_id || '';
+      const pn = s.phong_ngu?.ma_phong || s.ma_phong_ngu_id || '';
+      return [
+        idx + 1,
+        escapeCsvCell(s.id),
+        escapeCsvCell(s.ho_ten),
+        gt,
+        escapeCsvCell(s.lop),
+        escapeCsvCell(pa),
+        escapeCsvCell(pn),
+        escapeCsvCell(formatVnDate(s.ngay_vao)),
+        'Đang học',
+        escapeCsvCell(s.ghi_chu || '')
+      ].join(',');
+    }).join('\n');
+
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = targetLop ? `Danh_Sach_HS_Ban_Tru_Lop_${targetLop}_${today}.csv` : `Danh_Sach_Toan_Bo_HS_Dang_Ban_Tru_${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showAlert(targetLop ? `Đã xuất danh sách ${list.length} học sinh bán trú lớp ${targetLop} ra file CSV!` : `Đã xuất danh sách toàn bộ ${list.length} học sinh đang tham gia bán trú ra file CSV!`, 'success');
   };
 
   // Kiểm tra nếu người dùng chọn nhầm file Giáo viên
@@ -745,6 +820,14 @@ export default function HocSinh() {
         </div>
         <div className="page-header-actions">
           <button
+            className="btn btn-outline-success btn-sm"
+            onClick={() => handleExportCsv()}
+            style={{ fontWeight: 700, borderColor: '#86efac', color: '#16a34a', background: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Xuất file CSV toàn bộ học sinh đang tham gia bán trú"
+          >
+            <i className="fas fa-file-csv" style={{ color: '#16a34a' }}></i> Xuất CSV Bán Trú
+          </button>
+          <button
             className="btn btn-outline-danger btn-sm"
             onClick={() => openExportPdfModal()}
             style={{ fontWeight: 700, borderColor: '#fca5a5', color: '#dc2626', background: '#fff' }}
@@ -787,15 +870,26 @@ export default function HocSinh() {
           {availableLops.map(l => <option key={l} value={l}>{l}</option>)}
         </select>
         {filterLop && (
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() => openExportPdfModal(filterLop)}
-            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', fontWeight: 600, padding: '0 10px', height: 36, whiteSpace: 'nowrap' }}
-            title={`Xuất file PDF danh sách học sinh lớp ${filterLop}`}
-          >
-            <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i> In PDF lớp {filterLop}
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => handleExportCsv(filterLop)}
+              style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', fontWeight: 600, padding: '0 10px', height: 36, whiteSpace: 'nowrap' }}
+              title={`Xuất file CSV danh sách học sinh bán trú lớp ${filterLop}`}
+            >
+              <i className="fas fa-file-csv" style={{ marginRight: 4 }}></i> Xuất CSV lớp {filterLop}
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => openExportPdfModal(filterLop)}
+              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', fontWeight: 600, padding: '0 10px', height: 36, whiteSpace: 'nowrap' }}
+              title={`Xuất file PDF danh sách học sinh lớp ${filterLop}`}
+            >
+              <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i> In PDF lớp {filterLop}
+            </button>
+          </>
         )}
         <select value={filterGT} onChange={(e) => setFilterGT(e.target.value)}>
           <option value="">Tất cả giới tính</option><option value="0">Nam</option><option value="1">Nữ</option>
@@ -1055,24 +1149,52 @@ export default function HocSinh() {
                 }
               </div>
 
-              {/* Gợi ý định dạng & Nút tải file mẫu */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              {/* Gợi ý định dạng & Nút xuất file / tải file mẫu */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
                 <span style={{ fontSize: '.82rem', fontWeight: 600, color: '#475569' }}>
                   <i className="fas fa-info-circle" style={{ color: 'var(--primary)', marginRight: 4 }}></i>
                   Cột chuẩn: <code>{CSV_COLS.join(' , ')}</code>
                 </span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={handleDownloadTemplate}
-                  style={{ fontSize: '.78rem', padding: '3px 10px', borderRadius: 6 }}
-                  title="Tải file CSV mẫu chuẩn về máy để điền thông tin"
-                >
-                  <i className="fas fa-download" style={{ marginRight: 4 }}></i> Tải file mẫu CSV
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-success"
+                    onClick={() => handleExportCsv()}
+                    style={{ fontSize: '.78rem', padding: '4px 10px', borderRadius: 6, fontWeight: 700, borderColor: '#86efac', color: '#16a34a' }}
+                    title="Xuất file danh sách học sinh hiện tại ra Excel để chỉnh sửa đổi phòng"
+                  >
+                    <i className="fas fa-file-export" style={{ marginRight: 4 }}></i> Xuất danh sách HS hiện tại
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={handleDownloadTemplate}
+                    style={{ fontSize: '.78rem', padding: '4px 10px', borderRadius: 6 }}
+                    title="Tải file CSV mẫu chuẩn về máy để điền thông tin"
+                  >
+                    <i className="fas fa-download" style={{ marginRight: 4 }}></i> Tải file mẫu CSV
+                  </button>
+                </div>
               </div>
+
+              {/* Tùy chọn cập nhật học sinh đã có (phục vụ đổi phòng hàng loạt) */}
+              <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600, color: '#166534', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={updateExisting}
+                    onChange={(e) => setUpdateExisting(e.target.checked)}
+                    style={{ width: 17, height: 17, accentColor: '#16a34a', cursor: 'pointer' }}
+                  />
+                  <span>Tự động cập nhật phòng & thông tin nếu học sinh đã có trong hệ thống (Khuyên dùng khi đổi phòng hàng loạt)</span>
+                </label>
+                <div style={{ fontSize: '.76rem', color: '#15803d', marginTop: 4, marginLeft: 25, lineHeight: 1.45 }}>
+                  💡 <b>Quy trình đổi phòng nhanh:</b> Bấm <b>"Xuất danh sách HS hiện tại"</b> ở trên ➔ Mở file bằng Excel sửa nhanh cột <b>P.Ăn</b>, <b>P.Ngủ</b> ➔ Tải file lên đây rồi bấm <b>"Bắt đầu Import"</b>.
+                </div>
+              </div>
+
               <div style={{ fontSize: '.76rem', color: '#64748b', marginBottom: 10 }}>
-                💡 Cột <b>P.Ngủ</b>, <b>P.Ăn</b>, <b>Ghi chú</b> là tùy chọn (có thể để trống, xếp phòng sau).
+                💡 Cột <b>P.Ngủ</b>, <b>P.Ăn</b>, <b>Ghi chú</b> là tùy chọn (nếu để trống hệ thống sẽ giải phóng phòng).
               </div>
 
               {isTeacherFile && (
@@ -1137,15 +1259,21 @@ export default function HocSinh() {
                     </div>
                     {d.ok ? (
                       <>
-                        <div>✅ Thành công: <b>{d.success}</b> học sinh được thêm</div>
+                        <div style={{ fontWeight: 700, fontSize: '.95rem', color: '#16a34a' }}>
+                          🎉 Đã xử lý xong: <b>{d.success}</b> học sinh
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: '.84rem', flexWrap: 'wrap' }}>
+                          {d.updated > 0 && <span style={{ color: '#0284c7', fontWeight: 600 }}>🔄 Đã cập nhật phòng/thông tin: <b>{d.updated}</b> học sinh</span>}
+                          {d.created > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>➕ Thêm mới: <b>{d.created}</b> học sinh</span>}
+                        </div>
                         {dups.length > 0 && <>
-                          <div style={{ marginTop: 8, color: '#92400e', fontWeight: 600 }}>⚠️ Bỏ qua {dups.length} học sinh có mã BT đã tồn tại:</div>
+                          <div style={{ marginTop: 8, color: '#92400e', fontWeight: 600 }}>⚠️ Bỏ qua {dups.length} học sinh có mã BT đã tồn tại (do chưa bật tùy chọn Cập nhật):</div>
                           <ul style={{ maxHeight: 110, overflowY: 'auto', margin: '4px 0', paddingLeft: 18, fontSize: '.77rem', color: '#92400e' }}>
                             {dups.map((e, i) => <li key={i}>Dòng {e.row}: {e.msg}</li>)}
                           </ul>
                         </>}
                         {real.length > 0 && <>
-                          <div style={{ marginTop: 8, color: '#991b1b', fontWeight: 600 }}>❌ {real.length} dòng bị lỗi (không thêm được):</div>
+                          <div style={{ marginTop: 8, color: '#991b1b', fontWeight: 600 }}>❌ {real.length} dòng bị lỗi (không xử lý được):</div>
                           <ul style={{ maxHeight: 110, overflowY: 'auto', margin: '4px 0', paddingLeft: 18, fontSize: '.77rem', color: '#991b1b' }}>
                             {real.map((e, i) => <li key={i}>Dòng {e.row}: {e.msg}</li>)}
                           </ul>
