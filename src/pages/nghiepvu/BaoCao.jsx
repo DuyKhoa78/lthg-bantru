@@ -1554,9 +1554,13 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.5pt;color:#000;backgr
 
             let tbody = '';
             gvData.forEach((g, i) => {
+                let note = '';
+                if (g.is_ngoai) note += ' (Ngoài DS)';
+                if (g.so_ca_truc_thay > 0) note += ` (+${g.so_ca_truc_thay} ca trực thay)`;
+                if (g.so_ca_bi_thay > 0) note += ` (-${g.so_ca_bi_thay} ca được trực thay)`;
                 tbody += `<tr>
           <td class="tc">${i + 1}</td>
-          <td>${g.ho_ten}${g.is_ngoai ? ' <span style="font-size:9pt;font-style:italic;color:#92400e;">(Ngoài DS)</span>' : ''}</td>
+          <td>${g.ho_ten}${note ? ` <span style="font-size:8.5pt;font-style:italic;color:#c2410c;">${note}</span>` : ''}</td>
           <td class="tc">${g.so_ca_an}</td>
           <td class="tc">${g.so_ca_ngu}</td>
           <td class="tr" style="font-weight:bold;">${g.tong_tien.toLocaleString('vi-VN')} đ</td>
@@ -1856,8 +1860,25 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         const rows = [
             ['BẢNG THỐNG KÊ LƯƠNG GIÁO VIÊN TRỰC BÁN TRÚ'],
             [`Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')}  |  Đơn giá ăn: ${giaAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${giaNgu.toLocaleString('vi-VN')}đ`], [],
-            ['STT', 'Họ tên GV', 'Số ca ăn', 'Số ca ngủ', 'Tổng số ca', 'Tổng thành tiền (VNĐ)'],
-            ...gvData.map((g, i) => [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : ''), g.so_ca_an, g.so_ca_ngu, g.so_ca_an + g.so_ca_ngu, g.tong_tien.toLocaleString('vi-VN')])
+            ['STT', 'Họ tên GV / Nhân sự trực', 'Số ca ăn', 'Số ca ngủ', 'Tổng số ca', 'Trong đó trực thay', 'Tổng thành tiền (VNĐ)', 'Ghi chú'],
+            ...gvData.map((g, i) => {
+                let ghiChu = '';
+                if (g.is_ngoai) ghiChu += 'Nhân sự ngoài DS. ';
+                if (g.so_ca_truc_thay > 0) ghiChu += `Gồm ${g.so_ca_truc_thay} ca trực thay. `;
+                if (g.so_ca_bi_thay > 0) ghiChu += `Có ${g.so_ca_bi_thay} ca người khác trực thay. `;
+                return [
+                    i + 1,
+                    g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : ''),
+                    g.so_ca_an,
+                    g.so_ca_ngu,
+                    g.so_ca_an + g.so_ca_ngu,
+                    g.so_ca_truc_thay || 0,
+                    g.tong_tien.toLocaleString('vi-VN'),
+                    ghiChu.trim()
+                ];
+            }),
+            [],
+            ['', 'TỔNG CỘNG', totCaAn, totCaNgu, totCaAn + totCaNgu, '', totTien.toLocaleString('vi-VN'), '']
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'GV');
@@ -2880,6 +2901,48 @@ h1{font-size:16pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                                     >
                                                         <i className="fas fa-user-tag"></i>
                                                         Ngoài DS
+                                                    </span>
+                                                )}
+                                                {g.so_ca_truc_thay > 0 && (
+                                                    <span
+                                                        style={{
+                                                            fontSize: '0.7rem',
+                                                            background: '#fff7ed',
+                                                            color: '#c2410c',
+                                                            border: '1px solid #ffedd5',
+                                                            padding: '2px 6px',
+                                                            borderRadius: 4,
+                                                            marginLeft: 6,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 4,
+                                                            fontWeight: 600,
+                                                        }}
+                                                        title={g.chi_tiet_truc_thay?.map(c => `${c.ngay} (${c.loai_truc === 0 ? 'Ăn' : 'Ngủ'} - ${c.phong}): trực thay ${c.thay_cho}`).join('\n')}
+                                                    >
+                                                        <i className="fas fa-exchange-alt"></i>
+                                                        +{g.so_ca_truc_thay} ca trực thay
+                                                    </span>
+                                                )}
+                                                {g.so_ca_bi_thay > 0 && (
+                                                    <span
+                                                        style={{
+                                                            fontSize: '0.7rem',
+                                                            background: '#f1f5f9',
+                                                            color: '#475569',
+                                                            border: '1px solid #e2e8f0',
+                                                            padding: '2px 6px',
+                                                            borderRadius: 4,
+                                                            marginLeft: 6,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 4,
+                                                            fontWeight: 500,
+                                                        }}
+                                                        title={g.chi_tiet_bi_thay?.map(c => `${c.ngay} (${c.loai_truc === 0 ? 'Ăn' : 'Ngủ'} - ${c.phong}): ${c.nguoi_thay} trực thay`).join('\n')}
+                                                    >
+                                                        <i className="fas fa-user-clock"></i>
+                                                        -{g.so_ca_bi_thay} ca được trực thay
                                                     </span>
                                                 )}
                                             </td>

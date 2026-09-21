@@ -527,7 +527,7 @@ export default function LichTrucAdmin() {
         
         // 1. Kiểm tra giới tính (Nếu là phòng ngủ)
         const currentPhong = phongList.find(p => p.ma_phong === phong_id);
-        if (loai_truc === 1 && currentPhong && currentPhong.gioi_tinh !== null) {
+        if (loai_truc === 1 && currentPhong && currentPhong.gioi_tinh !== null && picker.mode !== 'substitute') {
           // 0: Nam, 1: Nữ. GV gioi_tinh: 0: Nam, 1: Nữ
           if (gv.gioi_tinh !== currentPhong.gioi_tinh) return false;
         }
