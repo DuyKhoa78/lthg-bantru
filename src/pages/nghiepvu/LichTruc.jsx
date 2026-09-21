@@ -637,7 +637,6 @@ export default function LichTruc() {
       return;
     }
 
-    const fd = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
     const fdFull = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
     const targetDateStr = dateStr(sDateObj);
     const dow = sDateObj.getDay();
@@ -843,7 +842,7 @@ export default function LichTruc() {
         </div>
         <div class="title-wrap">
           <div class="main-title">${escapeHtml(title)}</div>
-          <div class="sub-title">Tuần từ <b>${fdFull(ws)}</b> đến <b>${fdFull(addDays(ws, 4))}</b></div>
+          <div class="sub-title">Ngày: <b>${fdFull(sDateObj)}</b></div>
           ${subNote ? `<div class="sub-note">(${escapeHtml(subNote)})</div>` : ''}
         </div>
         <table>
