@@ -205,47 +205,164 @@ export default function LichTruc() {
         const recs1 = allRec.filter(p => p.ngay === ds1 && p.loai_truc === loai);
         const recs2 = allRec.filter(p => p.ngay === ds2 && p.loai_truc === loai);
 
-        const gvMap = {};
+        const rowMap = {};
         const keyOrder = [];
 
-        const registerShift = (p, isWeek2) => {
+        // 1. Phân tích Tuần 1
+        recs1.forEach(p => {
           const origId = p.ma_gv_id;
           const subId = p.ma_gv_truc_thay_id;
           const customSubName = (p.ten_gv_truc_thay && p.ten_gv_truc_thay.trim()) ? p.ten_gv_truc_thay.trim() : null;
-          const subTeacherName = customSubName || (subId ? getTeacherName(subId) : null);
-          const origTeacherName = origId ? getTeacherName(origId) : null;
+          const subName = customSubName || (subId ? getTeacherName(subId) : null);
+          const origName = origId ? getTeacherName(origId) : null;
 
-          const key = origId ? `gv_${origId}` : (subId ? `sub_${subId}` : `ngoai_${subTeacherName || p.id}`);
-          if (!gvMap[key]) {
-            gvMap[key] = {
-              gv_id: origId,
-              ho_ten: origTeacherName || subTeacherName || 'Giáo viên',
-              records: [],
-              w1Phongs: new Set(),
-              w2Phongs: new Set(),
-              allPhongs: new Set(),
-              w1Substitutes: new Set(),
-              w2Substitutes: new Set()
-            };
-            keyOrder.push(key);
-          }
-          gvMap[key].records.push(p);
-          gvMap[key].allPhongs.add(p.ma_phong_id);
-          if (isWeek2) {
-            gvMap[key].w2Phongs.add(p.ma_phong_id);
-            if (subTeacherName) gvMap[key].w2Substitutes.add(subTeacherName);
-          } else {
-            gvMap[key].w1Phongs.add(p.ma_phong_id);
-            if (subTeacherName) gvMap[key].w1Substitutes.add(subTeacherName);
-          }
-        };
+          if (origId) {
+            const key = `gv_${origId}`;
+            if (!rowMap[key]) {
+              rowMap[key] = {
+                gv_id: origId,
+                ho_ten: origName || 'Giáo viên',
+                isSubstituteRow: false,
+                allPhongs: new Set(),
+                records: [],
+                w1Status: 'empty',
+                w2Status: 'empty',
+                w1Note: '',
+                w2Note: '',
+              };
+              keyOrder.push(key);
+            }
+            rowMap[key].allPhongs.add(p.ma_phong_id);
+            rowMap[key].records.push(p);
 
-        recs1.forEach(p => registerShift(p, false));
-        recs2.forEach(p => registerShift(p, true));
+            if (subName) {
+              rowMap[key].w1Status = 'gach_cheo';
+              rowMap[key].w1Note = `T1: ${subName} trực thay`;
+
+              const subKey = `sub_${subId || subName}_for_${origId}`;
+              if (!rowMap[subKey]) {
+                rowMap[subKey] = {
+                  gv_id: subId,
+                  ho_ten: subName,
+                  isSubstituteRow: true,
+                  substituteFor: origName,
+                  allPhongs: new Set(),
+                  records: [],
+                  w1Status: 'sign',
+                  w2Status: 'gach_cheo',
+                  w1Note: `Trực thay ${origName}`,
+                  w2Note: '',
+                };
+                keyOrder.push(subKey);
+              }
+              rowMap[subKey].allPhongs.add(p.ma_phong_id);
+              rowMap[subKey].records.push(p);
+            } else {
+              rowMap[key].w1Status = 'sign';
+            }
+          } else if (subName) {
+            const subKey = `sub_${subId || subName}_standalone`;
+            if (!rowMap[subKey]) {
+              rowMap[subKey] = {
+                gv_id: subId,
+                ho_ten: subName,
+                isSubstituteRow: true,
+                allPhongs: new Set(),
+                records: [],
+                w1Status: 'sign',
+                w2Status: 'gach_cheo',
+                w1Note: 'Trực thay',
+                w2Note: '',
+              };
+              keyOrder.push(subKey);
+            }
+            rowMap[subKey].allPhongs.add(p.ma_phong_id);
+            rowMap[subKey].records.push(p);
+          }
+        });
+
+        // 2. Phân tích Tuần 2
+        recs2.forEach(p => {
+          const origId = p.ma_gv_id;
+          const subId = p.ma_gv_truc_thay_id;
+          const customSubName = (p.ten_gv_truc_thay && p.ten_gv_truc_thay.trim()) ? p.ten_gv_truc_thay.trim() : null;
+          const subName = customSubName || (subId ? getTeacherName(subId) : null);
+          const origName = origId ? getTeacherName(origId) : null;
+
+          if (origId) {
+            const key = `gv_${origId}`;
+            if (!rowMap[key]) {
+              rowMap[key] = {
+                gv_id: origId,
+                ho_ten: origName || 'Giáo viên',
+                isSubstituteRow: false,
+                allPhongs: new Set(),
+                records: [],
+                w1Status: 'gach_cheo',
+                w2Status: 'empty',
+                w1Note: '',
+                w2Note: '',
+              };
+              keyOrder.push(key);
+            }
+            rowMap[key].allPhongs.add(p.ma_phong_id);
+            rowMap[key].records.push(p);
+
+            if (subName) {
+              rowMap[key].w2Status = 'gach_cheo';
+              rowMap[key].w2Note = `T2: ${subName} trực thay`;
+
+              const subKey = `sub_${subId || subName}_for_${origId}_w2`;
+              if (!rowMap[subKey]) {
+                rowMap[subKey] = {
+                  gv_id: subId,
+                  ho_ten: subName,
+                  isSubstituteRow: true,
+                  substituteFor: origName,
+                  allPhongs: new Set(),
+                  records: [],
+                  w1Status: 'gach_cheo',
+                  w2Status: 'sign',
+                  w1Note: '',
+                  w2Note: `Trực thay ${origName}`,
+                };
+                keyOrder.push(subKey);
+              }
+              rowMap[subKey].allPhongs.add(p.ma_phong_id);
+              rowMap[subKey].records.push(p);
+            } else {
+              rowMap[key].w2Status = 'sign';
+            }
+          } else if (subName) {
+            const subKey = `sub_${subId || subName}_standalone_w2`;
+            if (!rowMap[subKey]) {
+              rowMap[subKey] = {
+                gv_id: subId,
+                ho_ten: subName,
+                isSubstituteRow: true,
+                allPhongs: new Set(),
+                records: [],
+                w1Status: 'gach_cheo',
+                w2Status: 'sign',
+                w1Note: '',
+                w2Note: 'Trực thay',
+              };
+              keyOrder.push(subKey);
+            }
+            rowMap[subKey].allPhongs.add(p.ma_phong_id);
+            rowMap[subKey].records.push(p);
+          }
+        });
+
+        // Điền gach_cheo cho các tuần không có lịch
+        keyOrder.forEach(k => {
+          if (rowMap[k].w1Status === 'empty') rowMap[k].w1Status = 'gach_cheo';
+          if (rowMap[k].w2Status === 'empty') rowMap[k].w2Status = 'gach_cheo';
+        });
 
         const dayRows = [];
         keyOrder.forEach(key => {
-          const info = gvMap[key];
+          const info = rowMap[key];
           const recNvs = info.records.map(r => r.nhiem_vu).filter(v => v !== undefined && v !== null);
           let isGiamSat;
           if (recNvs.length > 0 && recNvs.every(v => v === 1)) {
@@ -257,25 +374,16 @@ export default function LichTruc() {
             isGiamSat = (g?.nhiem_vu === 1);
           }
 
-          const w1SubText = [...info.w1Substitutes].join(', ');
-          const w2SubText = [...info.w2Substitutes].join(', ');
-
-          let subNoteList = [];
-          if (w1SubText && w2SubText && w1SubText === w2SubText) {
-            subNoteList.push(`↳ Trực thay: ${w1SubText} (T1 & T2)`);
-          } else {
-            if (w1SubText) subNoteList.push(`↳ Trực thay: ${w1SubText} (T1)`);
-            if (w2SubText) subNoteList.push(`↳ Trực thay: ${w2SubText} (T2)`);
-          }
-          const subNoteText = subNoteList.join(' | ');
-
+          let dutyText = loai === 1 ? '' : (isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
           let ghichuParts = [];
-          if (loai === 0) {
-            ghichuParts.push(isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
+          if (dutyText) ghichuParts.push(dutyText);
+
+          if (info.isSubstituteRow) {
+            ghichuParts.push(`Trực thay cho ${info.substituteFor}`);
+          } else {
+            if (info.w1Note) ghichuParts.push(info.w1Note);
+            if (info.w2Note) ghichuParts.push(info.w2Note);
           }
-          if (w1SubText) ghichuParts.push(`T1: ${w1SubText} trực thay`);
-          if (w2SubText) ghichuParts.push(`T2: ${w2SubText} trực thay`);
-          const ghichu = ghichuParts.join('. ');
 
           dayRows.push({
             thu: THU_LABELS[dow],
@@ -283,13 +391,13 @@ export default function LichTruc() {
             phong: [...info.allPhongs].sort().join(', '),
             gv_id: info.gv_id,
             ho_ten: info.ho_ten,
-            subNoteText,
-            w1Substitute: w1SubText,
-            w2Substitute: w2SubText,
+            isSubstituteRow: info.isSubstituteRow,
+            substituteFor: info.substituteFor,
+            subNoteText: info.isSubstituteRow ? `↳ Trực thay: ${info.substituteFor}` : (info.w1Note || info.w2Note ? `↳ ${[info.w1Note, info.w2Note].filter(Boolean).join(' | ')}` : ''),
+            w1Status: info.w1Status,
+            w2Status: info.w2Status,
             nhiem_vu: isGiamSat ? 1 : 0,
-            ghichu,
-            hasW1: info.w1Phongs.size > 0,
-            hasW2: info.w2Phongs.size > 0
+            ghichu: ghichuParts.join('. ')
           });
         });
 
@@ -358,25 +466,15 @@ export default function LichTruc() {
               nameHtml += `<div class="ten-sub">${escapeHtml(r.subNoteText)}</div>`;
             }
 
-            let w1Content = '';
-            if (r.hasW1) {
-              if (r.w1Substitute) {
-                w1Content = `<div class="ky-sub-name">(${escapeHtml(r.w1Substitute)} ký)</div>`;
-              }
-            }
-            const w1Cell = r.hasW1 
-              ? `<td class="td-ky td-w1">${w1Content}</td>` 
-              : `<td class="td-ky td-w1-empty"></td>`;
+            const gachCheoSvg = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:26px;display:block;"><line x1="0" y1="100" x2="100" y2="0" stroke="#000000" stroke-width="1.2" /></svg>`;
 
-            let w2Content = '';
-            if (r.hasW2) {
-              if (r.w2Substitute) {
-                w2Content = `<div class="ky-sub-name">(${escapeHtml(r.w2Substitute)} ký)</div>`;
-              }
-            }
-            const w2Cell = r.hasW2 
-              ? `<td class="td-ky td-w2">${w2Content}</td>` 
-              : `<td class="td-ky td-w2-empty"></td>`;
+            const w1Cell = (r.w1Status === 'sign') 
+              ? `<td class="td-ky td-w1"></td>` 
+              : `<td class="td-ky td-gach-cheo">${gachCheoSvg}</td>`;
+
+            const w2Cell = (r.w2Status === 'sign') 
+              ? `<td class="td-ky td-w2"></td>` 
+              : `<td class="td-ky td-gach-cheo">${gachCheoSvg}</td>`;
 
             html += `<tr${rowClass}>
               <td class="td-stt">${stt}</td>
@@ -507,12 +605,11 @@ export default function LichTruc() {
       .ten-main{ font-size: 11pt; font-weight: bold; color: #000; }
       .ten-sub { font-size: 8pt; font-weight: bold; color: #c2410c; margin-top: 1px; }
       .td-phong{ font-weight: 600; font-size: 10.5pt; width: 90px; text-align: center; padding: 3px 3px; }
-      .td-ky   { height: 26px; width: 85px; padding: 2px 2px; vertical-align: top; }
-      .ky-sub-name { font-size: 7.5pt; font-weight: bold; color: #c2410c; line-height: 1.1; margin-bottom: 2px; }
+      .td-ky   { height: 26px; width: 85px; padding: 0; vertical-align: middle; }
       .td-w1   { background: #fff; }
       .td-w2   { background: #fff; }
-      .td-w1-empty { background: #fafafa; }
-      .td-w2-empty { background: #fafafa; }
+      .td-gach-cheo { padding: 0 !important; vertical-align: middle !important; background-color: #fafafa; }
+      .td-gach-cheo svg { width: 100%; height: 26px; display: block; }
       .td-ghi  { text-align: left; padding: 3px 3px; font-size: 7.5pt; line-height: 1.15; width: 148px; }
       
       .footer-wrap { margin-top: 20px; page-break-inside: avoid; break-inside: avoid; }
