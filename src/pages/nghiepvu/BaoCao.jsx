@@ -26,27 +26,9 @@ const formatDateDMY = (dateStr) => {
 
 const getDefaultSuatAnRange = (month, year) => {
     const pM = String(month).padStart(2, '0');
-    const firstDate = new Date(year, month - 1, 1);
-    const dow = firstDate.getDay(); // 0: CN, 1: T2, 2: T3, 3: T4, 4: T5, 5: T6, 6: T7
-
-    // Chu kỳ suất ăn theo tuần trường học: nếu ngày 1 rơi vào T3-T5, lùi về Thứ Hai của tuần đó (cuối tháng trước, vd: 30/9 cho tháng 10)
-    let startDate = new Date(year, month - 1, 1);
-    if (dow >= 2 && dow <= 5) {
-        startDate.setDate(startDate.getDate() - (dow - 1));
-    } else if (dow === 0) {
-        startDate.setDate(startDate.getDate() + 1);
-    } else if (dow === 6) {
-        startDate.setDate(startDate.getDate() + 2);
-    }
-
-    const startY = startDate.getFullYear();
-    const startM = String(startDate.getMonth() + 1).padStart(2, '0');
-    const startD = String(startDate.getDate()).padStart(2, '0');
-    const startStr = `${startY}-${startM}-${startD}`;
-
     const lastDayNum = new Date(year, month, 0).getDate();
+    const startStr = `${year}-${pM}-01`;
     const endStr = `${year}-${pM}-${String(lastDayNum).padStart(2, '0')}`;
-
     return { startStr, endStr };
 };
 
@@ -2385,8 +2367,6 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     hs_phep: r.hs_phep,
                     ghi_chu: r.ghi_chu || ''
                 })));
-                if (d.tu_ngay) setSuatAnTuNgay(d.tu_ngay);
-                if (d.den_ngay) setSuatAnDenNgay(d.den_ngay);
                 if (d.nguoi_lap_bang) setSuatAnNguoiLap(d.nguoi_lap_bang);
                 if (d.dai_dien_cong_ty) setSuatAnDaiDienCT(d.dai_dien_cong_ty);
                 if (d.giam_doc) setSuatAnGiamDoc(d.giam_doc);
@@ -2431,21 +2411,11 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         fetchSuatAnData(m, y, def.startStr, def.endStr);
     };
 
-    const handleApplyRangePreset = (type) => {
-        if (type === 'week') {
-            const def = getDefaultSuatAnRange(suatAnMonth, suatAnYear);
-            setSuatAnTuNgay(def.startStr);
-            setSuatAnDenNgay(def.endStr);
-            fetchSuatAnData(suatAnMonth, suatAnYear, def.startStr, def.endStr);
-        } else if (type === 'month') {
-            const pM = p2(suatAnMonth);
-            const lastDayNum = new Date(suatAnYear, suatAnMonth, 0).getDate();
-            const startStr = `${suatAnYear}-${pM}-01`;
-            const endStr = `${suatAnYear}-${pM}-${p2(lastDayNum)}`;
-            setSuatAnTuNgay(startStr);
-            setSuatAnDenNgay(endStr);
-            fetchSuatAnData(suatAnMonth, suatAnYear, startStr, endStr);
-        }
+    const handleResetSuatAnFullMonth = () => {
+        const def = getDefaultSuatAnRange(suatAnMonth, suatAnYear);
+        setSuatAnTuNgay(def.startStr);
+        setSuatAnDenNgay(def.endStr);
+        fetchSuatAnData(suatAnMonth, suatAnYear, def.startStr, def.endStr);
     };
 
     const handleSuatAnRowChange = (index, field, value) => {
@@ -3861,9 +3831,9 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         <input
                                             type="date"
                                             value={suatAnTuNgay}
-                                            onChange={e => {
-                                                setSuatAnTuNgay(e.target.value);
-                                                fetchSuatAnData(suatAnMonth, suatAnYear, e.target.value, suatAnDenNgay);
+                                            onChange={e => setSuatAnTuNgay(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') fetchSuatAnData(suatAnMonth, suatAnYear, suatAnTuNgay, suatAnDenNgay);
                                             }}
                                             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600 }}
                                         />
@@ -3874,9 +3844,9 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         <input
                                             type="date"
                                             value={suatAnDenNgay}
-                                            onChange={e => {
-                                                setSuatAnDenNgay(e.target.value);
-                                                fetchSuatAnData(suatAnMonth, suatAnYear, suatAnTuNgay, e.target.value);
+                                            onChange={e => setSuatAnDenNgay(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') fetchSuatAnData(suatAnMonth, suatAnYear, suatAnTuNgay, suatAnDenNgay);
                                             }}
                                             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600 }}
                                         />
@@ -3885,26 +3855,18 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     <button
                                         type="button"
                                         onClick={() => fetchSuatAnData(suatAnMonth, suatAnYear, suatAnTuNgay, suatAnDenNgay)}
-                                        style={{ padding: '4px 10px', fontSize: '0.8rem', background: '#ea580c', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                        style={{ padding: '5px 12px', fontSize: '0.82rem', background: '#ea580c', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}
                                         title="Tải lại số liệu điểm danh theo khoảng ngày"
                                     >
-                                        <i className="fas fa-sync-alt" style={{ marginRight: 4 }}></i> Lấy số liệu
+                                        <i className="fas fa-sync-alt" style={{ marginRight: 5 }}></i> Lấy số liệu
                                     </button>
 
                                     <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
                                         <button
                                             type="button"
-                                            onClick={() => handleApplyRangePreset('week')}
-                                            style={{ padding: '3px 8px', fontSize: '0.76rem', background: '#ffedd5', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
-                                            title="Tính theo tuần bán trú (nếu ngày 1 rơi vào giữa tuần, sẽ tính từ Thứ Hai ở tháng trước, ví dụ 30/9)"
-                                        >
-                                            <i className="fas fa-calendar-week" style={{ marginRight: 4 }}></i> Chu kỳ tuần (gồm ngày tháng cũ)
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleApplyRangePreset('month')}
-                                            style={{ padding: '3px 8px', fontSize: '0.76rem', background: '#fff', border: '1px solid #cbd5e1', color: '#475569', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
-                                            title="Tính đúng từ ngày 01 đến ngày cuối tháng"
+                                            onClick={handleResetSuatAnFullMonth}
+                                            style={{ padding: '4px 10px', fontSize: '0.78rem', background: '#fff', border: '1px solid #cbd5e1', color: '#475569', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                            title="Đặt lại khoảng thời gian về ngày 01 đến ngày cuối tháng"
                                         >
                                             <i className="fas fa-calendar-day" style={{ marginRight: 4 }}></i> Ngày 01 - cuối tháng
                                         </button>
@@ -3913,8 +3875,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
 
                                 <div style={{ marginTop: 6, fontSize: '0.76rem', color: '#78350f', fontStyle: 'italic' }}>
                                     <i className="fas fa-info-circle" style={{ marginRight: 4 }}></i>
-                                    Khoảng thời gian: từ <strong>{formatDateDMY(suatAnTuNgay)}</strong> đến <strong>{formatDateDMY(suatAnDenNgay)}</strong>. 
-                                    {suatAnTuNgay && !suatAnTuNgay.endsWith('-01') ? ' (Bao gồm các ngày bắt đầu từ tháng cũ theo chu kỳ)' : ''}
+                                    Khoảng thời gian: từ <strong>{formatDateDMY(suatAnTuNgay)}</strong> đến <strong>{formatDateDMY(suatAnDenNgay)}</strong>.
                                 </div>
                             </div>
 
