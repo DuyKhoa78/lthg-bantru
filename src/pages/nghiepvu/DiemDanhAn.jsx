@@ -1382,17 +1382,19 @@ ${htmlPages}
                                         {isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR thẻ HS'}
                                     </button>
 
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline"
-                                        style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#60a5fa', color: '#1d4ed8', background: '#eff6ff' }}
-                                        onClick={handleSave}
-                                        disabled={saving || isGiamSatOnly}
-                                        title="Lưu dữ liệu điểm danh"
-                                    >
-                                        {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                        {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
-                                    </button>
+                                    {isGiaoVien && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#60a5fa', color: '#1d4ed8', background: '#eff6ff' }}
+                                            onClick={handleSave}
+                                            disabled={saving || isGiamSatOnly}
+                                            title="Lưu dữ liệu điểm danh"
+                                        >
+                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                            {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
+                                        </button>
+                                    )}
 
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>

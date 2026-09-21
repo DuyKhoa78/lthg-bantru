@@ -298,7 +298,7 @@ export default function LichTruc() {
                 isSubstituteRow: false,
                 allPhongs: new Set(),
                 records: [],
-                w1Status: 'gach_cheo',
+                w1Status: 'empty',
                 w2Status: 'empty',
                 w1Note: '',
                 w2Note: '',
@@ -312,7 +312,7 @@ export default function LichTruc() {
               rowMap[key].w2Status = 'gach_cheo';
               rowMap[key].w2Note = `T2: ${subName} trực thay`;
 
-              const subKey = `sub_${subId || subName}_for_${origId}_w2`;
+              const subKey = `sub_${subId || subName}_for_${origId}`;
               if (!rowMap[subKey]) {
                 rowMap[subKey] = {
                   gv_id: subId,
@@ -327,6 +327,9 @@ export default function LichTruc() {
                   w2Note: `Trực thay ${origName}`,
                 };
                 keyOrder.push(subKey);
+              } else {
+                rowMap[subKey].w2Status = 'sign';
+                rowMap[subKey].w2Note = `Trực thay ${origName}`;
               }
               rowMap[subKey].allPhongs.add(p.ma_phong_id);
               rowMap[subKey].records.push(p);
@@ -334,7 +337,7 @@ export default function LichTruc() {
               rowMap[key].w2Status = 'sign';
             }
           } else if (subName) {
-            const subKey = `sub_${subId || subName}_standalone_w2`;
+            const subKey = `sub_${subId || subName}_standalone`;
             if (!rowMap[subKey]) {
               rowMap[subKey] = {
                 gv_id: subId,
@@ -348,16 +351,29 @@ export default function LichTruc() {
                 w2Note: 'Trực thay',
               };
               keyOrder.push(subKey);
+            } else {
+              rowMap[subKey].w2Status = 'sign';
+              rowMap[subKey].w2Note = 'Trực thay';
             }
             rowMap[subKey].allPhongs.add(p.ma_phong_id);
             rowMap[subKey].records.push(p);
           }
         });
 
-        // Điền gach_cheo cho các tuần không có lịch
+        // Điền gach_cheo hoặc sign cho các tuần không có lịch
+        const hasWeek1Data = recs1.length > 0;
+        const hasWeek2Data = recs2.length > 0;
+
         keyOrder.forEach(k => {
-          if (rowMap[k].w1Status === 'empty') rowMap[k].w1Status = 'gach_cheo';
-          if (rowMap[k].w2Status === 'empty') rowMap[k].w2Status = 'gach_cheo';
+          const item = rowMap[k];
+          if (item.w1Status === 'empty') {
+            if (!hasWeek1Data && !item.isSubstituteRow) item.w1Status = 'sign';
+            else item.w1Status = 'gach_cheo';
+          }
+          if (item.w2Status === 'empty') {
+            if (!hasWeek2Data && !item.isSubstituteRow) item.w2Status = 'sign';
+            else item.w2Status = 'gach_cheo';
+          }
         });
 
         const dayRows = [];

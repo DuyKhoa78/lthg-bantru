@@ -1333,17 +1333,19 @@ ${htmlPages}
                                         </button>
                                     )}
 
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline"
-                                        style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#a78bfa', color: '#5b21b6', background: '#f5f3ff' }}
-                                        onClick={handleSave}
-                                        disabled={saving}
-                                        title="Lưu dữ liệu điểm danh"
-                                    >
-                                        {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                        {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
-                                    </button>
+                                    {isGiaoVien && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#a78bfa', color: '#5b21b6', background: '#f5f3ff' }}
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            title="Lưu dữ liệu điểm danh"
+                                        >
+                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                            {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
+                                        </button>
+                                    )}
 
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
