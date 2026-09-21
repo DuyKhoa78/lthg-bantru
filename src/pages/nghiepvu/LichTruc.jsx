@@ -72,6 +72,7 @@ export default function LichTruc() {
   const [showSpecialModal, setShowSpecialModal] = useState(false);
   const [specialDate, setSpecialDate] = useState(todayStr);
   const [printingSpecial, setPrintingSpecial] = useState(false);
+  const [printingTwoWeeks, setPrintingTwoWeeks] = useState(false);
 
   const [gvList, setGvList] = useState([]);
   const [phongList, setPhongList] = useState([]);
@@ -140,24 +141,37 @@ export default function LichTruc() {
 
   // ── Print PDF (Lịch trực 2 tuần) ──
   const printPDF = async () => {
+    setPrintingTwoWeeks(true);
     const ws1 = getWeekStart(baseDate);
     const ws2 = addDays(ws1, 7);
     const we1 = addDays(ws1, 4);
     const we2 = addDays(ws2, 4);
 
-    let allRec = [...pcData];
     let namHoc = '2026-2027';
     let phuTrach = 'Tạ Thị Diệu Lê';
+    let allRec = [];
+    let allGv = gvList && gvList.length ? [...gvList] : [];
 
     try {
-      const [r2, rConf] = await Promise.all([
-        api.get(`/api/lichtruc/week-public/?tuan=${dateStr(ws2)}`).catch(() => ({ data: { records: [] } })),
+      const [r1, r2, rConf] = await Promise.all([
+        api.get(`/api/lichtruc/week-public/?tuan=${dateStr(ws1)}`).catch(() => ({ data: { records: [], gv_list: [] } })),
+        api.get(`/api/lichtruc/week-public/?tuan=${dateStr(ws2)}`).catch(() => ({ data: { records: [], gv_list: [] } })),
         api.get('/api/cauhinh/').catch(() => ({ data: {} }))
       ]);
-      
-      const d2 = r2.data;
-      const ids = new Set(allRec.map(r => r.id));
-      (d2.records || []).forEach(r => { if (!ids.has(r.id)) allRec.push(r); });
+
+      const d1 = r1.data || {};
+      const d2 = r2.data || {};
+
+      if (d1.gv_list?.length) allGv = d1.gv_list;
+      else if (d2.gv_list?.length) allGv = d2.gv_list;
+
+      const seenIds = new Set();
+      [...(d1.records || []), ...(d2.records || []), ...(pcData || [])].forEach(r => {
+        if (r && r.id && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          allRec.push(r);
+        }
+      });
 
       if (rConf.data?.he_thong) {
         namHoc = rConf.data.he_thong.nam_hoc || namHoc;
@@ -166,6 +180,12 @@ export default function LichTruc() {
     } catch (e) {
       console.error('Lỗi tải dữ liệu in:', e);
     }
+
+    const getTeacherName = (id) => {
+      if (!id) return '';
+      const g = allGv.find(x => x.id === id);
+      return g ? g.ho_ten : `GV #${id}`;
+    };
 
     const fd = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}`;
     const fdFull = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
@@ -185,43 +205,47 @@ export default function LichTruc() {
         const recs1 = allRec.filter(p => p.ngay === ds1 && p.loai_truc === loai);
         const recs2 = allRec.filter(p => p.ngay === ds2 && p.loai_truc === loai);
 
-        // Gom theo GV: 1 GV chỉ xuất hiện 1 dòng duy nhất trong 1 ngày
         const gvMap = {};
         const keyOrder = [];
-        [...recs1, ...recs2].forEach(p => {
-          const key = p.ma_gv_id;
+
+        const registerShift = (p, isWeek2) => {
+          const origId = p.ma_gv_id;
+          const subId = p.ma_gv_truc_thay_id;
+          const customSubName = (p.ten_gv_truc_thay && p.ten_gv_truc_thay.trim()) ? p.ten_gv_truc_thay.trim() : null;
+          const subTeacherName = customSubName || (subId ? getTeacherName(subId) : null);
+          const origTeacherName = origId ? getTeacherName(origId) : null;
+
+          const key = origId ? `gv_${origId}` : (subId ? `sub_${subId}` : `ngoai_${subTeacherName || p.id}`);
           if (!gvMap[key]) {
             gvMap[key] = {
-              gv_id: p.ma_gv_id,
+              gv_id: origId,
+              ho_ten: origTeacherName || subTeacherName || 'Giáo viên',
               records: [],
               w1Phongs: new Set(),
               w2Phongs: new Set(),
-              allPhongs: new Set()
+              allPhongs: new Set(),
+              w1Substitutes: new Set(),
+              w2Substitutes: new Set()
             };
             keyOrder.push(key);
           }
           gvMap[key].records.push(p);
-        });
-        recs1.forEach(p => {
-          const key = p.ma_gv_id;
-          if (gvMap[key]) {
-            gvMap[key].w1Phongs.add(p.ma_phong_id);
-            gvMap[key].allPhongs.add(p.ma_phong_id);
-          }
-        });
-        recs2.forEach(p => {
-          const key = p.ma_gv_id;
-          if (gvMap[key]) {
+          gvMap[key].allPhongs.add(p.ma_phong_id);
+          if (isWeek2) {
             gvMap[key].w2Phongs.add(p.ma_phong_id);
-            gvMap[key].allPhongs.add(p.ma_phong_id);
+            if (subTeacherName) gvMap[key].w2Substitutes.add(subTeacherName);
+          } else {
+            gvMap[key].w1Phongs.add(p.ma_phong_id);
+            if (subTeacherName) gvMap[key].w1Substitutes.add(subTeacherName);
           }
-        });
+        };
+
+        recs1.forEach(p => registerShift(p, false));
+        recs2.forEach(p => registerShift(p, true));
 
         const dayRows = [];
         keyOrder.forEach(key => {
           const info = gvMap[key];
-          const g = gvList.find(x => x.id === info.gv_id);
-          if (!g) return;
           const recNvs = info.records.map(r => r.nhiem_vu).filter(v => v !== undefined && v !== null);
           let isGiamSat;
           if (recNvs.length > 0 && recNvs.every(v => v === 1)) {
@@ -229,19 +253,46 @@ export default function LichTruc() {
           } else if (recNvs.length > 0 && recNvs.every(v => v === 0)) {
             isGiamSat = false;
           } else {
-            isGiamSat = (g.nhiem_vu === 1);
+            const g = allGv.find(x => x.id === info.gv_id);
+            isGiamSat = (g?.nhiem_vu === 1);
           }
-          const ghichu = loai === 1 ? '' : (isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
+
+          const w1SubText = [...info.w1Substitutes].join(', ');
+          const w2SubText = [...info.w2Substitutes].join(', ');
+
+          let subNoteList = [];
+          if (w1SubText && w2SubText && w1SubText === w2SubText) {
+            subNoteList.push(`↳ Trực thay: ${w1SubText} (T1 & T2)`);
+          } else {
+            if (w1SubText) subNoteList.push(`↳ Trực thay: ${w1SubText} (T1)`);
+            if (w2SubText) subNoteList.push(`↳ Trực thay: ${w2SubText} (T2)`);
+          }
+          const subNoteText = subNoteList.join(' | ');
+
+          let ghichuParts = [];
+          if (loai === 0) {
+            ghichuParts.push(isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
+          }
+          if (w1SubText) ghichuParts.push(`T1: ${w1SubText} trực thay`);
+          if (w2SubText) ghichuParts.push(`T2: ${w2SubText} trực thay`);
+          const ghichu = ghichuParts.join('. ');
+
           dayRows.push({
-            thu: THU_LABELS[dow], thu_idx: di,
+            thu: THU_LABELS[dow],
+            thu_idx: di,
             phong: [...info.allPhongs].sort().join(', '),
-            gv_id: info.gv_id, ho_ten: g.ho_ten, nhiem_vu: isGiamSat ? 1 : 0, ghichu,
+            gv_id: info.gv_id,
+            ho_ten: info.ho_ten,
+            subNoteText,
+            w1Substitute: w1SubText,
+            w2Substitute: w2SubText,
+            nhiem_vu: isGiamSat ? 1 : 0,
+            ghichu,
             hasW1: info.w1Phongs.size > 0,
             hasW2: info.w2Phongs.size > 0
           });
         });
 
-        // Sắp xếp danh sách giáo viên trong ngày theo Alphabet tên GV
         dayRows.sort((a, b) => {
           const nameA = getSortNames(a.ho_ten);
           const nameB = getSortNames(b.ho_ten);
@@ -301,12 +352,36 @@ export default function LichTruc() {
 
             const thuText = (k === mid) ? escapeHtml(r.thu) : '';
             const thuCell = `<td class="${thuClass}">${thuText}</td>`;
-            const w1Cell = r.hasW1 ? `<td class="td-ky td-w1"></td>` : `<td class="td-ky td-w1-empty"></td>`;
-            const w2Cell = r.hasW2 ? `<td class="td-ky td-w2"></td>` : `<td class="td-ky td-w2-empty"></td>`;
+
+            let nameHtml = `<div class="ten-main">${escapeHtml(r.ho_ten)}</div>`;
+            if (r.subNoteText) {
+              nameHtml += `<div class="ten-sub">${escapeHtml(r.subNoteText)}</div>`;
+            }
+
+            let w1Content = '';
+            if (r.hasW1) {
+              if (r.w1Substitute) {
+                w1Content = `<div class="ky-sub-name">(${escapeHtml(r.w1Substitute)} ký)</div>`;
+              }
+            }
+            const w1Cell = r.hasW1 
+              ? `<td class="td-ky td-w1">${w1Content}</td>` 
+              : `<td class="td-ky td-w1-empty"></td>`;
+
+            let w2Content = '';
+            if (r.hasW2) {
+              if (r.w2Substitute) {
+                w2Content = `<div class="ky-sub-name">(${escapeHtml(r.w2Substitute)} ký)</div>`;
+              }
+            }
+            const w2Cell = r.hasW2 
+              ? `<td class="td-ky td-w2">${w2Content}</td>` 
+              : `<td class="td-ky td-w2-empty"></td>`;
+
             html += `<tr${rowClass}>
               <td class="td-stt">${stt}</td>
               ${thuCell}
-              <td class="td-ten">${escapeHtml(r.ho_ten)}</td>
+              <td class="td-ten">${nameHtml}</td>
               <td class="td-phong">${escapeHtml(r.phong)}</td>
               ${w1Cell}
               ${w2Cell}
@@ -408,7 +483,7 @@ export default function LichTruc() {
       .th-wrap th { background: #f0f0f0; font-weight: bold; font-size: 9pt; padding: 3px 2px; }
       .th-stt  { width: 30px; }
       .th-thu  { width: 44px; text-align: center !important; vertical-align: middle !important; }
-      .th-ten  { width: 200px; text-align: left; padding-left: 6px; }
+      .th-ten  { width: 205px; text-align: left; padding-left: 6px; }
       .th-phong{ width: 90px; text-align: center; }
       .th-ky-parent { font-size: 9pt; font-weight: bold; }
       .th-ky-sub { width: 85px; min-width: 80px; font-size: 8pt; font-weight: normal; }
@@ -428,9 +503,12 @@ export default function LichTruc() {
       .td-thu.thu-first { border-top: 2px solid #000; }
       .td-thu.thu-last { border-bottom: 2px solid #000; }
       .td-thu.thu-single { border-top: 2px solid #000; border-bottom: 2px solid #000; }
-      .td-ten  { text-align: left; padding: 3px 6px; white-space: nowrap; font-size: 13pt; width: 200px; line-height: 1.1; }
-      .td-phong{ font-weight: 600; font-size: 11pt; width: 90px; text-align: center; padding: 3px 3px; }
-      .td-ky   { height: 18px; width: 85px; padding: 3px 3px; }
+      .td-ten  { text-align: left; padding: 3px 5px; width: 205px; line-height: 1.15; }
+      .ten-main{ font-size: 11pt; font-weight: bold; color: #000; }
+      .ten-sub { font-size: 8pt; font-weight: bold; color: #c2410c; margin-top: 1px; }
+      .td-phong{ font-weight: 600; font-size: 10.5pt; width: 90px; text-align: center; padding: 3px 3px; }
+      .td-ky   { height: 26px; width: 85px; padding: 2px 2px; vertical-align: top; }
+      .ky-sub-name { font-size: 7.5pt; font-weight: bold; color: #c2410c; line-height: 1.1; margin-bottom: 2px; }
       .td-w1   { background: #fff; }
       .td-w2   { background: #fff; }
       .td-w1-empty { background: #fafafa; }
@@ -462,7 +540,6 @@ export default function LichTruc() {
     const w2Label = `${fd(ws2)}-${fd(we2)}`;
 
     const notesAn = '';
-
     const notesNgu = '';
 
     const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
@@ -482,27 +559,43 @@ export default function LichTruc() {
           w1Label, w2Label,
           notesNgu
       )}
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
       </body></html>`;
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    iframe.contentDocument.write(html);
-    iframe.contentDocument.close();
-    iframe.onload = () => {
-      setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
+    try {
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+      } else {
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+        iframe.contentDocument.write(html);
+        iframe.contentDocument.close();
         setTimeout(() => {
-          if (iframe.parentNode) document.body.removeChild(iframe);
-        }, 2000);
-      }, 400);
-    };
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (err) {
+            console.error(err);
+          }
+          setTimeout(() => {
+            if (iframe.parentNode) document.body.removeChild(iframe);
+          }, 2000);
+        }, 500);
+      }
+    } catch (err) {
+      console.error('Lỗi khi mở cửa sổ in:', err);
+    } finally {
+      setPrintingTwoWeeks(false);
+    }
   };
 
   // ── Print Special Day PDF ──
@@ -545,6 +638,7 @@ export default function LichTruc() {
     }
 
     const fd = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
+    const fdFull = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
     const targetDateStr = dateStr(sDateObj);
     const dow = sDateObj.getDay();
     const thuStr = dow === 0 ? 'Chủ Nhật' : ['CN', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'][dow];
@@ -553,13 +647,32 @@ export default function LichTruc() {
       const rows = [];
       const recs = dsAll.filter(p => p.ngay === targetDateStr && p.loai_truc === loai);
 
-      // Gom theo GV: 1 GV chỉ xuất hiện 1 dòng duy nhất trong ngày
       const gvMap = {};
       const keyOrder = [];
       recs.forEach(p => {
-        const key = p.ma_gv_id;
+        const subId = p.ma_gv_truc_thay_id;
+        const customSubName = (p.ten_gv_truc_thay && p.ten_gv_truc_thay.trim()) ? p.ten_gv_truc_thay.trim() : null;
+        const subTeacherName = customSubName || (subId ? (dGv.find(x => x.id === subId)?.ho_ten) : null);
+        const origTeacherName = p.ma_gv_id ? (dGv.find(x => x.id === p.ma_gv_id)?.ho_ten || `GV #${p.ma_gv_id}`) : null;
+
+        let key, displayName, noteSub = '';
+        if (subTeacherName) {
+          key = subId ? `sub_${subId}` : `ngoai_${subTeacherName}`;
+          displayName = subTeacherName;
+          noteSub = origTeacherName ? `Trực thay cho ${origTeacherName}` : 'Trực thay';
+        } else {
+          key = `gv_${p.ma_gv_id}`;
+          displayName = origTeacherName || 'Giáo viên';
+        }
+
         if (!gvMap[key]) {
-          gvMap[key] = { gv_id: p.ma_gv_id, records: [], phongs: new Set() };
+          gvMap[key] = {
+            ho_ten: displayName,
+            isSubstitute: Boolean(subTeacherName),
+            noteSub,
+            records: [],
+            phongs: new Set()
+          };
           keyOrder.push(key);
         }
         gvMap[key].records.push(p);
@@ -568,8 +681,6 @@ export default function LichTruc() {
 
       keyOrder.forEach(key => {
         const info = gvMap[key];
-        const g = dGv.find(x => x.id === info.gv_id);
-        if (!g) return;
         const recNvs = info.records.map(r => r.nhiem_vu).filter(v => v !== undefined && v !== null);
         let isGiamSat;
         if (recNvs.length > 0 && recNvs.every(v => v === 1)) {
@@ -577,13 +688,24 @@ export default function LichTruc() {
         } else if (recNvs.length > 0 && recNvs.every(v => v === 0)) {
           isGiamSat = false;
         } else {
-          isGiamSat = (g.nhiem_vu === 1);
+          const g = dGv.find(x => x.ho_ten === info.ho_ten);
+          isGiamSat = (g?.nhiem_vu === 1);
         }
-        const ghichu = loai === 1 ? '' : (isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
-        rows.push({ thu: thuStr, phong: [...info.phongs].sort().join(', '), gv_id: info.gv_id, ho_ten: g.ho_ten, nhiem_vu: isGiamSat ? 1 : 0, ghichu });
+
+        let dutyText = loai === 1 ? '' : (isGiamSat ? 'Giám sát' : 'Điểm danh, kiểm tra, đối chiếu ds');
+        let ghichuParts = [];
+        if (dutyText) ghichuParts.push(dutyText);
+        if (info.noteSub) ghichuParts.push(info.noteSub);
+
+        rows.push({
+          thu: thuStr,
+          phong: [...info.phongs].sort().join(', '),
+          ho_ten: info.isSubstitute ? `${info.ho_ten} (trực thay)` : info.ho_ten,
+          nhiem_vu: isGiamSat ? 1 : 0,
+          ghichu: ghichuParts.join('. ')
+        });
       });
 
-      // Sắp xếp danh sách giáo viên theo Alphabet tên GV
       rows.sort((a, b) => {
         const nameA = getSortNames(a.ho_ten);
         const nameB = getSortNames(b.ho_ten);
@@ -600,37 +722,18 @@ export default function LichTruc() {
     function buildTableBody(rows) {
       if (!rows.length) return `<tbody><tr><td colspan="6" style="text-align:center;color:#999;font-style:italic;padding:8px;">Chưa có phân công</td></tr></tbody>`;
       let html = '<tbody class="day-group">';
-      let stt = 1;
-      let i = 0;
-      while (i < rows.length) {
-        let j = i;
-        const mid = i + Math.floor((j - i) / 2);
-        for (let k = i; k < j; k++) {
-          const r = rows[k];
-          const isFirstInDay = (k === i);
-          const isLastInDay = (k === j - 1);
-          const rowClass = isFirstInDay ? ' class="row-first-day"' : '';
-
-          let thuClass = 'td-thu';
-          if (isFirstInDay && isLastInDay) thuClass += ' thu-single';
-          else if (isFirstInDay) thuClass += ' thu-first';
-          else if (isLastInDay) thuClass += ' thu-last';
-          else thuClass += ' thu-mid';
-
-          const thuText = (k === mid) ? r.thu : '';
-          const thuCell = `<td class="${thuClass}">${thuText}</td>`;
-          html += `<tr${rowClass}>
-            <td class="td-stt">${stt}</td>
-            ${thuCell}
-            <td class="td-ten">${r.ho_ten}</td>
-            <td class="td-phong">${r.phong}</td>
-            <td class="td-ky td-w1-empty"></td>
-            <td class="td-ghi">${r.ghichu}</td>
-          </tr>`;
-          stt++;
-        }
-        i = j;
-      }
+      rows.forEach((r, idx) => {
+        const isFirst = (idx === 0);
+        const thuCell = isFirst ? `<td class="td-thu" rowspan="${rows.length}">${escapeHtml(r.thu)}</td>` : '';
+        html += `<tr>
+          <td class="td-stt">${idx + 1}</td>
+          ${thuCell}
+          <td class="td-ten"><span style="font-weight:bold;">${escapeHtml(r.ho_ten)}</span></td>
+          <td class="td-phong">${escapeHtml(r.phong)}</td>
+          <td class="td-ky td-w1" style="height:26px;"></td>
+          <td class="td-ghi">${escapeHtml(r.ghichu)}</td>
+        </tr>`;
+      });
       html += '</tbody>';
       return html;
     }
@@ -700,9 +803,9 @@ export default function LichTruc() {
       .td-thu.thu-first { border-top: 2px solid #000; }
       .td-thu.thu-last { border-bottom: 2px solid #000; }
       .td-thu.thu-single { border-top: 2px solid #000; border-bottom: 2px solid #000; }
-      .td-ten  { text-align: left; padding: 3px 6px; white-space: nowrap; font-size: 13pt; width: 205px; line-height: 1.1; }
+      .td-ten  { text-align: left; padding: 3px 6px; white-space: nowrap; font-size: 11pt; width: 205px; line-height: 1.1; }
       .td-phong{ font-weight: 600; font-size: 11pt; width: 95px; text-align: center; padding: 3px 3px; }
-      .td-ky   { height: 18px; width: 90px; padding: 3px 3px; }
+      .td-ky   { height: 26px; width: 90px; padding: 3px 3px; }
       .td-w1-empty { background: #fafafa; }
       .td-ghi  { text-align: left; padding: 3px 3px; font-size: 7.5pt; line-height: 1.15; width: 200px; }
       
@@ -739,9 +842,9 @@ export default function LichTruc() {
           </div>
         </div>
         <div class="title-wrap">
-          <div class="main-title">${title}</div>
-          <div class="sub-title">Ngày: <b>${fd(sDateObj)}</b></div>
-          ${subNote ? `<div class="sub-note">(${subNote})</div>` : ''}
+          <div class="main-title">${escapeHtml(title)}</div>
+          <div class="sub-title">Tuần từ <b>${fdFull(ws)}</b> đến <b>${fdFull(addDays(ws, 4))}</b></div>
+          ${subNote ? `<div class="sub-note">(${escapeHtml(subNote)})</div>` : ''}
         </div>
         <table>
           <thead>
@@ -757,23 +860,21 @@ export default function LichTruc() {
           ${tableBody}
         </table>
         <div class="footer-wrap">
-          <div class="notes-wrap">
-            ${notesHtml}
-          </div>
+          <div class="notes-wrap">${notesHtml}</div>
           <div class="sig-wrap">
             <div class="sig-box">
               <div class="sig-date-space" style="height: 19px;"></div>
               <div class="sig-title">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
               <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
               <div class="sig-space"></div>
-              <div class="sig-name">${user?.fullname?.trim() || user?.username || ''}</div>
+              <div class="sig-name">${escapeHtml(user?.fullname?.trim() || user?.username || '')}</div>
             </div>
             <div class="sig-box">
               <div class="sig-date">TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth()+1} năm ${new Date().getFullYear()}</div>
               <div class="sig-title">GIÁM ĐỐC</div>
               <div style="font-style:italic; font-size:10pt;">(Ký và ghi rõ họ tên)</div>
               <div class="sig-space"></div>
-              <div class="sig-name">${phuTrach || 'Vũ Quốc Phong'}</div>
+              <div class="sig-name">${escapeHtml(phuTrach || 'Vũ Quốc Phong')}</div>
             </div>
           </div>
         </div>
@@ -802,29 +903,44 @@ export default function LichTruc() {
           buildTableBody(rowsNgu),
           notesNgu
       )}
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
       </body></html>`;
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    iframe.contentDocument.write(html);
-    iframe.contentDocument.close();
-    iframe.onload = () => {
-      setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
+    try {
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+      } else {
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+        iframe.contentDocument.write(html);
+        iframe.contentDocument.close();
         setTimeout(() => {
-          if (iframe.parentNode) document.body.removeChild(iframe);
-        }, 2000);
-        setPrintingSpecial(false);
-        setShowSpecialModal(false);
-      }, 500);
-    };
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (err) {
+            console.error(err);
+          }
+          setTimeout(() => {
+            if (iframe.parentNode) document.body.removeChild(iframe);
+          }, 2000);
+        }, 500);
+      }
+    } catch (err) {
+      console.error('Lỗi khi mở trang in ngày đặc biệt:', err);
+    } finally {
+      setPrintingSpecial(false);
+      setShowSpecialModal(false);
+    }
   };
 
   // ── Month calendar data ──
@@ -859,8 +975,14 @@ export default function LichTruc() {
         </div>
         {canExport && (
           <div className="page-header-actions">
-            <button className="btn btn-primary btn-sm" onClick={printPDF} style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)'}}>
-              <i className="fas fa-print"></i> In lịch 2 tuần (GV ký)
+            <button 
+              className="btn btn-primary btn-sm" 
+              onClick={printPDF} 
+              disabled={printingTwoWeeks}
+              style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)'}}
+            >
+              {printingTwoWeeks ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-print"></i>}
+              {printingTwoWeeks ? ' Đang tải...' : ' In lịch 2 tuần (GV ký)'}
             </button>
             <button className="btn btn-sm" style={{background:'linear-gradient(135deg,#f59e0b,#fbbf24)',color:'#fff',border:'none',fontWeight:600}} onClick={() => setShowSpecialModal(true)}>
               <i className="fas fa-star"></i> In ngày đặc biệt
