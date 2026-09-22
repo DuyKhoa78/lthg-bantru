@@ -63,11 +63,11 @@ export default function DiemDanhNgu() {
         return () => clearInterval(timer);
     }, []);
 
-    // Khung giờ trực ca ngủ: 11h30 (690) -> 12h00 (720)
+    // Khung giờ trực ca ngủ: 11h30 (690) -> 12h05 (725)
     const shiftTiming = useMemo(() => {
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         const start = 690;
-        const end = 720;
+        const end = 725;
         let state;
         let remainingMins = 0;
         if (mins < start) {
@@ -78,18 +78,30 @@ export default function DiemDanhNgu() {
         } else {
             state = 'da_qua_gio';
         }
-        return { state, remainingMins, startLabel: '11:30', endLabel: '12:00' };
+        return { state, remainingMins, startLabel: '11:30', endLabel: '12:05' };
     }, [currentTime]);
+
+    const isDateToday = useMemo(() => {
+        return date === todayVN();
+    }, [date]);
+
+    // Quyền thao tác của Giáo viên:
+    // Admin/Học vụ: luôn được phép thao tác.
+    // Giáo viên: CHỈ được thao tác trong ngày hôm nay, trong khung giờ ca trực (11h30 - 12h05).
+    const canTeacherOperate = useMemo(() => {
+        if (!isGiaoVien) return true;
+        return isDateToday && shiftTiming.state === 'dang_dien_ra';
+    }, [isGiaoVien, isDateToday, shiftTiming.state]);
 
     // Kiểm tra khung giờ điểm danh
     const isAllowedTime = useCallback(() => {
         if (user?.is_admin || user?.is_superuser) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         if (isGiaoVien) {
-            return mins >= 690 && mins <= 720; // 11:30 - 12:00
+            return isDateToday && mins >= 690 && mins <= 725; // 11:30 - 12:05
         }
         return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
-    }, [user, isGiaoVien, currentTime]);
+    }, [user, isGiaoVien, currentTime, isDateToday]);
 
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
@@ -505,6 +517,14 @@ export default function DiemDanhNgu() {
             e.preventDefault();
             if (filteredStudents.length === 1) {
                 const s = filteredStudents[0];
+                if (!canTeacherOperate) {
+                    if (isGiaoVien) {
+                        if (!isDateToday) showAlert(`Ngày ${fmtDate(date)} không cho phép chỉnh sửa. Giáo viên chỉ được điểm danh trong ngày hôm nay.`, 'warning');
+                        else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}).`, 'warning');
+                        else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa chỉnh sửa.`, 'warning');
+                    }
+                    return;
+                }
                 changeStatus(s.id, 'comat');
                 setSearchTerm('');
             } else if (filteredStudents.length === 0 && otherRoomMatches.length > 0) {
@@ -533,17 +553,37 @@ export default function DiemDanhNgu() {
         return { markedCount, unmarkedCount: visiblePhongList.length - markedCount, markedRooms };
     }, [visiblePhongList, diemDanhDb, getStudentsForRoom, phongStatuses]);
 
-    const changeStatus = (id, status) => { setOverrides(p => ({ ...p, [id]: status })); setSaved(false); };
+    const changeStatus = (id, status) => {
+        if (!canTeacherOperate) {
+            if (isGiaoVien) {
+                if (!isDateToday) showAlert(`Ngày ${fmtDate(date)} không cho phép chỉnh sửa. Giáo viên chỉ được điểm danh trong ngày hôm nay.`, 'warning');
+                else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}).`, 'warning');
+                else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa chỉnh sửa.`, 'warning');
+            }
+            return;
+        }
+        setOverrides(p => ({ ...p, [id]: status }));
+        setSaved(false);
+    };
     const setAll = (status) => {
+        if (!canTeacherOperate) return;
         const o = {};
         students.forEach(s => { o[s.id] = status; });
-        setOverrides(o); setSaved(false);
+        setOverrides(o);
+        setSaved(false);
     };
 
     const handleSave = async () => {
         if (!selectedPhong || students.length === 0) return;
+        if (!canTeacherOperate) {
+            if (isGiaoVien) {
+                if (!isDateToday) return showAlert(`Ngày ${fmtDate(date)} không cho phép chỉnh sửa. Giáo viên chỉ được điểm danh trong ngày hôm nay.`, 'warning');
+                if (shiftTiming.state === 'sap_den') return showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}).`, 'warning');
+                if (shiftTiming.state === 'da_qua_gio') return showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa thao tác.`, 'warning');
+            }
+        }
         if (!isAllowedTime()) {
-            return showAlert('Học vụ chỉ có thể điểm danh từ lúc 11:00 đến 14:00. Ngoài khung giờ này, vui lòng liên hệ Admin!', 'warning');
+            return showAlert('Ngoài khung giờ điểm danh quy định!', 'warning');
         }
         setSaving(true);
         try {
@@ -1350,21 +1390,53 @@ ${htmlPages}
                             </div>                            {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
                             {selectedPhong && isGiaoVien && (
                                 <>
-                                    <div className={`dd-shift-banner ${shiftTiming.state === 'dang_dien_ra' ? 'active' : 'pending'}`}>
-                                        <div>
-                                            <div className="dd-shift-banner-title">
-                                                <span>🟢 CA TRỰC NGỦ ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
-                                            </div>
-                                            <div className="dd-shift-banner-time">
-                                                <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Khung giờ ca trực: <strong>{shiftTiming.startLabel} – {shiftTiming.endLabel}</strong></span>
+                                    {!isDateToday ? (
+                                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', color: '#991b1b', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <i className="fas fa-lock" style={{ fontSize: '1.3rem', color: '#dc2626' }}></i>
+                                            <div>
+                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>KHÓA ĐIỂM DANH – CHẾ ĐỘ CHỈ ĐỌC</div>
+                                                <div style={{ fontSize: '0.88rem', marginTop: 2, fontWeight: 500 }}>
+                                                    Ngày <strong>{fmtDate(date)}</strong> không cho phép chỉnh sửa. Theo quy định, Giáo viên chỉ được thực hiện điểm danh trong ngày hôm nay (<strong>{fmtDate(todayVN())}</strong>).
+                                                </div>
                                             </div>
                                         </div>
+                                    ) : shiftTiming.state === 'sap_den' ? (
+                                        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e40af', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <i className="fas fa-hourglass-half" style={{ fontSize: '1.3rem', color: '#2563eb' }}></i>
+                                            <div>
+                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>CHƯA ĐẾN GIỜ ĐIỂM DANH CA NGỦ (11h30 – 12h05)</div>
+                                                <div style={{ fontSize: '0.88rem', marginTop: 2 }}>
+                                                    Hệ thống sẽ mở điểm danh và quét mã QR lúc <strong>11h30</strong>. Hiện tại: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong>.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : shiftTiming.state === 'da_qua_gio' ? (
+                                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', color: '#991b1b', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <i className="fas fa-lock" style={{ fontSize: '1.3rem', color: '#dc2626' }}></i>
+                                            <div>
+                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>ĐÃ HẾT KHUNG GIỜ ĐIỂM DANH CA NGỦ (11h30 – 12h05)</div>
+                                                <div style={{ fontSize: '0.88rem', marginTop: 2, fontWeight: 500 }}>
+                                                    Sau 12h05, hệ thống tự động khóa thao tác của Giáo viên. Toàn bộ dữ liệu điểm danh đã được tự động thu thập về Tổng.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="dd-shift-banner active">
+                                            <div>
+                                                <div className="dd-shift-banner-title">
+                                                    <span>🟢 CA TRỰC NGỦ ĐANG DIỄN RA ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
+                                                </div>
+                                                <div className="dd-shift-banner-time">
+                                                    <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Còn lại: <strong>{shiftTiming.remainingMins} phút</strong></span>
+                                                </div>
+                                            </div>
 
-                                        <div className="dd-persistence-indicator" title={`Dữ liệu lưu an toàn trên máy ${lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN')})` : ''}${lastSyncedTime ? ` • Đã đồng bộ máy chủ (${lastSyncedTime.toLocaleTimeString('vi-VN')})` : ''}`}>
-                                            <i className="fas fa-shield-alt" style={{ color: '#16a34a' }}></i>
-                                            <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}</span>
+                                            <div className="dd-persistence-indicator" title={`Dữ liệu lưu an toàn trên máy ${lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN')})` : ''}${lastSyncedTime ? ` • Đã đồng bộ máy chủ (${lastSyncedTime.toLocaleTimeString('vi-VN')})` : ''}`}>
+                                                <i className="fas fa-shield-alt" style={{ color: '#16a34a' }}></i>
+                                                <span>Đã bảo toàn dữ liệu {lastLocalSaveTime ? `(Lưu lúc ${lastLocalSaveTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {draftRestoredMsg && (
                                         <div style={{ background: '#eff6ff', border: '1.5px solid #60a5fa', color: '#1d4ed8', padding: '10px 16px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600 }}>
@@ -1375,16 +1447,29 @@ ${htmlPages}
                                 </>
                             )}
 
-                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN & QUẢN TRỊ ── */}
-                            {selectedPhong && (isGiaoVien || user?.is_admin || user?.is_superuser) && (
+                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN (ADMIN KHÔNG CÓ CÁI NÀY) ── */}
+                            {selectedPhong && isGiaoVien && (
                                 <div className="dd-teacher-actions-bar">
                                     <button
                                         type="button"
                                         className="dd-qr-scan-btn"
-                                        style={{ background: isGiamSatOnly ? '#94a3b8' : 'linear-gradient(135deg, #6c5ce7, #a29bfe)', boxShadow: isGiamSatOnly ? 'none' : '0 4px 14px rgba(108,92,231,0.35)', color: '#fff', fontWeight: 700, borderRadius: 8, padding: '7px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: isGiamSatOnly ? 'not-allowed' : 'pointer' }}
+                                        style={{
+                                            background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #6c5ce7, #a29bfe)',
+                                            boxShadow: !canTeacherOperate ? 'none' : '0 4px 14px rgba(108,92,231,0.35)',
+                                            color: '#fff',
+                                            fontWeight: 700,
+                                            borderRadius: 8,
+                                            padding: '7px 16px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            border: 'none',
+                                            cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                            opacity: !canTeacherOperate ? 0.6 : 1
+                                        }}
                                         onClick={() => setShowQRModal(true)}
-                                        disabled={isGiamSatOnly}
-                                        title={isGiamSatOnly ? 'Nhiệm vụ giám sát: không thực hiện điểm danh' : 'Mở máy quét mã QR học sinh'}
+                                        disabled={!canTeacherOperate}
+                                        title={!canTeacherOperate ? 'Chế độ chỉ đọc: ngoài khung giờ hoặc ngày khác' : 'Mở máy quét mã QR học sinh'}
                                     >
                                         <i className="fas fa-qrcode"></i>
                                         {isDaChot ? 'Quét bổ sung HS đến muộn' : 'Quét mã QR thẻ học sinh'}
@@ -1395,31 +1480,80 @@ ${htmlPages}
                                             type="button"
                                             className="btn btn-outline"
                                             onClick={() => setAll('comat')}
-                                            style={{ fontWeight: 700, padding: '7px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#86efac', color: '#166534', background: '#f0fdf4' }}
+                                            disabled={!canTeacherOperate}
+                                            style={{
+                                                fontWeight: 700,
+                                                padding: '7px 14px',
+                                                borderRadius: 8,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                borderColor: '#86efac',
+                                                color: '#166534',
+                                                background: '#f0fdf4',
+                                                cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                opacity: !canTeacherOperate ? 0.6 : 1
+                                            }}
                                             title="Đánh dấu tất cả học sinh trong phòng có mặt"
                                         >
                                             <i className="fas fa-check-double"></i> Tất cả có mặt
                                         </button>
                                     )}
 
-                                    {isGiaoVien && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{ fontWeight: 600, padding: '7px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#a78bfa', color: '#5b21b6', background: '#f5f3ff' }}
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            title="Lưu dữ liệu điểm danh"
-                                        >
-                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                            {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
-                                        </button>
-                                    )}
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline"
+                                        style={{
+                                            fontWeight: 600,
+                                            padding: '7px 16px',
+                                            borderRadius: 8,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            borderColor: '#a78bfa',
+                                            color: '#5b21b6',
+                                            background: '#f5f3ff',
+                                            cursor: (!canTeacherOperate || saving) ? 'not-allowed' : 'pointer',
+                                            opacity: (!canTeacherOperate && !saving) ? 0.6 : 1
+                                        }}
+                                        onClick={handleSave}
+                                        disabled={saving || !canTeacherOperate}
+                                        title={!canTeacherOperate ? 'Chế độ chỉ đọc' : 'Lưu dữ liệu điểm danh'}
+                                    >
+                                        {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                        {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="btn btn-success"
+                                        onClick={() => setShowChotConfirmModal(true)}
+                                        disabled={chotting || saving || !canTeacherOperate}
+                                        style={{
+                                            fontWeight: 700,
+                                            padding: '7px 18px',
+                                            borderRadius: 8,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            background: isDaChot ? '#059669' : '#16a34a',
+                                            borderColor: isDaChot ? '#059669' : '#16a34a',
+                                            color: '#fff',
+                                            boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
+                                            cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
+                                            opacity: (!canTeacherOperate && !isDaChot) ? 0.6 : 1
+                                        }}
+                                        title="Chốt danh sách điểm danh và gửi lên Tổng để Admin ghi nhận thời gian chốt"
+                                    >
+                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                        {isDaChot ? ' Cập nhật chốt sổ' : ' Chốt sổ gửi lên Tổng'}
+                                    </button>
 
                                     {isDaChot && (
                                         <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                             <i className="fas fa-check-circle"></i>
-                                            ĐÃ ĐƯỢC ADMIN CHỐT SỔ {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                            {currentPhongStatus?.ma_gv_chot_id ? 'ĐÃ CHỐT SỔ GỬI LÊN TỔNG' : 'HỆ THỐNG ĐÃ TỰ ĐỘNG THU THẬP VỀ TỔNG'}
+                                            {currentPhongStatus?.thoi_gian ? ` (${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
                                         </span>
                                     )}
                                 </div>
@@ -1485,8 +1619,14 @@ ${htmlPages}
                                                         return (
                                                             <button key={key}
                                                                 className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
-                                                                style={s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}}
-                                                                onClick={() => changeStatus(s.id, key)} title={val.label}>
+                                                                style={{
+                                                                    ...(s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}),
+                                                                    cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                                    opacity: (!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1
+                                                                }}
+                                                                onClick={() => changeStatus(s.id, key)}
+                                                                disabled={!canTeacherOperate}
+                                                                title={!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label}>
                                                                 {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
                                                             </button>
                                                         );
@@ -1507,31 +1647,47 @@ ${htmlPages}
                                     <div className="dd-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
                                         <div className="dd-footer-note" style={{ flex: '1 1 300px' }}>
                                             {isGiaoVien ? (
-                                                <span><i className="fas fa-shield-alt"></i> Dữ liệu điểm danh của Thầy/Cô được lưu bảo toàn và tự động đồng bộ lên hệ thống máy chủ.</span>
+                                                <span><i className="fas fa-shield-alt" style={{ color: '#16a34a', marginRight: 6 }}></i> Thầy/Cô bấm <strong>Chốt sổ gửi lên Tổng</strong> để gửi thời gian chốt ca trực. Nếu không chốt sổ trước 12h05, hệ thống sẽ tự động thu thập kết quả về Tổng.</span>
                                             ) : (
                                                 <span><i className="fas fa-info-circle"></i> Bấm <strong>Chốt danh sách</strong> để hoàn tất điểm danh phòng này và tự động ghi nhận vắng cho học sinh chưa điểm danh.</span>
                                             )}
                                         </div>
-                                        {!isGiaoVien && (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-primary"
-                                                    onClick={() => setShowChotConfirmModal(true)}
-                                                    disabled={chotting || saving}
-                                                    style={{ fontWeight: 700, padding: '9px 20px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}
-                                                >
-                                                    {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
-                                                    {isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
-                                                </button>
 
-                                                {isDaChot && (
-                                                    <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                                        <i className="fas fa-check-circle"></i> ĐÃ CHỐT LÊN TỔNG
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
+                                            <button
+                                                type="button"
+                                                className={isGiaoVien ? "btn btn-success" : "btn btn-primary"}
+                                                onClick={() => setShowChotConfirmModal(true)}
+                                                disabled={chotting || saving || !canTeacherOperate}
+                                                style={{
+                                                    fontWeight: 700,
+                                                    padding: '9px 20px',
+                                                    borderRadius: 8,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 8,
+                                                    fontSize: '0.95rem',
+                                                    background: isGiaoVien ? (isDaChot ? '#059669' : '#16a34a') : undefined,
+                                                    borderColor: isGiaoVien ? (isDaChot ? '#059669' : '#16a34a') : undefined,
+                                                    cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
+                                                    opacity: (!canTeacherOperate && !isDaChot) ? 0.6 : 1
+                                                }}
+                                            >
+                                                {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                                {isGiaoVien
+                                                    ? (isDaChot ? ' Cập nhật chốt sổ' : ' Chốt sổ gửi lên Tổng')
+                                                    : (isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách')
+                                                }
+                                            </button>
+
+                                            {isDaChot && (
+                                                <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                    <i className="fas fa-check-circle"></i>
+                                                    {currentPhongStatus?.ma_gv_chot_id ? 'ĐÃ CHỐT SỔ GỬI LÊN TỔNG' : 'HỆ THỐNG ĐÃ TỰ ĐỘNG THU THẬP VỀ TỔNG'}
+                                                    {currentPhongStatus?.thoi_gian ? ` (${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </>
                             )}

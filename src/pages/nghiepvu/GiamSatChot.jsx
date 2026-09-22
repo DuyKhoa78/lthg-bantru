@@ -271,7 +271,7 @@ export default function GiamSatChot() {
                         }}
                         onClick={() => setChotLoai('0')}
                     >
-                        <i className="fas fa-utensils"></i> Trực Ăn (10:55 – 11:30)
+                        <i className="fas fa-utensils"></i> Trực Ăn (10:55 – 11:35)
                     </button>
                     <button
                         type="button"
@@ -285,7 +285,7 @@ export default function GiamSatChot() {
                         }}
                         onClick={() => setChotLoai('1')}
                     >
-                        <i className="fas fa-bed"></i> Trực Ngủ (11:30 – 12:00)
+                        <i className="fas fa-bed"></i> Trực Ngủ (11:30 – 12:05)
                     </button>
                 </div>
             </div>
@@ -405,8 +405,12 @@ export default function GiamSatChot() {
                                                         <i className="fas fa-check-circle"></i> ĐÃ HOÀN THÀNH
                                                     </span>
                                                     {r.thoi_gian_chot && (
-                                                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>
-                                                            Chốt lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                        <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: 3 }}>
+                                                            {r.ten_gv_chot ? (
+                                                                <span><i className="fas fa-user-check" style={{ color: '#16a34a', marginRight: 3 }}></i> GV <strong>{r.ten_gv_chot}</strong> chốt lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            ) : (
+                                                                <span><i className="fas fa-robot" style={{ color: '#0284c7', marginRight: 3 }}></i> Hệ thống tự gom lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -416,21 +420,28 @@ export default function GiamSatChot() {
                                                         <i className="fas fa-clock"></i> CHƯA HOÀN THÀNH
                                                     </span>
                                                     <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>
-                                                        Đang điểm danh (Chưa chốt)
+                                                        {r.draft_count > 0 ? `Đang quét (${r.draft_count} HS)` : 'Đang điểm danh (Chưa chốt)'}
                                                     </div>
                                                 </div>
                                             )}
                                         </td>
                                         <td style={{ textAlign: 'center' }}>
-                                            {isCompleted && r.stats ? (
-                                                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 700 }}>
-                                                    <span style={{ color: '#16a34a' }} title="Có mặt"><i className="fas fa-check"></i> {r.stats.comat}</span>
-                                                    <span style={{ color: '#dc2626' }} title="Vắng"><i className="fas fa-times"></i> {r.stats.vang}</span>
-                                                    <span style={{ color: '#d97706' }} title="Phép"><i className="fas fa-file-alt"></i> {r.stats.phep}</span>
+                                            {r.stats && (r.stats.comat > 0 || r.stats.vang > 0 || r.stats.phep > 0) ? (
+                                                <div>
+                                                    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 700 }}>
+                                                        <span style={{ color: '#16a34a' }} title="Có mặt"><i className="fas fa-check"></i> {r.stats.comat}</span>
+                                                        <span style={{ color: '#dc2626' }} title="Vắng"><i className="fas fa-times"></i> {r.stats.vang}</span>
+                                                        <span style={{ color: '#d97706' }} title="Phép"><i className="fas fa-file-alt"></i> {r.stats.phep}</span>
+                                                    </div>
+                                                    {!isCompleted && (
+                                                        <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: 2 }}>
+                                                            (Dữ liệu tạm thời)
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                                                    Chưa chốt sổ
+                                                    {r.draft_count > 0 ? `Đang quét (${r.draft_count} HS)` : 'Chưa có dữ liệu'}
                                                 </span>
                                             )}
                                         </td>
