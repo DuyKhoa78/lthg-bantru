@@ -80,7 +80,7 @@ function playChime(type = 'success') {
 function selectBestBackCamera(cameras) {
     if (!Array.isArray(cameras) || cameras.length === 0) return null;
 
-    let bestCam = null;
+    let bestCam = cameras[0]; // Mặc định là camera đầu tiên (hoạt động tốt trên Laptop / PC Web)
     let highestScore = -999;
 
     cameras.forEach(cam => {
@@ -107,7 +107,7 @@ function selectBestBackCamera(cameras) {
             score -= 20;
         }
 
-        // Tránh tuyệt đối camera trước (front, user, trước, selfie)
+        // Tránh camera trước khi có nhiều camera (front, user, trước, selfie)
         if (label.includes('front') || label.includes('user') || label.includes('trước') || label.includes('selfie') || label.includes('facing front')) {
             score -= 100;
         }
@@ -118,7 +118,7 @@ function selectBestBackCamera(cameras) {
         }
     });
 
-    return highestScore > 0 ? bestCam : null;
+    return bestCam;
 }
 
 export default function QRScannerModal({
@@ -404,7 +404,7 @@ export default function QRScannerModal({
                     // Frame không có mã QR
                 };
 
-                // Khởi động bằng Device ID + videoConstraints camera sau
+                // Khởi động bằng Device ID camera được chọn
                 let started = false;
                 if (targetCam && targetCam.id) {
                     try {
@@ -412,7 +412,6 @@ export default function QRScannerModal({
                             ...config,
                             videoConstraints: {
                                 deviceId: { exact: targetCam.id },
-                                facingMode: 'environment',
                                 width: { min: 640, ideal: 1280, max: 1920 },
                                 height: { min: 480, ideal: 720, max: 1080 },
                             },
@@ -424,40 +423,44 @@ export default function QRScannerModal({
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel(targetCam.label || 'Camera sau');
+                        setCurrentCamLabel(targetCam.label || 'Camera');
                     } catch (exactErr) {
                         if (import.meta.env.DEV) console.warn('Start camera by target ID failed, trying fallback:', exactErr);
                     }
                 }
 
                 if (!started) {
-                    const envConfig = {
-                        ...config,
-                        videoConstraints: {
-                            facingMode: { ideal: 'environment' },
-                            width: { min: 640, ideal: 1280, max: 1920 },
-                            height: { min: 480, ideal: 720, max: 1080 },
-                        },
-                    };
                     try {
                         await qrScannerInstance.start(
                             { facingMode: 'environment' },
-                            envConfig,
-                            onScanSuccess,
-                            onScanError
-                        );
-                        started = true;
-                        setCurrentCamLabel('Camera sau');
-                    } catch (envErr) {
-                        if (import.meta.env.DEV) console.warn('Environment camera failed, trying user camera:', envErr);
-                        await qrScannerInstance.start(
-                            { facingMode: 'user' },
                             config,
                             onScanSuccess,
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel('Camera trước');
+                        setCurrentCamLabel('Camera');
+                    } catch (envErr) {
+                        if (import.meta.env.DEV) console.warn('Environment camera failed, trying user camera:', envErr);
+                        try {
+                            await qrScannerInstance.start(
+                                { facingMode: 'user' },
+                                config,
+                                onScanSuccess,
+                                onScanError
+                            );
+                            started = true;
+                            setCurrentCamLabel('Camera');
+                        } catch (userErr) {
+                            if (import.meta.env.DEV) console.warn('User camera failed, trying generic camera:', userErr);
+                            await qrScannerInstance.start(
+                                {},
+                                config,
+                                onScanSuccess,
+                                onScanError
+                            );
+                            started = true;
+                            setCurrentCamLabel('Camera');
+                        }
                     }
                 }
 

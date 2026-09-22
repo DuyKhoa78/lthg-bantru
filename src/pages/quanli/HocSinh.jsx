@@ -7,7 +7,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
 import api from '../../services/api';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import { removeAccents, getSortNames, escapeHtml } from '../../utils/stringUtils';
+import { getSortNames, escapeHtml } from '../../utils/stringUtils';
+import { matchStudentSearch } from '../../utils/qrUtils';
 import { cacheInvalidateStudents } from '../../utils/cache';
 import '../../styles/admin.css';
 
@@ -176,10 +177,7 @@ export default function HocSinh() {
     const filteredAndSorted = useMemo(() => {
         let result = data.filter((hs) => {
             if (search) {
-                const searchStr = removeAccents(search.toLowerCase());
-                const nameStr = removeAccents(hs.ho_ten.toLowerCase());
-                const maStr = String(hs.id || '');
-                if (!nameStr.includes(searchStr) && !maStr.includes(searchStr)) return false;
+                if (!matchStudentSearch(hs, search)) return false;
             }
             if (filterLop && hs.lop !== filterLop) return false;
             if (filterGT !== '' && String(hs.gioi_tinh) !== filterGT) return false;

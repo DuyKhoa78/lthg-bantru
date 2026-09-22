@@ -1,13 +1,15 @@
+import { removeAccents } from './stringUtils';
+
 /**
  * Utility functions for QR code parsing and student matching
  */
 
 /**
- * Trích xuất mã học sinh theo đúng quy định nghiêm ngặt:
+ * Trích xuất mã học sinh theo đúng quy định:
  * 1. Định dạng chính thức: MSBT: 26xxx / MSBT 26xxx / MSBT-26xxx / HS: 26xxx / THE: 26xxx
  * 2. Định dạng JSON: {"id": ...}, {"ma_hs": ...}, {"msbt": ...}, {"student_id": ...}
- * 3. Chuỗi thuần số nguyên: ^\d{1,6}$ (ví dụ "26015" hoặc "15")
- * 4. KHÔNG tự ý lấy số bất kỳ trong đường dẫn URL hoặc đoạn văn bản dài
+ * 3. Chuỗi thuần số nguyên: ^\d{1,8}$ (ví dụ "26180", "180", "10", "1")
+ * 4. URL có param ID/MSBT
  */
 export function parseStudentId(decodedText) {
     if (!decodedText) return null;
@@ -33,7 +35,7 @@ export function parseStudentId(decodedText) {
         }
     }
 
-    // 3. Chuỗi toàn bộ chỉ chứa số nguyên định danh (1 đến 8 chữ số)
+    // 3. Chuỗi toàn bộ chỉ chứa số nguyên định danh (1 đến 8 chữ số, ví dụ 1, 2, 10, 180, 26001...)
     if (/^\d{1,8}$/.test(text)) {
         return { idCandidate: text, rawText: text };
     }
@@ -55,47 +57,102 @@ export function parseStudentId(decodedText) {
 }
 
 /**
- * Tìm học sinh theo mã ứng viên (so khớp chính xác, không dùng substring)
+ * So khớp học sinh khi tìm kiếm bằng Tên, Lớp hoặc Mã học sinh (kể cả số cuối 1, 2, 10, 180...)
+ * - Khớp số cuối: Giáo viên nhập 1, 2, 10, 180 -> khớp học sinh có ID tương ứng (hoặc mã thẻ 26001, 26010, 26180...)
+ * - Khớp mã đầy đủ: 26001, 26180, MSBT 180, MSBT: 26001...
+ * - Khớp theo tên (không phân biệt dấu/hoa thường)
+ * - Khớp theo lớp (10A1, 11A2...)
+ */
+export function matchStudentSearch(student, query) {
+    if (!student) return false;
+    if (!query || !String(query).trim()) return true;
+
+    const rawQ = String(query).trim();
+    const qLower = rawQ.toLowerCase();
+    const qNoTone = removeAccents(qLower);
+
+    // 1. So khớp họ và tên
+    const name = String(student.ho_ten || student.name || '').trim();
+    if (name && removeAccents(name.toLowerCase()).includes(qNoTone)) {
+        return true;
+    }
+
+    // 2. So khớp theo lớp (chỉ so khớp khi từ khóa có chữ cái, ví dụ '10A1', '11A' để tránh gõ số 1 khớp toàn bộ các lớp 10, 11, 12)
+    const lop = String(student.lop || '').trim().toLowerCase();
+    if (/[a-z]/i.test(rawQ) && lop && lop.includes(qLower)) {
+        return true;
+    }
+
+    // 3. So khớp theo mã học sinh / số cuối
+    const rawId = student.raw_id !== undefined ? student.raw_id : student.id;
+    if (rawId === undefined || rawId === null) return false;
+
+    const idStr = String(rawId).trim();
+    const cardId = `26${idStr.padStart(3, '0')}`;
+    const cleanQ = rawQ.replace(/^(?:MSBT|HS|THE|CARD|MA|ID)[:\s_-]*/i, '').trim();
+
+    // Khớp mã thẻ chính xác
+    if (cardId.toLowerCase() === cleanQ.toLowerCase()) return true;
+    if (idStr === cleanQ) return true;
+    if (student.ma_hs && String(student.ma_hs).trim().toLowerCase() === cleanQ.toLowerCase()) return true;
+
+    // Nếu query là số (VD: 1, 2, 10, 180, 01, 010...)
+    if (/^\d+$/.test(cleanQ)) {
+        const numQ = parseInt(cleanQ, 10);
+        const numId = parseInt(idStr, 10);
+
+        // Số ID khớp chính xác (VD: gõ 1 khớp HS 1 (26001), gõ 10 khớp HS 10 (26010), gõ 180 khớp HS 180 (26180))
+        if (!isNaN(numQ) && !isNaN(numId) && numId === numQ) return true;
+
+        // Bóc tiền tố 26 nếu thẻ in 26xxx mà gõ số cuối
+        const cardTrailing = parseInt(cardId.replace(/^26/, ''), 10);
+        if (!isNaN(numQ) && cardTrailing === numQ) return true;
+
+        // Nếu query bắt đầu bằng 26 (VD: 26015 -> khớp số 15)
+        if (cleanQ.startsWith('26') && cleanQ.length > 2) {
+            const strippedQ = parseInt(cleanQ.slice(2), 10);
+            if (!isNaN(strippedQ) && numId === strippedQ) return true;
+        }
+
+        // Hỗ trợ tìm kiếm theo số đuôi (ví dụ thẻ 26180 thì số đuôi là 180)
+        if (cleanQ.length >= 2) {
+            if (cardId.endsWith(cleanQ)) return true;
+            if (idStr.endsWith(cleanQ)) return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Tìm học sinh theo mã ứng viên (so khớp nhanh chuẩn xác)
  */
 export function findStudentByCandidate(students, candidateStr) {
     if (!Array.isArray(students) || !candidateStr) return null;
     const cleanCandidate = String(candidateStr).trim();
+    if (!cleanCandidate) return null;
 
-    // 1. Khớp chính xác ID, ma_hs, hoặc raw_id
-    let found = students.find(s => {
-        const sId = String(s.id);
-        const sCardId = `26${String(s.id).padStart(3, '0')}`;
-        return (
-            sId === cleanCandidate ||
-            sCardId === cleanCandidate ||
-            (s.ma_hs && String(s.ma_hs).trim() === cleanCandidate) ||
-            (s.raw_id && String(s.raw_id).trim() === cleanCandidate)
-        );
-    });
-
-    // 2. Thử bóc tiền tố 26 nếu thẻ in mã 26xxx (ví dụ: 26015 -> HS ID 15)
-    if (!found && cleanCandidate.startsWith('26') && cleanCandidate.length > 2) {
-        const strippedNum = parseInt(cleanCandidate.slice(2), 10);
-        if (!isNaN(strippedNum)) {
-            const stripped = String(strippedNum);
-            found = students.find(s => String(s.id) === stripped || (s.raw_id && String(s.raw_id) === stripped));
-        }
-    }
-
-    // 3. Trường hợp ngược lại: nếu học sinh trong DB lưu mã 26xxx mà quét ra số ngắn (ví dụ ID 15 -> khớp với 26015)
-    if (!found && !cleanCandidate.startsWith('26')) {
-        const paddedCardId = `26${cleanCandidate.padStart(3, '0')}`;
-        found = students.find(s => String(s.id) === paddedCardId || (s.ma_hs && String(s.ma_hs).trim() === paddedCardId));
-    }
-
-    // 4. Tìm kiếm theo họ và tên nếu nhập thủ công
-    if (!found && cleanCandidate.length >= 2 && !/^\d+$/.test(cleanCandidate)) {
-        const queryNorm = cleanCandidate.toLowerCase().trim();
-        found = students.find(s => {
-            const name = (s.ho_ten || s.name || '').toLowerCase();
-            return name.includes(queryNorm);
+    // 1. Nếu candidate là số hoặc tiền tố mã (VD: 1, 2, 10, 180, 26180, MSBT 180)
+    const cleanDigits = cleanCandidate.replace(/^(?:MSBT|HS|THE|CARD|MA|ID)[:\s_-]*/i, '').trim();
+    if (/^\d+$/.test(cleanDigits)) {
+        const numQ = parseInt(cleanDigits, 10);
+        // Ưu tiên khớp chính xác ID hoặc số cuối thẻ
+        const exact = students.find(s => {
+            const sId = s.raw_id !== undefined ? s.raw_id : s.id;
+            const cardId = `26${String(sId).padStart(3, '0')}`;
+            if (String(sId) === cleanDigits || cardId === cleanDigits) return true;
+            if (Number(sId) === numQ) return true;
+            if (cleanDigits.startsWith('26') && cleanDigits.length > 2) {
+                return Number(sId) === parseInt(cleanDigits.slice(2), 10);
+            }
+            return false;
         });
+        if (exact) return exact;
     }
 
-    return found || null;
+    // 2. Thử so khớp tổng quát qua matchStudentSearch
+    const matched = students.find(s => matchStudentSearch(s, cleanCandidate));
+    if (matched) return matched;
+
+    return null;
 }

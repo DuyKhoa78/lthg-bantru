@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { removeAccents } from '../../utils/stringUtils';
+import { matchStudentSearch } from '../../utils/qrUtils';
 import './InTheBanTru.css';
 
 // Ảnh khung dán 3x4 tiêu chuẩn in ấn
@@ -224,14 +225,7 @@ export default function InTheBanTru() {
       result = result.filter(s => s.lop === individualLopFilter);
     }
     if (individualSearch.trim()) {
-      const q = removeAccents(individualSearch.trim().toLowerCase());
-      result = result.filter(s => {
-        const nameNoTone = removeAccents((s.name || '').toLowerCase());
-        const idStr = String(s.id || '').toLowerCase();
-        const rawIdStr = String(s.raw_id || '').toLowerCase();
-        const lopStr = (s.lop || '').toLowerCase();
-        return nameNoTone.includes(q) || idStr.includes(q) || rawIdStr.includes(q) || lopStr.includes(q);
-      });
+      result = result.filter(s => matchStudentSearch(s, individualSearch));
     }
     return [...result].sort((a, b) => Number(a.raw_id ?? a.id) - Number(b.raw_id ?? b.id));
   }, [students, individualLopFilter, individualSearch]);

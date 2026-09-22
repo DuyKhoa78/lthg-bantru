@@ -5,7 +5,8 @@ import api from '../../services/api';
 import { cachedFetch } from '../../utils/cache';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
-import { removeAccents, formatLopList } from '../../utils/stringUtils';
+import { formatLopList } from '../../utils/stringUtils';
+import { matchStudentSearch } from '../../utils/qrUtils';
 import BaoPhepModal from '../../components/BaoPhepModal';
 import QRScannerModal from '../../components/QRScannerModal';
 import '../../styles/admin.css';
@@ -454,14 +455,48 @@ export default function DiemDanhNgu() {
     };
 
     const otherRoomMatches = useMemo(() => {
-        if (!searchTerm || !searchTerm.trim() || searchTerm.trim().length < 2) return [];
-        const term = removeAccents(searchTerm.toLowerCase().trim());
+        if (!searchTerm || !searchTerm.trim()) return [];
+        const term = searchTerm.trim();
+        const cleanDigits = term.replace(/^(?:MSBT|HS|THE|CARD|MA|ID)[:\s_-]*/i, '').trim();
+        const isNum = /^\d+$/.test(cleanDigits);
+        if (!isNum && term.length < 2) return [];
+
         return hsList.filter(s => {
             const ph = s.phong_ngu;
             if (!ph || (selectedPhong && ph === selectedPhong.ma_phong)) return false;
-            return removeAccents(s.ho_ten.toLowerCase()).includes(term) || String(s.id).includes(term);
+            return matchStudentSearch(s, term);
         }).slice(0, 5);
     }, [searchTerm, hsList, selectedPhong]);
+
+    // Danh sách học sinh trong phòng ngủ sau khi lọc tìm kiếm (hỗ trợ tìm theo tên hoặc mã HS 1, 2, 10, 180...)
+    const filteredStudents = useMemo(() => {
+        if (!searchTerm || !searchTerm.trim()) return students;
+        const res = students.filter(s => matchStudentSearch(s, searchTerm));
+        const clean = searchTerm.trim().replace(/^(?:MSBT|HS|THE|CARD|MA|ID)[:\s_-]*/i, '').trim();
+        if (/^\d+$/.test(clean)) {
+            const numQ = parseInt(clean, 10);
+            res.sort((a, b) => {
+                const aId = Number(a.raw_id ?? a.id);
+                const bId = Number(b.raw_id ?? b.id);
+                const aExact = aId === numQ ? -1 : 1;
+                const bExact = bId === numQ ? -1 : 1;
+                return aExact - bExact;
+            });
+        }
+        return res;
+    }, [students, searchTerm]);
+
+    // Nhấn Enter khi tìm kiếm để đánh dấu có mặt nhanh
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (filteredStudents.length === 1) {
+                const s = filteredStudents[0];
+                changeStatus(s.id, 'comat');
+                setSearchTerm('');
+            }
+        }
+    };
 
     const roomStats = useMemo(() => {
         let markedCount = 0;
@@ -1275,7 +1310,24 @@ ${htmlPages}
                                 {selectedPhong && (
                                     <div className="dd-search-box">
                                         <i className="fas fa-search"></i>
-                                        <input type="text" placeholder="Tìm tên học sinh..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                        <input
+                                            type="text"
+                                            placeholder="Tìm tên hoặc mã HS (VD: 1, 2, 10, 180, 26xxx)..."
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                            onKeyDown={handleSearchKeyDown}
+                                            title="Nhập số cuối (1, 2, 10, 180...) hoặc tên học sinh. Nhấn Enter để đánh dấu Có mặt ngay lập tức."
+                                        />
+                                        {searchTerm && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSearchTerm('')}
+                                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0 4px', fontSize: '0.9rem' }}
+                                                title="Xóa tìm kiếm"
+                                            >
+                                                <i className="fas fa-times"></i>
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>                            {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
@@ -1409,10 +1461,7 @@ ${htmlPages}
                                     </div>
                                 ) : (
                                     <div className="dd-student-grid">
-                                        {students.filter(s => {
-                                            if (!searchTerm) return true;
-                                            return removeAccents(s.ho_ten.toLowerCase()).includes(removeAccents(searchTerm.toLowerCase()));
-                                        }).map(s => (
+                                        {filteredStudents.map(s => (
                                             <div key={s.id} className={`dd-student-card status-${s.trang_thai}`}
                                                 style={{ background: STATUS[s.trang_thai]?.bg || '#fff', borderColor: STATUS[s.trang_thai]?.border || '#e2e8f0' }}>
                                                 <div className="dd-student-info">
