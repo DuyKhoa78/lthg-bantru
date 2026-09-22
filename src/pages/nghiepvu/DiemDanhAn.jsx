@@ -615,8 +615,6 @@ export default function DiemDanhAn() {
         } finally { setSaving(false); }
     };
 
-    const counts = students.reduce((acc, s) => { acc[s.trang_thai] = (acc[s.trang_thai] || 0) + 1; return acc; }, {});
-
     // ── Hàm chia danh sách HS theo số GV điểm danh (HT.A: chia theo DS1, DS2, DS3; phòng khác chia đều) ──
     const splitByTeachers = (students, numTeachers, maPhong = '') => {
         return splitStudentsByTeachers(students, numTeachers, maPhong);
@@ -1200,8 +1198,8 @@ ${htmlPages}
     };
 
     return (
-        <>
-            <div className="page-header" style={{ marginBottom: 12 }}>
+        <div className="dd-page-container">
+            <div className="page-header" style={{ marginBottom: 10 }}>
                 <div className="page-header-left">
                     <div className="breadcrumb">
                         <Link to="/">Dashboard</Link>
@@ -1246,11 +1244,9 @@ ${htmlPages}
                         ) : null;
                     })()}
                 </div>
-            </div>
 
-            {!isGiaoVien && (
-                <div className="dd-toolbar-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 16 }}>
-                    <div className="dd-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {!isGiaoVien && (
+                    <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {!isAllowedTime() && (
                             <span style={{ fontSize: '0.78rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '5px 8px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 500, whiteSpace: 'nowrap' }}>
                                 <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ: <strong>11h00 – 14h00</strong>
@@ -1282,8 +1278,8 @@ ${htmlPages}
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             <div className="dd-layout">
                 <aside className="dd-room-panel">
@@ -1597,21 +1593,23 @@ ${htmlPages}
                                 </div>
                             )}
 
-                            {/* ── THANH CÔNG CỤ DÀNH CHO ADMIN & HỌC VỤ (TẤT CẢ ĐỀU CÓ MẶT, LƯU, CHỐT) ── */}
+                            {/* ── THANH CÔNG CỤ DÀNH CHO ADMIN & HỌC VỤ (TẤT CẢ ĐỀU CÓ MẶT, LƯU, CHỐT NẰM BÊN PHẢI) ── */}
                             {selectedPhong && !isGiaoVien && (
-                                <div className="dd-admin-actions-bar" style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    flexWrap: 'wrap',
-                                    gap: 12,
-                                    background: '#f8fafc',
-                                    border: '1.5px solid #e2e8f0',
-                                    borderRadius: 12,
-                                    padding: '10px 16px',
-                                    marginBottom: 16
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <div className="dd-admin-actions-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', fontWeight: 600, flexWrap: 'nowrap', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                        {isDaChot && (
+                                            <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.78rem' }}>
+                                                <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
+                                                ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                            </span>
+                                        )}
+                                        <span style={{ color: '#16a34a' }}><i className="fas fa-check"></i> {roomCounts.comat} Có mặt</span>
+                                        <span style={{ color: '#dc2626' }}><i className="fas fa-times"></i> {roomCounts.vang} Vắng</span>
+                                        <span style={{ color: '#d97706' }}><i className="fas fa-file-alt"></i> {roomCounts.phep} Phép</span>
+                                        {roomCounts.chua > 0 && <span style={{ color: '#64748b' }}>• {roomCounts.chua} Chưa điểm</span>}
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', flexShrink: 0, marginLeft: 'auto' }}>
                                         <button
                                             type="button"
                                             className="btn btn-success"
@@ -1620,43 +1618,21 @@ ${htmlPages}
                                                 background: 'linear-gradient(135deg, #16a34a, #15803d)',
                                                 color: '#fff',
                                                 fontWeight: 700,
-                                                padding: '8px 18px',
+                                                padding: '7px 14px',
                                                 borderRadius: 8,
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
-                                                gap: 7,
+                                                gap: 6,
                                                 border: 'none',
-                                                boxShadow: '0 3px 10px rgba(22, 163, 74, 0.25)',
+                                                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
                                                 cursor: 'pointer',
-                                                fontSize: '0.92rem'
+                                                fontSize: '0.85rem',
+                                                whiteSpace: 'nowrap'
                                             }}
                                             title={`Đánh dấu tất cả ${students.length} học sinh trong phòng ${selectedPhong.ma_phong} có mặt (vẫn giữ nguyên học sinh có phép)`}
                                         >
                                             <i className="fas fa-check-double"></i>
                                             Tất cả đều có mặt
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{
-                                                fontWeight: 600,
-                                                padding: '8px 16px',
-                                                borderRadius: 8,
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: 6,
-                                                borderColor: '#60a5fa',
-                                                color: '#1d4ed8',
-                                                background: '#eff6ff',
-                                                cursor: saving ? 'not-allowed' : 'pointer'
-                                            }}
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            title="Lưu dữ liệu điểm danh phòng này"
-                                        >
-                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                            {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
                                         </button>
 
                                         <button
@@ -1669,31 +1645,20 @@ ${htmlPages}
                                                 borderColor: isDaChot ? '#047857' : '#1d4ed8',
                                                 color: '#fff',
                                                 fontWeight: 700,
-                                                padding: '8px 16px',
+                                                padding: '7px 14px',
                                                 borderRadius: 8,
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
                                                 gap: 6,
-                                                boxShadow: isDaChot ? '0 2px 6px rgba(5, 150, 105, 0.25)' : '0 2px 6px rgba(37, 99, 235, 0.25)'
+                                                boxShadow: isDaChot ? '0 2px 6px rgba(5, 150, 105, 0.25)' : '0 2px 6px rgba(37, 99, 235, 0.25)',
+                                                fontSize: '0.85rem',
+                                                whiteSpace: 'nowrap'
                                             }}
                                             title="Chốt danh sách phòng này lên hệ thống"
                                         >
                                             {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${isDaChot ? 'fa-check-double' : 'fa-paper-plane'}`}></i>}
                                             {chotting ? ' Đang chốt...' : isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
                                         </button>
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem', fontWeight: 600 }}>
-                                        {isDaChot && (
-                                            <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                                <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
-                                                ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
-                                            </span>
-                                        )}
-                                        <span style={{ color: '#16a34a' }}><i className="fas fa-check"></i> {roomCounts.comat} Có mặt</span>
-                                        <span style={{ color: '#dc2626' }}><i className="fas fa-times"></i> {roomCounts.vang} Vắng</span>
-                                        <span style={{ color: '#d97706' }}><i className="fas fa-file-alt"></i> {roomCounts.phep} Phép</span>
-                                        {roomCounts.chua > 0 && <span style={{ color: '#64748b' }}>• {roomCounts.chua} Chưa điểm</span>}
                                     </div>
                                 </div>
                             )}
@@ -1751,61 +1716,6 @@ ${htmlPages}
                                     </div>
                                 )}
                             </div>
-
-                            {selectedPhong && !loading && students.length > 0 && (
-                                <>
-                                    <div className="dd-summary">
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-comat"></span> Có mặt: <strong>{counts.comat || 0}</strong></span>
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-vang"></span> Vắng: <strong>{counts.vang || 0}</strong></span>
-                                        <span className="dd-summary-item"><span className="dd-summary-dot dot-phep"></span> Có phép: <strong>{counts.phep || 0}</strong></span>
-                                    </div>
-                                    <div className="dd-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-                                        <div className="dd-footer-note" style={{ flex: '1 1 300px' }}>
-                                            {isGiaoVien ? (
-                                                <span><i className="fas fa-shield-alt" style={{ color: '#16a34a', marginRight: 6 }}></i> Thầy/Cô bấm <strong>Chốt sổ gửi lên Tổng</strong> để gửi thời gian chốt ca trực. Nếu không chốt sổ trước 11h35, hệ thống sẽ tự động thu thập kết quả về Tổng.</span>
-                                            ) : (
-                                                <span><i className="fas fa-info-circle"></i> Bấm <strong>Chốt danh sách</strong> để hoàn tất điểm danh phòng này và tự động ghi nhận vắng cho học sinh chưa điểm danh.</span>
-                                            )}
-                                        </div>
-
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                                            <button
-                                                type="button"
-                                                className={isGiaoVien ? "btn btn-success" : "btn btn-primary"}
-                                                onClick={() => setShowChotConfirmModal(true)}
-                                                disabled={chotting || saving || !canTeacherOperate}
-                                                style={{
-                                                    fontWeight: 700,
-                                                    padding: '9px 20px',
-                                                    borderRadius: 8,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 8,
-                                                    fontSize: '0.95rem',
-                                                    background: isGiaoVien ? (isDaChot ? '#059669' : '#16a34a') : undefined,
-                                                    borderColor: isGiaoVien ? (isDaChot ? '#059669' : '#16a34a') : undefined,
-                                                    cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
-                                                    opacity: (!canTeacherOperate && !isDaChot) ? 0.6 : 1
-                                                }}
-                                            >
-                                                {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
-                                                {isGiaoVien
-                                                    ? (isDaChot ? ' Cập nhật chốt sổ' : ' Chốt sổ gửi lên Tổng')
-                                                    : (isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách')
-                                                }
-                                            </button>
-
-                                            {isDaChot && (
-                                                <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                                    <i className="fas fa-check-circle"></i>
-                                                    {currentPhongStatus?.ma_gv_chot_id ? 'ĐÃ CHỐT SỔ GỬI LÊN TỔNG' : 'HỆ THỐNG ĐÃ TỰ ĐỘNG THU THẬP VỀ TỔNG'}
-                                                    {currentPhongStatus?.thoi_gian ? ` (${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
                         </>
                     )}
                 </div>
@@ -2048,6 +1958,6 @@ ${htmlPages}
                 onSuccess={() => fetchDiemDanh(date, true)}
             />
             {AlertUI}
-        </>
+        </div>
     );
 }
