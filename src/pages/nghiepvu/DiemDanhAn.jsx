@@ -1697,31 +1697,7 @@ ${htmlPages}
                                     </div>
                                 </div>
                             )}
-                            {otherRoomMatches.length > 0 && (
-                                <div className="dd-wrong-room-warning-banner">
-                                    <div className="dd-wrong-room-warning-list">
-                                        {otherRoomMatches.map(m => {
-                                            const actualRoom = m.phong_an || 'phòng khác';
-                                            const roomLabel = actualRoom.toLowerCase().startsWith('phòng')
-                                                ? actualRoom
-                                                : `Phòng Ăn ${actualRoom}`;
-                                            return (
-                                                <div key={m.id} className="dd-wrong-room-warning-card">
-                                                    <div className="dd-wrong-room-info">
-                                                        <span className="dd-wrong-room-name">{(m.ho_ten || '').normalize('NFC')}</span>
-                                                        <span className="dd-wrong-room-detail">
-                                                            <b>MSBT: 26{String(m.id).padStart(3, '0')}</b> • Lớp: <b>{m.lop}</b>
-                                                        </span>
-                                                        <span className="dd-wrong-room-badge">
-                                                            {roomLabel}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+
 
                             <div id="dd-student-area">
                                 {!selectedPhong ? (
