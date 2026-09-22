@@ -1460,6 +1460,13 @@ ${htmlPages}
                                             <span>{draftRestoredMsg}</span>
                                         </div>
                                     )}
+
+                                    {isGiamSatOnly && (
+                                        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', color: '#92400e', padding: '10px 16px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <i className="fas fa-exclamation-triangle" style={{ fontSize: '1.2rem' }}></i>
+                                            <span>Thầy/Cô được phân công <strong>Giám sát ca ngủ</strong>. Theo quy định, chỉ GV được phân công <strong>Điểm danh</strong> mới thực hiện điểm danh ca ngủ.</span>
+                                        </div>
+                                    )}
                                 </>
                             )}
 
