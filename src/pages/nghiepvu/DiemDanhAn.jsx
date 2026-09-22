@@ -1249,8 +1249,13 @@ ${htmlPages}
             </div>
 
             {!isGiaoVien && (
-                <div className="dd-toolbar-row">
-                    <div className="dd-toolbar-left">
+                <div className="dd-toolbar-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 16 }}>
+                    <div className="dd-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {!isAllowedTime() && (
+                            <span style={{ fontSize: '0.78rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '5px 8px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ: <strong>11h00 – 14h00</strong>
+                            </span>
+                        )}
                         <button
                             type="button"
                             className="btn btn-outline btn-sm"
@@ -1258,16 +1263,16 @@ ${htmlPages}
                             style={{
                                 color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
                                 fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5,
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8
                             }}
                         >
                             <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép
                         </button>
                         <div className="dd-export-btn-group">
-                            <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)} style={{ whiteSpace: 'nowrap' }}>
-                                <i className="fas fa-print"></i> Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
+                            <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)} style={{ whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8 }}>
+                                <i className="fas fa-print"></i> In / Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
                             </button>
-                            <div className={`dd-export-menu ${showActions ? 'open' : ''}`} style={{ minWidth: 200 }}>
+                            <div className={`dd-export-menu ${showActions ? 'open' : ''}`} style={{ minWidth: 200, right: 0, left: 'auto' }}>
                                 <button className="dd-export-item" onClick={() => { exportOneDayPDF(); setShowActions(false); }}>
                                     <i className="fas fa-file-invoice" style={{ color: '#0ea5e9', width: 20, textAlign: 'center' }}></i> {cauhinhNgay ? 'In ngày đặc biệt' : 'In danh sách ngày (PDF)'}
                                 </button>
@@ -1277,52 +1282,6 @@ ${htmlPages}
                             </div>
                         </div>
                     </div>
-                    {hasSchedule && (
-                        <div className="dd-toolbar-right">
-                            {!isAllowedTime() && (
-                                <span style={{ fontSize: '0.78rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '5px 8px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                                    <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ: <strong>11h00 – 14h00</strong>
-                                </span>
-                            )}
-                            <button className="btn btn-ghost btn-sm" onClick={() => setAll('comat')} style={{ color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }} title="Đặt tất cả học sinh trong phòng là Có mặt (giữ nguyên học sinh có phép)">
-                                <i className="fas fa-check-double"></i> Tất cả đều có mặt
-                            </button>
-                            {isDaChot && (
-                                <span className="dd-chot-status-badge">
-                                    <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
-                                    ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
-                                </span>
-                            )}
-                            <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                onClick={handleChotPhong}
-                                disabled={!selectedPhong || chotting}
-                                style={{
-                                    background: isDaChot ? '#059669' : 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                                    borderColor: isDaChot ? '#047857' : '#1d4ed8',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    whiteSpace: 'nowrap',
-                                    boxShadow: isDaChot ? '0 2px 6px rgba(5, 150, 105, 0.25)' : '0 2px 6px rgba(37, 99, 235, 0.25)'
-                                }}
-                                title="Chốt danh sách phòng này lên hệ thống"
-                            >
-                                {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${isDaChot ? 'fa-check-double' : 'fa-paper-plane'}`}></i>}
-                                {chotting ? ' Đang chốt...' : isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {!isGiaoVien && hasSchedule && (
-                <div className="stat-cards-row" style={{ marginBottom: 18 }}>
-                    <div className="stat-card green"><div className="stat-card-icon"><i className="fas fa-check-circle"></i></div><div className="stat-card-info"><p>Có mặt</p><h3>{counts.comat || 0}</h3></div></div>
-                    <div className="stat-card red"><div className="stat-card-icon"><i className="fas fa-times-circle"></i></div><div className="stat-card-info"><p>Vắng</p><h3>{counts.vang || 0}</h3></div></div>
-                    <div className="stat-card yellow"><div className="stat-card-icon"><i className="fas fa-file-alt"></i></div><div className="stat-card-info"><p>Có phép</p><h3>{counts.phep || 0}</h3></div></div>
                 </div>
             )}
 
