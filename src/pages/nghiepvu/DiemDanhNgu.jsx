@@ -1444,20 +1444,6 @@ ${htmlPages}
                                                             {roomLabel}
                                                         </span>
                                                     </div>
-                                                    {(!isGiaoVien || visiblePhongList.some(p => p.ma_phong === actualRoom)) && (
-                                                        <button
-                                                            type="button"
-                                                            className="dd-wrong-room-switch-btn"
-                                                            onClick={() => {
-                                                                const target = visiblePhongList.find(p => p.ma_phong === actualRoom);
-                                                                if (target) setSelectedPhongCode(target.ma_phong);
-                                                            }}
-                                                            title={`Chuyển sang xem phòng ${actualRoom}`}
-                                                        >
-                                                            <span>Tới phòng {actualRoom}</span>
-                                                            <i className="fas fa-arrow-right"></i>
-                                                        </button>
-                                                    )}
                                                 </div>
                                             );
                                         })}
