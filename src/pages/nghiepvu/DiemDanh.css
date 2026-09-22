@@ -426,15 +426,244 @@
 .dd-footer-note { font-size: 0.82rem; color: #64748b; display: flex; align-items: center; gap: 6px; }
 .dd-footer-note i { color: var(--primary); }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .dd-layout { grid-template-columns: 1fr; }
-  .dd-room-panel { position: static; }
-  .dd-student-grid { grid-template-columns: 1fr 1fr; max-height: none; }
+/* ── WRONG ROOM WARNING BANNER ── */
+.dd-wrong-room-warning-banner {
+  background: #fffbeb;
+  border: 1.5px solid #f59e0b;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12);
+  animation: ddFadeIn 0.2s ease-out;
 }
-@media (max-width: 480px) {
-  .dd-student-grid { grid-template-columns: 1fr; }
-  .page-header-actions { gap: 6px; }
+@keyframes ddFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dd-wrong-room-warning-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #b45309;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.dd-wrong-room-warning-title i {
+  color: #d97706;
+  font-size: 1rem;
+}
+.dd-wrong-room-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dd-wrong-room-warning-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+  border: 1.5px solid #fde68a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.dd-wrong-room-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dd-wrong-room-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #1e293b;
+}
+.dd-wrong-room-detail {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+.dd-wrong-room-badge {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dd-wrong-room-badge strong {
+  color: #b45309;
+  font-weight: 800;
+}
+.dd-wrong-room-switch-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+  font-family: inherit;
+  white-space: nowrap;
+}
+.dd-wrong-room-switch-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(217, 119, 6, 0.35);
+}
+
+/* ── MOBILE & TABLET OPTIMIZATION (Tối ưu đặc biệt cho GV thao tác bằng điện thoại) ── */
+@media (max-width: 900px) {
+  .dd-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .dd-room-panel {
+    position: static;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  }
+  .dd-room-panel-header {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+  .dd-room-stats {
+    padding: 6px 12px;
+    font-size: 0.76rem;
+  }
+  /* Danh sách phòng dạng hàng trượt ngang mượt mà, không choán hết chiều dọc */
+  .dd-room-list {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    max-height: none !important;
+    scrollbar-width: thin;
+    scroll-snap-type: x mandatory;
+  }
+  .dd-room-item {
+    flex: 0 0 74px !important;
+    min-width: 74px !important;
+    padding: 8px 4px !important;
+    scroll-snap-align: start;
+    box-sizing: border-box;
+  }
+  .dd-room-item-name {
+    font-size: 0.9rem !important;
+  }
+  .dd-student-grid {
+    grid-template-columns: 1fr 1fr;
+    max-height: none;
+    padding: 10px;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .dd-student-grid {
+    grid-template-columns: 1fr !important;
+    padding: 8px !important;
+  }
+  .dd-student-card {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+  .dd-student-name {
+    font-size: 0.92rem !important;
+  }
+  .dd-status-btns {
+    gap: 8px !important;
+  }
+  .dd-status-btn {
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 1.05rem !important;
+    border-radius: 9px !important;
+  }
+  .dd-main-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  .dd-search-box {
+    width: 100% !important;
+  }
+  .dd-search-box input {
+    height: 44px !important;
+    font-size: 16px !important; /* Bắt buộc 16px để iOS Safari không tự động zoom vào ô nhập */
+    border-radius: 10px !important;
+    padding-left: 36px !important;
+  }
+  .dd-teacher-actions-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .dd-teacher-actions-bar .btn,
+  .dd-qr-scan-btn {
+    width: 100% !important;
+    height: 48px !important;
+    font-size: 0.95rem !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .dd-wrong-room-warning-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .dd-wrong-room-switch-btn {
+    width: 100%;
+    justify-content: center;
+    height: 38px;
+    font-size: 0.88rem;
+  }
+  .dd-summary {
+    justify-content: space-around !important;
+    padding: 10px 8px !important;
+    gap: 6px !important;
+  }
+  .dd-summary-item {
+    font-size: 0.78rem !important;
+    gap: 4px !important;
+  }
+  .dd-shift-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px;
+    gap: 8px;
+  }
+  .dd-toolbar-row {
+    flex-wrap: wrap !important;
+    padding: 8px !important;
+    gap: 6px !important;
+  }
+  .dd-toolbar-left,
+  .dd-toolbar-right {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+  }
+  .page-header-actions {
+    gap: 6px;
+  }
 }
 
 /* ── Teacher Duty & QR Scanner Enhancements ── */

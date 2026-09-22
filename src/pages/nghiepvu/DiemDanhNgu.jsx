@@ -461,11 +461,24 @@ export default function DiemDanhNgu() {
         const isNum = /^\d+$/.test(cleanDigits);
         if (!isNum && term.length < 2) return [];
 
-        return hsList.filter(s => {
+        const list = hsList.filter(s => {
             const ph = s.phong_ngu;
             if (!ph || (selectedPhong && ph === selectedPhong.ma_phong)) return false;
             return matchStudentSearch(s, term);
-        }).slice(0, 5);
+        });
+
+        if (isNum) {
+            const numQ = parseInt(cleanDigits, 10);
+            list.sort((a, b) => {
+                const aId = Number(a.raw_id ?? a.id);
+                const bId = Number(b.raw_id ?? b.id);
+                const aExact = aId === numQ ? -1 : 1;
+                const bExact = bId === numQ ? -1 : 1;
+                return aExact - bExact;
+            });
+        }
+
+        return list.slice(0, 5);
     }, [searchTerm, hsList, selectedPhong]);
 
     // Danh sách học sinh trong phòng ngủ sau khi lọc tìm kiếm (hỗ trợ tìm theo tên hoặc mã HS 1, 2, 10, 180...)
@@ -486,7 +499,7 @@ export default function DiemDanhNgu() {
         return res;
     }, [students, searchTerm]);
 
-    // Nhấn Enter khi tìm kiếm để đánh dấu có mặt nhanh
+    // Nhấn Enter khi tìm kiếm để đánh dấu có mặt nhanh hoặc cảnh báo nhầm phòng
     const handleSearchKeyDown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -494,6 +507,9 @@ export default function DiemDanhNgu() {
                 const s = filteredStudents[0];
                 changeStatus(s.id, 'comat');
                 setSearchTerm('');
+            } else if (filteredStudents.length === 0 && otherRoomMatches.length > 0) {
+                const m = otherRoomMatches[0];
+                showAlert(`⚠️ CẢNH BÁO NHẦM PHÒNG: Học sinh ${m.ho_ten} (${m.lop}) thuộc phòng ${m.phong_ngu || 'khác'}, không thuộc phòng này!`, 'warning');
             }
         }
     };
@@ -1409,35 +1425,43 @@ ${htmlPages}
                             )}
 
                             {otherRoomMatches.length > 0 && (
-                                <div style={{
-                                    background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8,
-                                    padding: '8px 14px', marginBottom: 12, fontSize: '0.88rem', color: '#5b21b6',
-                                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8
-                                }}>
-                                    <i className="fas fa-info-circle" style={{ color: '#7c3aed', fontSize: '1rem' }}></i>
-                                    <span>Tìm thấy ở phòng khác:</span>
-                                    {otherRoomMatches.map(m => (
-                                        <button
-                                            key={m.id}
-                                            type="button"
-                                            style={{
-                                                background: '#fff', border: '1px solid #c4b5fd', borderRadius: 6,
-                                                padding: '4px 10px', fontSize: '0.82rem', color: '#6d28d9', cursor: 'pointer',
-                                                fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-                                                display: 'inline-flex', alignItems: 'center', gap: 6,
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                            }}
-                                            onClick={() => {
-                                                const target = visiblePhongList.find(p => p.ma_phong === m.phong_ngu);
-                                                if (target) setSelectedPhongCode(target.ma_phong);
-                                            }}
-                                        >
-                                            <span style={{ fontWeight: 700 }}>{(m.ho_ten || '').normalize('NFC')}</span>
-                                            <span style={{ fontWeight: 500 }}>({m.lop}) – Phòng</span>
-                                            <span style={{ fontWeight: 700 }}>{m.phong_ngu}</span>
-                                            <i className="fas fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
-                                        </button>
-                                    ))}
+                                <div className="dd-wrong-room-warning-banner">
+                                    <div className="dd-wrong-room-warning-title">
+                                        <i className="fas fa-exclamation-triangle"></i>
+                                        <span>CẢNH BÁO NHẦM PHÒNG (Học sinh thuộc phòng khác)</span>
+                                    </div>
+                                    <div className="dd-wrong-room-warning-list">
+                                        {otherRoomMatches.map(m => {
+                                            const actualRoom = m.phong_ngu || 'phòng khác';
+                                            return (
+                                                <div key={m.id} className="dd-wrong-room-warning-card">
+                                                    <div className="dd-wrong-room-info">
+                                                        <span className="dd-wrong-room-name">{(m.ho_ten || '').normalize('NFC')}</span>
+                                                        <span className="dd-wrong-room-detail">
+                                                            <b>MSBT: 26{String(m.id).padStart(3, '0')}</b> • Lớp: <b>{m.lop}</b>
+                                                        </span>
+                                                        <span className="dd-wrong-room-badge">
+                                                            ⚠️ Đúng phòng ngủ: <strong>{actualRoom}</strong>
+                                                        </span>
+                                                    </div>
+                                                    {(!isGiaoVien || visiblePhongList.some(p => p.ma_phong === actualRoom)) && (
+                                                        <button
+                                                            type="button"
+                                                            className="dd-wrong-room-switch-btn"
+                                                            onClick={() => {
+                                                                const target = visiblePhongList.find(p => p.ma_phong === actualRoom);
+                                                                if (target) setSelectedPhongCode(target.ma_phong);
+                                                            }}
+                                                            title={`Chuyển sang xem phòng ${actualRoom}`}
+                                                        >
+                                                            <span>Tới phòng {actualRoom}</span>
+                                                            <i className="fas fa-arrow-right"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
 

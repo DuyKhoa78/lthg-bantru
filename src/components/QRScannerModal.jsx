@@ -74,42 +74,44 @@ function playChime(type = 'success') {
     }
 }
 
+const isMobileDevice = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 /**
- * Thuật toán chọn camera sau chính (tránh camera trước, ultrawide và macro)
+ * Thuật toán chọn camera sau chính (tránh webcam máy tính, camera trước, ultrawide và macro)
  */
 function selectBestBackCamera(cameras) {
     if (!Array.isArray(cameras) || cameras.length === 0) return null;
 
-    let bestCam = cameras[0]; // Mặc định là camera đầu tiên (hoạt động tốt trên Laptop / PC Web)
+    let bestCam = null;
     let highestScore = -999;
 
     cameras.forEach(cam => {
         const label = String(cam.label || '').toLowerCase();
         let score = 0;
 
-        // Ưu tiên camera sau (back / rear / environment / sau)
+        // Ưu tiên camera sau (back / rear / environment / sau / facing back)
         if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('sau') || label.includes('facing back')) {
-            score += 30;
+            score += 50;
         }
 
-        // Ưu tiên camera chính (main / 0 / primary / camera 0 / chính)
+        // Ưu tiên camera chính (main / primary / camera 0 / 1x / chính)
         if (label.includes('main') || label.includes('camera 0') || label.includes('chính') || label.includes('primary') || label.includes('1x')) {
-            score += 15;
+            score += 20;
         }
 
         // Tránh camera góc siêu rộng (wide, ultra, 0.5x, 0.6x)
         if (label.includes('wide') || label.includes('ultra') || label.includes('0.5') || label.includes('0.6')) {
-            score -= 20;
+            score -= 25;
         }
 
         // Tránh camera macro
         if (label.includes('macro')) {
-            score -= 20;
+            score -= 25;
         }
 
-        // Tránh camera trước khi có nhiều camera (front, user, trước, selfie)
-        if (label.includes('front') || label.includes('user') || label.includes('trước') || label.includes('selfie') || label.includes('facing front')) {
-            score -= 100;
+        // Trừ điểm nặng camera trước / webcam máy tính (front, user, trước, selfie, facing front, integrated, webcam, facetime)
+        if (label.includes('front') || label.includes('user') || label.includes('trước') || label.includes('selfie') || label.includes('facing front') || label.includes('integrated') || label.includes('webcam') || label.includes('facetime')) {
+            score -= 200;
         }
 
         if (score > highestScore) {
@@ -118,7 +120,7 @@ function selectBestBackCamera(cameras) {
         }
     });
 
-    return bestCam;
+    return bestCam || cameras[0];
 }
 
 export default function QRScannerModal({
@@ -404,31 +406,35 @@ export default function QRScannerModal({
                     // Frame không có mã QR
                 };
 
-                // Khởi động bằng Device ID camera được chọn
+                // Khởi động camera: Ưu tiên tuyệt đối camera sau trên điện thoại (không dùng webcam máy tính hoặc camera trước)
                 let started = false;
-                if (targetCam && targetCam.id) {
+
+                // Nếu người dùng chủ động chọn một camera trong danh sách
+                if (activeCamIndex >= 0 && availableCameras[activeCamIndex]?.id) {
+                    const chosenCam = availableCameras[activeCamIndex];
                     try {
                         const camConfig = {
                             ...config,
                             videoConstraints: {
-                                deviceId: { exact: targetCam.id },
+                                deviceId: { exact: chosenCam.id },
                                 width: { min: 640, ideal: 1280, max: 1920 },
                                 height: { min: 480, ideal: 720, max: 1080 },
                             },
                         };
                         await qrScannerInstance.start(
-                            targetCam.id,
+                            chosenCam.id,
                             camConfig,
                             onScanSuccess,
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel(targetCam.label || 'Camera');
+                        setCurrentCamLabel(chosenCam.label || 'Camera sau');
                     } catch (exactErr) {
-                        if (import.meta.env.DEV) console.warn('Start camera by target ID failed, trying fallback:', exactErr);
+                        if (import.meta.env.DEV) console.warn('Start camera by chosen ID failed:', exactErr);
                     }
                 }
 
+                // Mặc định: Luôn bắt buộc mở camera sau của điện thoại qua facingMode environment
                 if (!started) {
                     try {
                         await qrScannerInstance.start(
@@ -438,29 +444,40 @@ export default function QRScannerModal({
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel('Camera');
+                        setCurrentCamLabel('Camera sau (Điện thoại)');
                     } catch (envErr) {
-                        if (import.meta.env.DEV) console.warn('Environment camera failed, trying user camera:', envErr);
-                        try {
-                            await qrScannerInstance.start(
-                                { facingMode: 'user' },
-                                config,
-                                onScanSuccess,
-                                onScanError
-                            );
-                            started = true;
-                            setCurrentCamLabel('Camera');
-                        } catch (userErr) {
-                            if (import.meta.env.DEV) console.warn('User camera failed, trying generic camera:', userErr);
-                            await qrScannerInstance.start(
-                                {},
-                                config,
-                                onScanSuccess,
-                                onScanError
-                            );
-                            started = true;
-                            setCurrentCamLabel('Camera');
+                        if (import.meta.env.DEV) console.warn('facingMode environment failed, checking best rear camera:', envErr);
+                        const backCam = selectBestBackCamera(availableCameras);
+                        if (backCam && backCam.id) {
+                            try {
+                                await qrScannerInstance.start(
+                                    backCam.id,
+                                    config,
+                                    onScanSuccess,
+                                    onScanError
+                                );
+                                started = true;
+                                setCurrentCamLabel(backCam.label || 'Camera');
+                            } catch (backErr) {
+                                if (import.meta.env.DEV) console.warn('Start best back camera failed:', backErr);
+                            }
                         }
+                    }
+                }
+
+                // Fallback chỉ khi thiết bị không hỗ trợ camera sau (ví dụ máy tính / laptop chỉ có webcam đơn)
+                if (!started) {
+                    try {
+                        await qrScannerInstance.start(
+                            {},
+                            config,
+                            onScanSuccess,
+                            onScanError
+                        );
+                        started = true;
+                        setCurrentCamLabel('Webcam máy tính');
+                    } catch (finalErr) {
+                        if (import.meta.env.DEV) console.warn('All camera start attempts failed:', finalErr);
                     }
                 }
 
@@ -752,6 +769,23 @@ export default function QRScannerModal({
             {currentCamLabel && (
                 <div className="zalo-cam-badge">
                     📷 {currentCamLabel}
+                </div>
+            )}
+
+            {/* Hướng dẫn khi mở trên máy tính: Khuyên GV dùng điện thoại để quét nét nhất */}
+            {!isMobileDevice && (
+                <div className="zalo-desktop-notice-banner" onClick={(e) => e.stopPropagation()}>
+                    <i className="fas fa-mobile-alt" style={{ fontSize: '1.1rem', color: '#38bdf8' }}></i>
+                    <span>
+                        <strong>Dùng điện thoại để quét:</strong> Thầy/Cô nên dùng điện thoại để quét bằng camera sau rõ nét nhất (webcam máy tính khó bắt nét thẻ).
+                    </span>
+                    <button
+                        type="button"
+                        className="zalo-desktop-manual-btn"
+                        onClick={() => setShowManualInput(true)}
+                    >
+                        Gõ mã số nhanh
+                    </button>
                 </div>
             )}
 

@@ -716,6 +716,48 @@
     white-space: nowrap;
 }
 
+/* Banner nhắc nhở dùng điện thoại khi mở trên máy tính */
+.zalo-desktop-notice-banner {
+    position: absolute;
+    top: max(72px, calc(env(safe-area-inset-top, 0px) + 68px));
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #e2e8f0;
+    padding: 7px 16px;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    z-index: 35;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    max-width: 90vw;
+}
+
+.zalo-desktop-notice-banner strong {
+    color: #38bdf8;
+}
+
+.zalo-desktop-manual-btn {
+    background: #0284c7;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.zalo-desktop-manual-btn:hover {
+    background: #0369a1;
+}
+
 .zalo-secondary-actions {
     display: flex;
     align-items: center;
@@ -792,7 +834,7 @@
     border-radius: 10px;
     padding: 10px 14px;
     color: #fff;
-    font-size: 0.95rem;
+    font-size: 16px !important; /* Bắt buộc 16px để iOS Safari không tự động phóng to màn hình */
     outline: none;
 }
 
@@ -830,4 +872,64 @@
     text-align: center;
     margin-top: 8px;
     animation: zaloFadeIn 0.3s ease;
+}
+
+/* ── Tối ưu máy quét QR trên điện thoại di động (iPhone / Android 360px - 430px) ── */
+@media (max-width: 480px) {
+    .zalo-top-bar {
+        padding: max(10px, env(safe-area-inset-top, 10px)) 12px 8px;
+    }
+    .zalo-btn-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+    .zalo-room-pill {
+        max-width: 140px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        font-size: 0.7rem;
+        padding: 2px 8px;
+    }
+    .zalo-header-title {
+        font-size: 0.88rem;
+    }
+    .zalo-guide-hint {
+        font-size: 0.78rem;
+        padding: 0 14px;
+        margin-top: 10px;
+    }
+    .zalo-secondary-actions {
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .zalo-action-chip-btn {
+        font-size: 0.76rem;
+        padding: 5px 10px;
+    }
+    .zalo-manual-input-panel {
+        bottom: 60px;
+        left: 10px;
+        right: 10px;
+        padding: 12px;
+    }
+    .zalo-confirm-overlay {
+        padding: 0;
+    }
+    .zalo-confirm-card {
+        border-radius: 20px 20px 0 0;
+        padding: 16px 14px;
+        width: 100%;
+        max-width: 100%;
+    }
+    .zalo-confirm-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .zalo-confirm-btn {
+        width: 100%;
+        height: 46px;
+        font-size: 0.95rem;
+    }
 }
