@@ -26,8 +26,21 @@ function RoleBadge({ role }) {
   return <span className={`badge ${r.badge}`}><i className={`fas ${r.icon}`}></i> {r.label}</span>;
 }
 
-function AvatarIcon({ name, active }) {
+function AvatarIcon({ name, active, avatarUrl }) {
+  const [imgError, setImgError] = useState(false);
   const initials = (name || '?').split(' ').map(w => w[0]).slice(-2).join('').toUpperCase();
+  if (avatarUrl && !imgError) {
+    return (
+      <div className={`tk-avatar ${active ? '' : 'tk-avatar-inactive'}`} style={{ overflow: 'hidden', padding: 0 }}>
+        <img
+          src={avatarUrl}
+          alt={name}
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
+        />
+      </div>
+    );
+  }
   return (
     <div className={`tk-avatar ${active ? '' : 'tk-avatar-inactive'}`}>
       {initials}
@@ -259,7 +272,7 @@ export default function TaiKhoan() {
           {filtered.map(u => (
             <div key={u.id} className={`tk-card ${!u.is_active ? 'tk-card-inactive' : ''}`}>
               <div className="tk-card-top">
-                <AvatarIcon name={u.fullname || u.username} active={u.is_active} />
+                <AvatarIcon name={u.fullname || u.username} active={u.is_active} avatarUrl={u.avatar_url} />
                 <div className="tk-card-meta">
                   <div className="tk-card-name">
                     {u.fullname || u.username}

@@ -87,29 +87,29 @@ function selectBestBackCamera(cameras) {
         const label = String(cam.label || '').toLowerCase();
         let score = 0;
 
-        // Ưu tiên camera sau
-        if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('sau')) {
-            score += 10;
+        // Ưu tiên camera sau (back / rear / environment / sau)
+        if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('sau') || label.includes('facing back')) {
+            score += 30;
         }
 
-        // Ưu tiên camera chính (main/0/primary)
-        if (label.includes('main') || label.includes('camera 0') || label.includes('chính')) {
-            score += 5;
+        // Ưu tiên camera chính (main / 0 / primary / camera 0 / chính)
+        if (label.includes('main') || label.includes('camera 0') || label.includes('chính') || label.includes('primary') || label.includes('1x')) {
+            score += 15;
         }
 
-        // Tránh camera góc siêu rộng (ultrawide, 0.5x, 0.6x)
+        // Tránh camera góc siêu rộng (wide, ultra, 0.5x, 0.6x)
         if (label.includes('wide') || label.includes('ultra') || label.includes('0.5') || label.includes('0.6')) {
-            score -= 15;
+            score -= 20;
         }
 
         // Tránh camera macro
         if (label.includes('macro')) {
-            score -= 15;
+            score -= 20;
         }
 
-        // Tránh camera trước (front, user, trước)
-        if (label.includes('front') || label.includes('user') || label.includes('trước') || label.includes('selfie')) {
-            score -= 30;
+        // Tránh tuyệt đối camera trước (front, user, trước, selfie)
+        if (label.includes('front') || label.includes('user') || label.includes('trước') || label.includes('selfie') || label.includes('facing front')) {
+            score -= 100;
         }
 
         if (score > highestScore) {
@@ -118,7 +118,7 @@ function selectBestBackCamera(cameras) {
         }
     });
 
-    return highestScore > 0 ? bestCam : cameras[0];
+    return highestScore > 0 ? bestCam : null;
 }
 
 export default function QRScannerModal({
@@ -147,9 +147,9 @@ export default function QRScannerModal({
     const [showIdleGuide, setShowIdleGuide] = useState(false);
     const [hasAutoFocus, setHasAutoFocus] = useState(true);
 
-    // Camera Selector States
+    // Camera Selector States (Mặc định -1 để luôn ưu tiên tự động chọn camera sau)
     const [cameras, setCameras] = useState([]);
-    const [activeCamIndex, setActiveCamIndex] = useState(0);
+    const [activeCamIndex, setActiveCamIndex] = useState(-1);
     const [currentCamLabel, setCurrentCamLabel] = useState('');
 
     // Quick Manual & File Input States
@@ -370,24 +370,26 @@ export default function QRScannerModal({
                     if (import.meta.env.DEV) console.debug('Camera enum fallback:', enumErr);
                 }
 
-                // Chọn camera mục tiêu: ưu tiên camera theo activeCamIndex hoặc camera sau chính
+                // Chọn camera mục tiêu: CỐ ĐỊNH ƯU TIÊN CAMERA SAU
                 let targetCam = null;
                 if (availableCameras.length > 0) {
                     if (activeCamIndex >= 0 && activeCamIndex < availableCameras.length) {
                         targetCam = availableCameras[activeCamIndex];
                     } else {
                         targetCam = selectBestBackCamera(availableCameras);
-                        const idx = availableCameras.findIndex(c => c.id === targetCam.id);
-                        if (idx >= 0) setActiveCamIndex(idx);
+                        if (targetCam) {
+                            const idx = availableCameras.findIndex(c => c.id === targetCam.id);
+                            if (idx >= 0) setActiveCamIndex(idx);
+                        }
                     }
                 }
 
-                // 2. Cấu hình máy quét: chỉ QR_CODE, fps vừa phải, vùng quét co giãn
+                // 2. Cấu hình máy quét: chỉ QR_CODE, fps 15, vùng quét 80%
                 const config = {
-                    fps: 12,
+                    fps: 15,
                     qrbox: (viewfinderWidth, viewfinderHeight) => {
                         const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                        const boxSize = Math.max(200, Math.floor(minEdge * 0.70));
+                        const boxSize = Math.max(220, Math.floor(minEdge * 0.80));
                         return { width: boxSize, height: boxSize };
                     },
                     disableFlip: false,
@@ -402,7 +404,7 @@ export default function QRScannerModal({
                     // Frame không có mã QR
                 };
 
-                // Khởi động bằng Device ID + videoConstraints độ phân giải cao
+                // Khởi động bằng Device ID + videoConstraints camera sau
                 let started = false;
                 if (targetCam && targetCam.id) {
                     try {
@@ -410,8 +412,9 @@ export default function QRScannerModal({
                             ...config,
                             videoConstraints: {
                                 deviceId: { exact: targetCam.id },
-                                width: { min: 640, ideal: 1920 },
-                                height: { min: 480, ideal: 1080 },
+                                facingMode: 'environment',
+                                width: { min: 640, ideal: 1280, max: 1920 },
+                                height: { min: 480, ideal: 720, max: 1080 },
                             },
                         };
                         await qrScannerInstance.start(
@@ -421,7 +424,7 @@ export default function QRScannerModal({
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel(targetCam.label || `Camera ${activeCamIndex + 1}`);
+                        setCurrentCamLabel(targetCam.label || 'Camera sau');
                     } catch (exactErr) {
                         if (import.meta.env.DEV) console.warn('Start camera by target ID failed, trying fallback:', exactErr);
                     }
@@ -431,9 +434,9 @@ export default function QRScannerModal({
                     const envConfig = {
                         ...config,
                         videoConstraints: {
-                            facingMode: 'environment',
-                            width: { min: 640, ideal: 1920 },
-                            height: { min: 480, ideal: 1080 },
+                            facingMode: { ideal: 'environment' },
+                            width: { min: 640, ideal: 1280, max: 1920 },
+                            height: { min: 480, ideal: 720, max: 1080 },
                         },
                     };
                     try {
@@ -518,16 +521,8 @@ export default function QRScannerModal({
                             max: caps.zoom.max || 2,
                             step: caps.zoom.step || 0.1,
                         });
-                        // Áp dụng zoom nhẹ (1.2x–1.5x) nếu hỗ trợ, giúp lấy nét mã QR nhỏ
-                        const gentleZoom = Math.min(1.5, caps.zoom.max || 1);
-                        if (gentleZoom > 1) {
-                            try {
-                                await qrScannerInstance.applyVideoConstraints({
-                                    advanced: [{ zoom: gentleZoom }],
-                                });
-                                setZoomLevel(gentleZoom);
-                            } catch { /* zoom không áp dụng được, bỏ qua */ }
-                        }
+                        // Giữ zoom mặc định 1.0x (không ép zoom quá mức để trường nhìn rộng tự nhiên)
+                        setZoomLevel(1);
                     } else {
                         setHasZoom(false);
                     }
@@ -788,7 +783,7 @@ export default function QRScannerModal({
                     </div>
 
                     <p className="zalo-guide-hint">
-                        Đưa mã QR vào giữa khung và giữ yên
+                        Giữ thẻ cách camera khoảng 15 – 20 cm để bắt nét chuẩn nhất
                     </p>
 
                     {/* Hướng dẫn lấy nét thủ công nếu camera không hỗ trợ autofocus */}

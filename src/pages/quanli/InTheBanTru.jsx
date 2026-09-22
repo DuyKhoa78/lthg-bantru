@@ -6,7 +6,6 @@ import './InTheBanTru.css';
 
 // Ảnh khung dán 3x4 tiêu chuẩn in ấn
 const pastePhotoAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 130'><rect width='100' height='130' fill='%23fafafa' stroke='%23cbd5e1' stroke-width='2' stroke-dasharray='4'/><text x='50' y='58' font-family='sans-serif' font-size='9' font-weight='bold' fill='%2394a3b8' text-anchor='middle'>ẢNH THẺ</text><text x='50' y='74' font-family='sans-serif' font-size='11' font-weight='900' fill='%2364748b' text-anchor='middle'>3 x 4 cm</text><text x='50' y='90' font-family='sans-serif' font-size='7' fill='%2394a3b8' text-anchor='middle'>(Dán tại đây)</text></svg>";
-const defaultStudentAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 130'><rect width='100' height='130' fill='%23f1f5f9'/><circle cx='50' cy='46' r='23' fill='%2394a3b8'/><path d='M15 125 C15 88, 32 78, 50 78 C68 78, 85 88, 85 125 Z' fill='%2364748b'/><polygon points='44,78 56,78 53,108 47,108' fill='%231e3a8a'/><polygon points='40,78 50,88 60,78 50,81' fill='%23ffffff'/><text x='50' y='126' font-family='sans-serif' font-size='7' font-weight='bold' fill='%2394a3b8' text-anchor='middle'>3x4</text></svg>";
 
 // Bảng 3 màu cố định theo khối: Khối 10 Đỏ, Khối 11 Teal, Khối 12 Xanh Navy
 const colorThemes = {
@@ -69,8 +68,9 @@ function CardFront({ student, namHoc }) {
   const qrText = `MSBT: ${cardId}`;
   // Cố định font rõ dấu (chuẩn hóa Unicode NFC tiếng Việt sắc nét 100%)
   const displayName = (student.name || '').normalize('NFC');
-  // Cố định khung dán ảnh 3x4
-  const avatarSrc = pastePhotoAvatar;
+  // Ảnh thẻ học sinh (nếu có ảnh đã nén thì load, nếu chưa có thì hiển thị khung dán ảnh 3x4 tiêu chuẩn)
+  const rawId = student.raw_id !== undefined ? student.raw_id : student.id;
+  const avatarSrc = student.avatar_url || (rawId ? `/uploads/avatars/${rawId}.jpg` : null) || pastePhotoAvatar;
   const nameFontSize = displayName.length > 26 ? '9.6px' : (displayName.length > 18 ? '10.2px' : '10.8px');
 
   const cardStyle = {
@@ -103,7 +103,15 @@ function CardFront({ student, namHoc }) {
       {/* THÔNG TIN CHI TIẾT */}
       <div className="card-h-content">
         <div className="avatar-frame">
-          <img src={avatarSrc} alt={displayName} onError={(e) => { e.target.src = defaultStudentAvatar; }} />
+          <img
+            src={avatarSrc}
+            alt={displayName}
+            onError={(e) => {
+              if (e.target.src !== pastePhotoAvatar) {
+                e.target.src = pastePhotoAvatar;
+              }
+            }}
+          />
         </div>
 
         <div className="info-column">
@@ -135,43 +143,7 @@ function CardFront({ student, namHoc }) {
   );
 }
 
-// MẶT SAU THẺ BÁN TRÚ: NỘI QUY
-function CardBack({ student }) {
-  const theme = getStudentTheme(student);
-  const cardStyle = {
-    '--primary-navy': theme.navy,
-    '--primary-blue': theme.blue,
-    '--gold-accent': theme.gold,
-    '--gold-text': theme.text,
-  };
 
-  return (
-    <div className="smart-id-card card-horizontal-view card-back-view" style={cardStyle}>
-      <div className="card-back-title" style={{ color: 'var(--primary-blue)' }}>
-        <i className="fas fa-shield-alt"></i> QUY ĐỊNH SỬ DỤNG THẺ BÁN TRÚ
-      </div>
-      <ol className="rules-list">
-        <li>Thẻ được cấp một lần cho học sinh tham gia bán trú tại Trường và có giá trị đến khi học sinh hoàn thành năm học.</li>
-        <li>Học sinh phải luôn đeo thẻ khi ở khu vực phòng ăn và phòng ngủ bán trú.</li>
-        <li>Học sinh phải bảo quản, giữ gìn thẻ trong suốt thời gian sử dụng.</li>
-        <li>Không cho mượn hoặc sử dụng thẻ của người khác.</li>
-        <li>Thẻ chỉ có giá trị sử dụng trong phạm vi hoạt động bán trú của nhà trường.</li>
-      </ol>
-    </div>
-  );
-}
-
-// Thuật toán đảo cột mặt sau cho in Duplex tự động lật cạnh dài
-function getDuplexBackOrder(chunk) {
-  const result = [];
-  for (let r = 0; r < 4; r++) {
-    const leftHs = chunk[r * 2] || null;
-    const rightHs = chunk[r * 2 + 1] || null;
-    result.push(rightHs); // Cột trái mặt sau = Cột phải mặt trước
-    result.push(leftHs);  // Cột phải mặt sau = Cột trái mặt trước
-  }
-  return result;
-}
 
 export default function InTheBanTru() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -187,7 +159,6 @@ export default function InTheBanTru() {
 
   // ── Bộ lọc In theo lớp ──
   const [selectedLop, setSelectedLop]     = useState(() => searchParams.get('lop') || '10A1');
-  const [printLayout, setPrintLayout]     = useState('duplex'); // 'duplex', 'batch', 'pair'
 
   // ── Bộ lọc In cá nhân ──
   const [selectedStudentId, setSelectedStudentId] = useState(() => searchParams.get('id') || searchParams.get('hs') || '');
@@ -348,30 +319,18 @@ export default function InTheBanTru() {
             </div>
 
             {/* Bố cục in A4 */}
+            {/* Kiểu in (Cố định 1 mặt chống lệch) */}
             <div className="in-the-group">
-              <span className="in-the-label"><i className="fas fa-print"></i> Bố Cục In A4:</span>
-              <div className="in-the-segment">
-                <button
-                  className={`in-the-segment-btn ${printLayout === 'duplex' ? 'active' : ''}`}
-                  onClick={() => setPrintLayout('duplex')}
-                  title="Tờ 1 Trước -> Tờ 1 Sau -> Tờ 2 Trước... Khớp 100% khi in đảo mặt"
-                >
-                  In 2 Mặt Duplex (Tự Động)
-                </button>
-                <button
-                  className={`in-the-segment-btn ${printLayout === 'batch' ? 'active' : ''}`}
-                  onClick={() => setPrintLayout('batch')}
-                  title="Hết tất cả Mặt Trước rồi lật xấp in Mặt Sau"
-                >
-                  In 1 Mặt (Lật Xấp)
-                </button>
-              </div>
+              <span className="in-the-label"><i className="fas fa-id-card"></i> Kiểu In:</span>
+              <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', fontWeight: 600, padding: '5px 12px', borderRadius: 6, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <i className="fas fa-check-circle" style={{ color: '#16a34a' }}></i> In 1 Mặt (Mặt trước)
+              </span>
             </div>
 
             {/* Chip tổng số lượng */}
             <div className="in-the-counter-chip">
               <i className="fas fa-id-card"></i>
-              <span>{classStudents.length} học sinh &bull; {sheetChunks.length} tờ A4 ({sheetChunks.length * 2} trang in)</span>
+              <span>{classStudents.length} học sinh &bull; {sheetChunks.length} tờ A4</span>
             </div>
 
             <button className="btn btn-primary" onClick={handlePrint} style={{ fontWeight: 700, gap: 6, marginLeft: 'auto' }}>
@@ -441,8 +400,17 @@ export default function InTheBanTru() {
             <div className="student-detail-summary">
               <div className="student-detail-left">
                 <img
-                  src={pastePhotoAvatar}
-                  alt="Khung dán 3x4"
+                  src={
+                    currentIndividualStudent.avatar_url ||
+                    (currentIndividualStudent.raw_id ? `/uploads/avatars/${currentIndividualStudent.raw_id}.jpg` : `/uploads/avatars/${currentIndividualStudent.id}.jpg`) ||
+                    pastePhotoAvatar
+                  }
+                  onError={(e) => {
+                    if (e.target.src !== pastePhotoAvatar) {
+                      e.target.src = pastePhotoAvatar;
+                    }
+                  }}
+                  alt={currentIndividualStudent.name || 'Ảnh học sinh'}
                   className="student-avatar-mini"
                 />
                 <div className="student-detail-meta">
@@ -485,106 +453,36 @@ export default function InTheBanTru() {
           <div className="print-guide-banner no-print" style={{ background: '#f0f9ff', border: '1.5px solid #0284c7', borderRadius: 8, padding: '12px 18px', margin: '0 0 20px', display: 'flex', gap: 14, alignItems: 'center' }}>
             <i className="fas fa-info-circle" style={{ color: '#0284c7', fontSize: '1.4rem' }}></i>
             <div style={{ fontSize: '0.88rem', color: '#0f172a', lineHeight: 1.5 }}>
-              <strong>LƯU Ý KHI IN THẺ:</strong> Kích thước thẻ đã khóa đúng chuẩn quốc tế <strong>85.60 mm x 53.98 mm</strong>.
-              Khi bấm In, chọn khổ giấy <strong>A4</strong>, Tỉ lệ (Scale): <strong>100%</strong> (Actual size), Lề: <strong>Không có (None)</strong>, In 2 mặt: <strong>Lật cạnh dài (Flip on long edge)</strong>.
+              <strong>LƯU Ý KHI IN THẺ:</strong> Hệ thống đã khóa chuẩn <strong>in 1 mặt (mặt trước)</strong> để tránh bị lệch khớp khi đảo mặt.
+              Khi bấm In, chọn khổ giấy <strong>A4</strong>, Tỉ lệ (Scale): <strong>100%</strong> (Actual size), Lề: <strong>Không có (None)</strong>, <strong>In 1 mặt</strong>.
             </div>
           </div>
 
-          {/* Dàn các tờ A4 */}
-          {printLayout === 'duplex' && (
-            sheetChunks.map((chunk, sheetIdx) => {
-              const sheetNum = sheetIdx + 1;
-              const totalSheets = sheetChunks.length;
-              const frontCells = [];
-              for (let i = 0; i < 8; i++) {
-                frontCells.push(chunk[i] || null);
-              }
-              const duplexOrder = getDuplexBackOrder(chunk);
+          {/* Dàn các tờ A4 (Chỉ in Mặt Trước) */}
+          {sheetChunks.map((chunk, sheetIdx) => {
+            const sheetNum = sheetIdx + 1;
+            const totalSheets = sheetChunks.length;
+            const frontCells = [];
+            for (let i = 0; i < 8; i++) {
+              frontCells.push(chunk[i] || null);
+            }
 
-              return (
-                <div key={`sheet_duplex_${sheetIdx}`}>
-                  {/* TỜ MẶT TRƯỚC */}
-                  <div className="a4-wrapper">
-                    <div className="a4-top-meta no-print">
-                      <div><strong>Trường THPT Lê Thị Hồng Gấm</strong> — Bảng In Thẻ Bán Trú [TỜ {sheetNum}/{totalSheets}: MẶT TRƯỚC]</div>
-                      <div>Khổ: <strong>A4</strong> | Thẻ: <strong>85.60 x 53.98mm</strong> | Mã: <strong>26xxx</strong></div>
-                    </div>
-                    <div className="a4-grid-h">
-                      {frontCells.map((hs, i) => (
-                        <div key={i} className="print-item-cell">
-                          {hs && <CardFront student={hs} namHoc={namHoc} />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* TỜ MẶT SAU (KHỚP DUPLEX) */}
-                  <div className="a4-wrapper">
-                    <div className="a4-top-meta no-print">
-                      <div><strong>Trường THPT Lê Thị Hồng Gấm</strong> — Bảng In Thẻ Bán Trú [TỜ {sheetNum}/{totalSheets}: MẶT SAU - NỘI QUY]</div>
-                      <div>Tự động đảo cột khớp 100% khi in 2 mặt (Duplex lật cạnh dài)</div>
-                    </div>
-                    <div className="a4-grid-h">
-                      {duplexOrder.map((hs, i) => (
-                        <div key={i} className="print-item-cell">
-                          {hs && <CardBack student={hs} />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            return (
+              <div key={`sheet_front_${sheetIdx}`} className="a4-wrapper">
+                <div className="a4-top-meta no-print">
+                  <div><strong>Trường THPT Lê Thị Hồng Gấm</strong> — Bảng In Thẻ Bán Trú [TỜ {sheetNum}/{totalSheets}: MẶT TRƯỚC]</div>
+                  <div>Khổ: <strong>A4</strong> | Thẻ: <strong>85.60 x 53.98mm</strong> | Chuẩn: <strong>In 1 mặt</strong></div>
                 </div>
-              );
-            })
-          )}
-
-          {printLayout === 'batch' && (
-            <>
-              {/* TẤT CẢ TỜ MẶT TRƯỚC */}
-              {sheetChunks.map((chunk, sheetIdx) => {
-                const sheetNum = sheetIdx + 1;
-                const totalSheets = sheetChunks.length;
-                const frontCells = [];
-                for (let i = 0; i < 8; i++) frontCells.push(chunk[i] || null);
-                return (
-                  <div key={`front_${sheetIdx}`} className="a4-wrapper">
-                    <div className="a4-top-meta no-print">
-                      <div><strong>Trường THPT Lê Thị Hồng Gấm</strong> — In Thẻ Bán Trú [MẶT TRƯỚC: TỜ {sheetNum}/{totalSheets}]</div>
-                      <div>Khổ: <strong>A4</strong> | Thẻ: <strong>85.60 x 53.98mm</strong></div>
+                <div className="a4-grid-h">
+                  {frontCells.map((hs, i) => (
+                    <div key={i} className="print-item-cell">
+                      {hs && <CardFront student={hs} namHoc={namHoc} />}
                     </div>
-                    <div className="a4-grid-h">
-                      {frontCells.map((hs, i) => (
-                        <div key={i} className="print-item-cell">
-                          {hs && <CardFront student={hs} namHoc={namHoc} />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* TẤT CẢ TỜ MẶT SAU */}
-              {sheetChunks.map((chunk, sheetIdx) => {
-                const sheetNum = sheetIdx + 1;
-                const totalSheets = sheetChunks.length;
-                const duplexOrder = getDuplexBackOrder(chunk);
-                return (
-                  <div key={`back_${sheetIdx}`} className="a4-wrapper">
-                    <div className="a4-top-meta no-print">
-                      <div><strong>Trường THPT Lê Thị Hồng Gấm</strong> — In Thẻ Bán Trú [MẶT SAU: TỜ {sheetNum}/{totalSheets}]</div>
-                      <div>Lật cả xấp giấy lại để in mặt sau tương ứng</div>
-                    </div>
-                    <div className="a4-grid-h">
-                      {duplexOrder.map((hs, i) => (
-                        <div key={i} className="print-item-cell">
-                          {hs && <CardBack student={hs} />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

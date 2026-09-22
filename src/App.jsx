@@ -16,7 +16,6 @@ import LichTruc     from './pages/nghiepvu/LichTruc';
 const LichTrucAdmin = lazy(() => import('./pages/nghiepvu/LichTrucAdmin'));
 const LichTrucKhung = lazy(() => import('./pages/nghiepvu/LichTrucKhung'));
 const DiemDanhGV    = lazy(() => import('./pages/nghiepvu/DiemDanhGV'));
-const GiamSatChot   = lazy(() => import('./pages/nghiepvu/GiamSatChot'));
 const BaoCao        = lazy(() => import('./pages/nghiepvu/BaoCao'));
 const BaoCaoTrucGV  = lazy(() => import('./pages/nghiepvu/BaoCaoTrucGV'));
 const GiaoVien      = lazy(() => import('./pages/quanli/GiaoVien'));
