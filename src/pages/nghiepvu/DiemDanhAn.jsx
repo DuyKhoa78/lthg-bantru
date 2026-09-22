@@ -498,7 +498,8 @@ export default function DiemDanhAn() {
                 setSearchTerm('');
             } else if (filteredStudents.length === 0 && otherRoomMatches.length > 0) {
                 const m = otherRoomMatches[0];
-                showAlert(`⚠️ CẢNH BÁO NHẦM PHÒNG: Học sinh ${m.ho_ten} (${m.lop}) thuộc phòng ${m.phong_an || 'khác'}, không thuộc phòng này!`, 'warning');
+                const r = m.phong_an ? (m.phong_an.toLowerCase().startsWith('phòng') ? m.phong_an : `Phòng Ăn ${m.phong_an}`) : 'phòng khác';
+                showAlert(`Học sinh ${m.ho_ten} (${m.lop}) thuộc ${r}`, 'info');
             }
         }
     };
@@ -1474,13 +1475,12 @@ ${htmlPages}
                             )}
                             {otherRoomMatches.length > 0 && (
                                 <div className="dd-wrong-room-warning-banner">
-                                    <div className="dd-wrong-room-warning-title">
-                                        <i className="fas fa-exclamation-triangle"></i>
-                                        <span>CẢNH BÁO NHẦM PHÒNG (Học sinh thuộc phòng khác)</span>
-                                    </div>
                                     <div className="dd-wrong-room-warning-list">
                                         {otherRoomMatches.map(m => {
                                             const actualRoom = m.phong_an || 'phòng khác';
+                                            const roomLabel = actualRoom.toLowerCase().startsWith('phòng')
+                                                ? actualRoom
+                                                : `Phòng Ăn ${actualRoom}`;
                                             return (
                                                 <div key={m.id} className="dd-wrong-room-warning-card">
                                                     <div className="dd-wrong-room-info">
@@ -1489,7 +1489,7 @@ ${htmlPages}
                                                             <b>MSBT: 26{String(m.id).padStart(3, '0')}</b> • Lớp: <b>{m.lop}</b>
                                                         </span>
                                                         <span className="dd-wrong-room-badge">
-                                                            ⚠️ Đúng phòng ăn: <strong>{actualRoom}</strong>
+                                                            {roomLabel}
                                                         </span>
                                                     </div>
                                                     {(!isGiaoVien || visiblePhongList.some(p => p.ma_phong === actualRoom)) && (

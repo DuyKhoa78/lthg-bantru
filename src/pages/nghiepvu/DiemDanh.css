@@ -488,19 +488,15 @@
 }
 .dd-wrong-room-badge {
   background: #fef3c7;
-  color: #92400e;
+  color: #b45309;
   border: 1px solid #fcd34d;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-.dd-wrong-room-badge strong {
-  color: #b45309;
-  font-weight: 800;
 }
 .dd-wrong-room-switch-btn {
   background: linear-gradient(135deg, #f59e0b, #d97706);
