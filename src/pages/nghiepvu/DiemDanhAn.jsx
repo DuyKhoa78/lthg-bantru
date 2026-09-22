@@ -350,6 +350,18 @@ export default function DiemDanhAn() {
 
     const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
+    // Thống kê nhanh sĩ số trong phòng hiện tại
+    const roomCounts = useMemo(() => {
+        let comat = 0, vang = 0, phep = 0, chua = 0;
+        students.forEach(s => {
+            if (s.trang_thai === 'comat') comat++;
+            else if (s.trang_thai === 'vang') vang++;
+            else if (s.trang_thai === 'phep') phep++;
+            else chua++;
+        });
+        return { comat, vang, phep, chua };
+    }, [students]);
+
     // Nhiệm vụ của GV trong phòng này
     const currentDuty = useMemo(() => {
         if (!isGiaoVien || !myAssignments || !selectedPhong) return 0;
@@ -557,7 +569,14 @@ export default function DiemDanhAn() {
     const setAll = (st) => {
         if (!canTeacherOperate) return;
         const o = {};
-        students.forEach(s => { o[s.id] = st; });
+        students.forEach(s => {
+            // Khi đánh dấu tất cả có mặt, giữ nguyên học sinh đã báo phép
+            if (st === 'comat' && s.trang_thai === 'phep') {
+                o[s.id] = 'phep';
+            } else {
+                o[s.id] = st;
+            }
+        });
         setOverrides(o);
         setSaved(false);
     };
@@ -1265,11 +1284,8 @@ ${htmlPages}
                                     <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ: <strong>11h00 – 14h00</strong>
                                 </span>
                             )}
-                            <button className="btn btn-ghost btn-sm" onClick={() => setAll('comat')} style={{ color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }} title="Đặt tất cả học sinh trong phòng là Có mặt">
-                                <i className="fas fa-check-double"></i> Tất cả Có mặt
-                            </button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setAll('vang')} style={{ color: '#dc2626', whiteSpace: 'nowrap' }} title="Đặt tất cả học sinh trong phòng là Vắng">
-                                <i className="fas fa-times"></i> Tất cả Vắng
+                            <button className="btn btn-ghost btn-sm" onClick={() => setAll('comat')} style={{ color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }} title="Đặt tất cả học sinh trong phòng là Có mặt (giữ nguyên học sinh có phép)">
+                                <i className="fas fa-check-double"></i> Tất cả đều có mặt
                             </button>
                             {isDaChot && (
                                 <span className="dd-chot-status-badge">
@@ -1543,6 +1559,29 @@ ${htmlPages}
                                     <button
                                         type="button"
                                         className="btn btn-outline"
+                                        onClick={() => setAll('comat')}
+                                        disabled={!canTeacherOperate}
+                                        style={{
+                                            fontWeight: 700,
+                                            padding: '7px 14px',
+                                            borderRadius: 8,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            borderColor: '#86efac',
+                                            color: '#166534',
+                                            background: '#f0fdf4',
+                                            cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                            opacity: !canTeacherOperate ? 0.6 : 1
+                                        }}
+                                        title="Đánh dấu tất cả học sinh trong phòng có mặt (vẫn giữ học sinh có phép)"
+                                    >
+                                        <i className="fas fa-check-double"></i> Tất cả đều có mặt
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline"
                                         style={{
                                             fontWeight: 600,
                                             padding: '7px 16px',
@@ -1596,6 +1635,107 @@ ${htmlPages}
                                             {currentPhongStatus?.thoi_gian ? ` (${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
                                         </span>
                                     )}
+                                </div>
+                            )}
+
+                            {/* ── THANH CÔNG CỤ DÀNH CHO ADMIN & HỌC VỤ (TẤT CẢ ĐỀU CÓ MẶT, LƯU, CHỐT) ── */}
+                            {selectedPhong && !isGiaoVien && (
+                                <div className="dd-admin-actions-bar" style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 12,
+                                    background: '#f8fafc',
+                                    border: '1.5px solid #e2e8f0',
+                                    borderRadius: 12,
+                                    padding: '10px 16px',
+                                    marginBottom: 16
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-success"
+                                            onClick={() => setAll('comat')}
+                                            style={{
+                                                background: 'linear-gradient(135deg, #16a34a, #15803d)',
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                padding: '8px 18px',
+                                                borderRadius: 8,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 7,
+                                                border: 'none',
+                                                boxShadow: '0 3px 10px rgba(22, 163, 74, 0.25)',
+                                                cursor: 'pointer',
+                                                fontSize: '0.92rem'
+                                            }}
+                                            title={`Đánh dấu tất cả ${students.length} học sinh trong phòng ${selectedPhong.ma_phong} có mặt (vẫn giữ nguyên học sinh có phép)`}
+                                        >
+                                            <i className="fas fa-check-double"></i>
+                                            Tất cả đều có mặt
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{
+                                                fontWeight: 600,
+                                                padding: '8px 16px',
+                                                borderRadius: 8,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                borderColor: '#60a5fa',
+                                                color: '#1d4ed8',
+                                                background: '#eff6ff',
+                                                cursor: saving ? 'not-allowed' : 'pointer'
+                                            }}
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            title="Lưu dữ liệu điểm danh phòng này"
+                                        >
+                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                            {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            onClick={handleChotPhong}
+                                            disabled={chotting}
+                                            style={{
+                                                background: isDaChot ? '#059669' : 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                                                borderColor: isDaChot ? '#047857' : '#1d4ed8',
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                padding: '8px 16px',
+                                                borderRadius: 8,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                boxShadow: isDaChot ? '0 2px 6px rgba(5, 150, 105, 0.25)' : '0 2px 6px rgba(37, 99, 235, 0.25)'
+                                            }}
+                                            title="Chốt danh sách phòng này lên hệ thống"
+                                        >
+                                            {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${isDaChot ? 'fa-check-double' : 'fa-paper-plane'}`}></i>}
+                                            {chotting ? ' Đang chốt...' : isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem', fontWeight: 600 }}>
+                                        {isDaChot && (
+                                            <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                                <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
+                                                ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                            </span>
+                                        )}
+                                        <span style={{ color: '#16a34a' }}><i className="fas fa-check"></i> {roomCounts.comat} Có mặt</span>
+                                        <span style={{ color: '#dc2626' }}><i className="fas fa-times"></i> {roomCounts.vang} Vắng</span>
+                                        <span style={{ color: '#d97706' }}><i className="fas fa-file-alt"></i> {roomCounts.phep} Phép</span>
+                                        {roomCounts.chua > 0 && <span style={{ color: '#64748b' }}>• {roomCounts.chua} Chưa điểm</span>}
+                                    </div>
                                 </div>
                             )}
                             {otherRoomMatches.length > 0 && (
