@@ -271,7 +271,7 @@ export default function GiamSatChot() {
                         }}
                         onClick={() => setChotLoai('0')}
                     >
-                        <i className="fas fa-utensils"></i> Trực Ăn (10:55 – 11:35)
+                        <i className="fas fa-utensils"></i> Trực Ăn (10:55 – 11:30)
                     </button>
                     <button
                         type="button"

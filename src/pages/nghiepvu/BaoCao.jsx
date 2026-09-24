@@ -1565,8 +1565,6 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
             gvData.forEach((g, i) => {
                 let note = '';
                 if (g.is_ngoai) note += ' (Ngoài DS)';
-                if (g.so_ca_truc_thay > 0) note += ` (+${g.so_ca_truc_thay} ca trực thay)`;
-                if (g.so_ca_bi_thay > 0) note += ` (-${g.so_ca_bi_thay} ca được trực thay)`;
                 tbody += `<tr>
           <td class="tc">${i + 1}</td>
           <td class="tl">${g.ho_ten}${note ? ` <span style="font-size:8pt;font-style:italic;color:#c2410c;">${note}</span>` : ''}</td>
@@ -1627,9 +1625,6 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         </thead>
         <tbody>${tbody}</tbody>
       </table>
-      <div style="font-size:9.5pt; font-style:italic; margin-top:4px; text-align: left;">
-        * Đơn giá: Ca ăn ${giaAn.toLocaleString('vi-VN')}đ/ca &nbsp;|&nbsp; Ca ngủ ${giaNgu.toLocaleString('vi-VN')}đ/ca
-      </div>
       <div class="ft-wrap-an">
         <div class="ft-left-an">
           <div style="height: 18px;"></div>
@@ -2710,19 +2705,38 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         <input type="month" value={monthHS} onChange={e => setMonthHS(e.target.value)} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit' }} />
                         <button className="btn btn-outline btn-sm" onClick={() => setMonthHS(today.slice(0, 7))}>Tháng này</button>
                         {canExportHS && (
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button className="btn btn-primary btn-sm" style={{ background: '#ea580c', borderColor: '#ea580c', fontWeight: 600 }} onClick={() => openSuatAnModal()}>
-                                <i className="fas fa-utensils"></i> Báo cáo Suất ăn NCC
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#ea580c', borderColor: '#ea580c', fontWeight: 600, fontSize: '0.82rem', padding: '6px 11px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 2px rgba(234,88,12,0.15)' }}
+                                onClick={() => openSuatAnModal()}
+                                title="Báo cáo Suất ăn Nhà cung cấp"
+                            >
+                                <i className="fas fa-utensils"></i> Suất ăn NCC
                             </button>
-                            <button className="btn btn-primary btn-sm" style={{ background: '#e11d48', borderColor: '#e11d48', fontWeight: 600 }} onClick={() => openHsVangModal('all')}>
-                                <i className="fas fa-user-times"></i> In HS vắng / phép theo ngày
+                            <button
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#e11d48', borderColor: '#e11d48', fontWeight: 600, fontSize: '0.82rem', padding: '6px 11px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 2px rgba(225,29,72,0.15)' }}
+                                onClick={() => openHsVangModal('all')}
+                                title="In danh sách học sinh vắng / phép theo ngày"
+                            >
+                                <i className="fas fa-user-times"></i> HS Vắng / Phép
                             </button>
-                            <button className="btn btn-primary btn-sm" style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 600 }} onClick={openTongHopLopModal}>
+                            <button
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 600, fontSize: '0.82rem', padding: '6px 11px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 2px rgba(16,185,129,0.15)' }}
+                                onClick={openTongHopLopModal}
+                                title="Xuất bảng tổng hợp chuyên cần & thu tiền theo lớp"
+                            >
                                 <i className="fas fa-table"></i> Tổng hợp theo Lớp
                             </button>
                             <div className="bc-dropdown">
-                                <button className="btn btn-primary btn-sm" style={{ background: '#0ea5e9', borderColor: '#0ea5e9', fontWeight: 600 }}>
-                                    <i className="fas fa-utensils"></i> Báo cáo Điểm danh Ăn <i className="fas fa-chevron-down" style={{ marginLeft: 4 }}></i>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    style={{ background: '#0ea5e9', borderColor: '#0ea5e9', fontWeight: 600, fontSize: '0.82rem', padding: '6px 11px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, boxShadow: '0 1px 2px rgba(14,165,233,0.15)' }}
+                                    title="Menu báo cáo & in ấn Điểm danh Ăn"
+                                >
+                                    <i className="fas fa-utensils"></i> Điểm danh Ăn <i className="fas fa-chevron-down" style={{ fontSize: '0.7rem', marginLeft: 2, opacity: 0.85 }}></i>
                                 </button>
                                 <div className="bc-dropdown-content">
                                     <button onClick={() => openSuatAnModal()}><i className="fas fa-truck-loading" style={{ color: '#ea580c' }}></i> Báo cáo suất ăn NCC (tháng)</button>
@@ -2732,8 +2746,12 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 </div>
                             </div>
                             <div className="bc-dropdown">
-                                <button className="btn btn-primary btn-sm" style={{ background: '#6366f1', borderColor: '#6366f1', fontWeight: 600 }}>
-                                    <i className="fas fa-bed"></i> Báo cáo Điểm danh Ngủ <i className="fas fa-chevron-down" style={{ marginLeft: 4 }}></i>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    style={{ background: '#6366f1', borderColor: '#6366f1', fontWeight: 600, fontSize: '0.82rem', padding: '6px 11px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, boxShadow: '0 1px 2px rgba(99,102,241,0.15)' }}
+                                    title="Menu báo cáo & in ấn Điểm danh Ngủ"
+                                >
+                                    <i className="fas fa-bed"></i> Điểm danh Ngủ <i className="fas fa-chevron-down" style={{ fontSize: '0.7rem', marginLeft: 2, opacity: 0.85 }}></i>
                                 </button>
                                 <div className="bc-dropdown-content">
                                     <button onClick={openExportNguModal}><i className="fas fa-file-pdf" style={{ color: '#6366f1' }}></i> In DS chính thức</button>
@@ -3269,23 +3287,25 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             {/* ── MODAL TỔNG HỢP THEO LỚP ── */}
             {showTongHopLopModal && (
                 <div className="export-modal-overlay">
-                    <div className="export-modal" style={{ maxWidth: 560 }}>
-                        <div className="export-modal-header" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }}>
-                            <div className="icon"><i className="fas fa-table"></i></div>
+                    <div className="export-modal" style={{ maxWidth: 680, width: '95%', borderRadius: 16, overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+                        <div className="export-modal-header" style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', padding: '16px 22px', borderBottom: 'none' }}>
+                            <div className="icon" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', backdropFilter: 'blur(4px)' }}>
+                                <i className="fas fa-file-invoice-dollar"></i>
+                            </div>
                             <div>
-                                <h3>Tổng hợp chuyên cần &amp; thu tiền theo Lớp</h3>
-                                <p>Xuất bảng tổng hợp ăn/ngủ thực tế, vắng, phép từng HS theo lớp</p>
+                                <h3 style={{ color: '#fff', fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>Tổng hợp chuyên cần &amp; thu tiền theo Lớp</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.82rem', margin: '3px 0 0 0' }}>Xuất bảng tổng hợp ăn/ngủ thực tế, vắng, phép từng học sinh theo lớp</p>
                             </div>
                         </div>
-                        <div className="export-modal-body">
-                            {/* BỘ CHUYỂN ĐỔI CHẾ ĐỘ: CHU KỲ 4 TUẦN (1 LẦN THANH TOÁN) vs THEO THÁNG */}
-                            <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10, marginBottom: 16 }}>
+                        <div className="export-modal-body" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '80vh', overflowY: 'auto' }}>
+                            {/* BỘ CHUYỂN ĐỔI CHẾ ĐỘ: CHU KỲ 4 TUẦN vs THEO THÁNG */}
+                            <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10, border: '1px solid #e2e8f0' }}>
                                 <button
                                     type="button"
                                     onClick={() => handleThLopCheDoChange('dot')}
                                     style={{
                                         flex: 1,
-                                        padding: '8px 12px',
+                                        padding: '9px 14px',
                                         borderRadius: 8,
                                         border: 'none',
                                         fontSize: '0.88rem',
@@ -3298,7 +3318,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         gap: 6,
-                                        boxShadow: thLopCheDo === 'dot' ? '0 2px 4px rgba(16,185,129,0.25)' : 'none'
+                                        boxShadow: thLopCheDo === 'dot' ? '0 2px 6px rgba(16,185,129,0.3)' : 'none'
                                     }}
                                 >
                                     <i className="fas fa-sync-alt"></i> Chu kỳ 4 tuần (Thanh toán 1 lần)
@@ -3308,7 +3328,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     onClick={() => handleThLopCheDoChange('thang')}
                                     style={{
                                         flex: 1,
-                                        padding: '8px 12px',
+                                        padding: '9px 14px',
                                         borderRadius: 8,
                                         border: 'none',
                                         fontSize: '0.88rem',
@@ -3321,19 +3341,20 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         gap: 6,
-                                        boxShadow: thLopCheDo === 'thang' ? '0 2px 4px rgba(16,185,129,0.25)' : 'none'
+                                        boxShadow: thLopCheDo === 'thang' ? '0 2px 6px rgba(16,185,129,0.3)' : 'none'
                                     }}
                                 >
                                     <i className="fas fa-calendar-alt"></i> Theo Tháng dương lịch
                                 </button>
                             </div>
 
-                            {/* CHỌN ĐỢT HOẶC CHỌN THÁNG */}
-                            <div className="export-modal-group" style={{ display: 'flex', gap: 16 }}>
+                            {/* CHỌN ĐỢT HOẶC CHỌN THÁNG + CHỌN LỚP */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 14, alignItems: 'flex-start' }}>
                                 {thLopCheDo === 'dot' ? (
-                                    <div style={{ flex: 1 }}>
-                                        <div className="export-modal-section-title">
-                                            <i className="fas fa-clock" style={{ color: '#10b981' }}></i> CHỌN ĐỢT THANH TOÁN (4 TUẦN)
+                                    <div>
+                                        <div className="export-modal-section-title" style={{ marginBottom: 6, fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <i className="fas fa-clock" style={{ color: '#10b981' }}></i> CHỌN ĐỢT THANH TOÁN
+                                            <span style={{ fontSize: '0.7rem', color: '#059669', background: '#ecfdf5', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>4 tuần/đợt</span>
                                         </div>
                                         <select
                                             value={thLopDotSelected}
@@ -3342,12 +3363,15 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                                 width: '100%',
                                                 padding: '9px 12px',
                                                 borderRadius: 8,
-                                                border: '2px solid #10b981',
+                                                border: '1.5px solid #10b981',
                                                 fontFamily: 'inherit',
-                                                fontSize: '0.92rem',
+                                                fontSize: '0.9rem',
                                                 fontWeight: 600,
                                                 background: '#fff',
-                                                color: '#065f46'
+                                                color: '#065f46',
+                                                outline: 'none',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 1px 2px rgba(16,185,129,0.08)'
                                             }}
                                         >
                                             {DOT_THANH_TOAN_CONFIG.map(d => (
@@ -3358,74 +3382,76 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         </select>
                                     </div>
                                 ) : (
-                                    <div style={{ flex: 1 }}>
-                                        <div className="export-modal-section-title">
+                                    <div>
+                                        <div className="export-modal-section-title" style={{ marginBottom: 6, fontSize: '0.78rem' }}>
                                             <i className="fas fa-calendar-alt" style={{ color: '#10b981' }}></i> CHỌN THÁNG DƯƠNG LỊCH
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <input
-                                                type="month"
-                                                value={thLopMonth}
-                                                onChange={e => handleThLopMonthChange(e.target.value)}
-                                                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '1rem' }}
-                                            />
-                                        </div>
+                                        <input
+                                            type="month"
+                                            value={thLopMonth}
+                                            onChange={e => handleThLopMonthChange(e.target.value)}
+                                            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
+                                        />
                                     </div>
                                 )}
 
-                                <div style={{ flex: 1 }}>
-                                    <div className="export-modal-section-title">
-                                        <i className="fas fa-chalkboard" style={{ color: '#10b981' }}></i> CHỌN LỚP
+                                <div>
+                                    <div className="export-modal-section-title" style={{ marginBottom: 6, fontSize: '0.78rem' }}>
+                                        <i className="fas fa-chalkboard-teacher" style={{ color: '#10b981' }}></i> CHỌN LỚP
                                     </div>
                                     <select
                                         value={thLopSelected}
                                         onChange={e => setThLopSelected(e.target.value)}
                                         disabled={!thLopData || loadingThLop}
-                                        style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit', fontSize: '0.95rem', background: !thLopData ? '#f8fafc' : '#fff' }}
+                                        style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.92rem', fontWeight: 600, background: !thLopData ? '#f8fafc' : '#fff', color: '#1e293b', outline: 'none', cursor: 'pointer' }}
                                     >
                                         <option value="">-- Tất cả các lớp --</option>
-                                        {thLopData && [...new Set(thLopData.data.map(h => h.lop))].sort().map(l => <option key={l} value={l}>{l}</option>)}
+                                        {thLopData && [...new Set(thLopData.data.map(h => h.lop))].sort().map(l => <option key={l} value={l}>Lớp {l}</option>)}
                                     </select>
                                 </div>
                             </div>
 
                             {/* THÔNG TIN CHU KỲ 4 TUẦN */}
                             {thLopCheDo === 'dot' && (
-                                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '8px 12px', marginTop: 10, fontSize: '0.82rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <i className="fas fa-check-circle" style={{ fontSize: '1rem', color: '#059669', flexShrink: 0 }}></i>
-                                    <span>
-                                        <strong>Đợt {thLopDotSelected}:</strong> Chu kỳ thanh toán 4 tuần từ <strong>{formatDateDMY(thLopTuNgay)}</strong> đến <strong>{formatDateDMY(thLopDenNgay)}</strong> (thanh toán 1 lần theo chu kỳ 4 tuần).
-                                    </span>
+                                <div style={{ background: 'linear-gradient(135deg, #ecfdf5, #f0fdf4)', border: '1px solid #a7f3d0', borderRadius: 10, padding: '10px 14px', fontSize: '0.84rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 1px 2px rgba(16,185,129,0.05)' }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <i className="fas fa-check" style={{ fontSize: '0.8rem', color: '#059669' }}></i>
+                                    </div>
+                                    <div style={{ lineHeight: 1.45 }}>
+                                        <strong style={{ color: '#047857' }}>Đợt {thLopDotSelected}:</strong> Chu kỳ thanh toán 4 tuần từ <strong style={{ color: '#0f172a' }}>{formatDateDMY(thLopTuNgay)}</strong> đến <strong style={{ color: '#0f172a' }}>{formatDateDMY(thLopDenNgay)}</strong> <span style={{ color: '#64748b' }}>(thanh toán 1 lần trọn vẹn theo chu kỳ 4 tuần).</span>
+                                    </div>
                                 </div>
                             )}
 
                             {/* KHOẢNG NGÀY THỰC TẾ */}
-                            <div className="export-modal-group" style={{ marginTop: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <div className="export-modal-section-title" style={{ margin: 0, fontSize: '0.8rem' }}>
+                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <i className="fas fa-calendar-week" style={{ color: '#0ea5e9' }}></i> KHOẢNG NGÀY TÍNH TOÁN CỤ THỂ
                                     </div>
-                                    <div style={{ display: 'flex', gap: 6 }}>
+                                    <div style={{ display: 'flex', gap: 8 }}>
                                         <button
                                             type="button"
                                             onClick={handleAdd4Weeks}
                                             title="Tự động tính đến ngày thứ Sáu sau đúng 4 tuần"
-                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: 5, border: '1px solid #0ea5e9', background: '#f0f9ff', color: '#0284c7', cursor: 'pointer', fontWeight: 600 }}
+                                            style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, border: '1px solid #bae6fd', background: '#f0f9ff', color: '#0284c7', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s ease' }}
                                         >
-                                            <i className="fas fa-plus"></i> Tròn 4 tuần (20 ngày)
+                                            <i className="fas fa-plus-circle"></i> Tròn 4 tuần (20 ngày)
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => handleApplyThLopPreset('month')}
-                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: 5, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 500 }}
+                                            style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s ease' }}
                                         >
                                             Tròn tháng
                                         </button>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: 2 }}>Từ ngày:</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
+                                            <i className="fas fa-play" style={{ fontSize: '0.65rem', color: '#0ea5e9', marginRight: 4 }}></i>Từ ngày:
+                                        </label>
                                         <input
                                             type="date"
                                             value={thLopTuNgay}
@@ -3433,12 +3459,16 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                                 setThLopTuNgay(e.target.value);
                                                 fetchThLop(thLopMonth, undefined, e.target.value, thLopDenNgay);
                                             }}
-                                            style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.92rem', fontWeight: 600, color: '#1e293b', background: '#fff', outline: 'none' }}
                                         />
                                     </div>
-                                    <span style={{ color: '#94a3b8', marginTop: 16 }}>→</span>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: 2 }}>Đến ngày:</label>
+                                    <div style={{ paddingTop: 18, color: '#94a3b8', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                        →
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
+                                            <i className="fas fa-flag-checkered" style={{ fontSize: '0.65rem', color: '#10b981', marginRight: 4 }}></i>Đến ngày:
+                                        </label>
                                         <input
                                             type="date"
                                             value={thLopDenNgay}
@@ -3446,63 +3476,66 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                                 setThLopDenNgay(e.target.value);
                                                 fetchThLop(thLopMonth, undefined, thLopTuNgay, e.target.value);
                                             }}
-                                            style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.92rem', fontWeight: 600, color: '#1e293b', background: '#fff', outline: 'none' }}
                                         />
                                     </div>
                                 </div>
                             </div>
-                            {/* THÔNG TIN TIỀN ĂN (LẤY TỪ THIẾT LẬP) & CÔNG THỨC THANH TOÁN */}
-                            <div className="export-modal-group" style={{ marginTop: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px' }}>
+
+                            {/* THÔNG TIN TIỀN ĂN (LẤY TỪ THIẾT LẬP) */}
+                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 16px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.78rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <i className="fas fa-utensils" style={{ color: '#10b981' }}></i> Tiền ăn Học sinh (Từ Thiết lập)
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
-                                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#047857' }}>
-                                                {(thLopDonGiaAn || 38000).toLocaleString('vi-VN')}
-                                            </span>
-                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>VNĐ/ngày</span>
-                                            <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: 4, border: '1px solid #a7f3d0' }}>
-                                                <i className="fas fa-check"></i> Cố định từ Thiết lập
-                                            </span>
-                                        </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <i className="fas fa-utensils" style={{ color: '#10b981' }}></i> Tiền ăn Học sinh (Từ Thiết lập)
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '0.78rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
-                                            <i className="fas fa-calculator" style={{ color: '#0284c7' }}></i> Công thức thanh toán:
-                                        </div>
-                                        <div style={{ marginTop: 4 }}>
-                                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0369a1', background: '#e0f2fe', padding: '4px 10px', borderRadius: 6, border: '1px solid #bae6fd', display: 'inline-block' }}>
-                                                Thành tiền = (Tổng số buổi − Phép) × Tiền ăn
-                                            </span>
-                                        </div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#047857' }}>
+                                            {(thLopDonGiaAn || 38000).toLocaleString('vi-VN')}
+                                        </span>
+                                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>đ/ngày</span>
+                                        <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: 20, border: '1px solid #a7f3d0', fontWeight: 600 }}>
+                                            <i className="fas fa-check-circle" style={{ marginRight: 3 }}></i> Cố định từ Thiết lập
+                                        </span>
                                     </div>
                                 </div>
                             </div>
+
                             {thLopData && (
-                                <div className="export-modal-group" style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginTop: 12 }}>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Buổi ăn:</span> <strong style={{ color: '#0ea5e9' }}>{thLopData.tong_buoi_an}</strong></div>
-                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Buổi ngủ:</span> <strong style={{ color: '#6366f1' }}>{thLopData.tong_buoi_ngu}</strong></div>
-                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Đơn giá ăn:</span> <strong style={{ color: '#f59e0b' }}>{(thLopDonGiaAn || 0).toLocaleString('vi-VN')}đ</strong></div>
-                                        <div><span style={{ color: '#64748b', fontSize: '.8rem' }}>Tổng HS:</span> <strong>{thLopData.data?.length || 0}</strong></div>
+                                <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid #bbf7d0', borderRadius: 12, padding: '12px 16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, textAlign: 'center' }}>
+                                        <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Buổi ăn</div>
+                                            <div style={{ color: '#0ea5e9', fontSize: '1.1rem', fontWeight: 800 }}>{thLopData.tong_buoi_an}</div>
+                                        </div>
+                                        <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Buổi ngủ</div>
+                                            <div style={{ color: '#6366f1', fontSize: '1.1rem', fontWeight: 800 }}>{thLopData.tong_buoi_ngu}</div>
+                                        </div>
+                                        <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Đơn giá ăn</div>
+                                            <div style={{ color: '#f59e0b', fontSize: '1.1rem', fontWeight: 800 }}>{(thLopDonGiaAn || 0).toLocaleString('vi-VN')}đ</div>
+                                        </div>
+                                        <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Tổng HS</div>
+                                            <div style={{ color: '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>{thLopData.data?.length || 0}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ marginTop: 8, fontSize: '.8rem', color: '#059669' }}>
-                                        <i className="fas fa-check-circle"></i> Dữ liệu sẵn sàng — chuẩn bị xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data || []).map(h => h.lop))].length} lớp`} (Mẫu 13 cột chuẩn)
+                                    <div style={{ marginTop: 8, fontSize: '0.8rem', color: '#059669', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                                        <i className="fas fa-check-circle" style={{ color: '#10b981' }}></i> Dữ liệu sẵn sàng — chuẩn bị xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data || []).map(h => h.lop))].length} lớp`} (Mẫu 13 cột chuẩn)
                                     </div>
                                 </div>
                             )}
-                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 8 }}>
+
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <i className="fas fa-info-circle" style={{ color: '#10b981' }}></i> Mẫu xuất theo chuẩn thống kê 13 cột (STT, Lớp, Mã BT, Họ tên ABC, Ngủ bán trú 4 cột, Ăn bán trú 5 cột kèm Thành tiền).
                             </div>
                         </div>
-                        <div className="export-modal-footer">
-                            <button className="btn btn-outline" onClick={() => setShowTongHopLopModal(false)}>Hủy</button>
-                            <button className="btn btn-success" onClick={exportThLopExcel} disabled={!thLopData || loadingThLop} style={{ background: '#10b981', borderColor: '#10b981' }}>
+                        <div className="export-modal-footer" style={{ padding: '14px 22px', background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                            <button className="btn btn-outline" onClick={() => setShowTongHopLopModal(false)} style={{ borderRadius: 8, height: 40, padding: '0 18px', fontWeight: 600 }}>Hủy</button>
+                            <button className="btn btn-success" onClick={exportThLopExcel} disabled={!thLopData || loadingThLop} style={{ background: '#10b981', borderColor: '#10b981', borderRadius: 8, height: 40, padding: '0 20px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                 <i className="fas fa-file-excel"></i> Xuất Excel
                             </button>
-                            <button className="btn btn-primary" onClick={() => { exportThLopPDF(); }} disabled={!thLopData || loadingThLop} style={{ background: '#ef4444', borderColor: '#ef4444' }}>
+                            <button className="btn btn-primary" onClick={() => { exportThLopPDF(); }} disabled={!thLopData || loadingThLop} style={{ background: '#ef4444', borderColor: '#ef4444', borderRadius: 8, height: 40, padding: '0 20px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                 <i className="fas fa-file-pdf"></i> Xuất PDF
                             </button>
                         </div>

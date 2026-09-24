@@ -49,15 +49,44 @@ export default function GvDashboard() {
         <div className="gv-dashboard-container">
             {/* Header Greeting Banner */}
             <div className="gv-welcome-banner">
-                <div className="gv-welcome-text">
-                    <span className="gv-badge-role">CỔNG GIÁO VIÊN BÁN TRÚ</span>
-                    <h2>Kính chào Thầy/Cô {user?.fullname || user?.username}!</h2>
-                    <p className="gv-current-date">
-                        📅 {formatVNDate(currentTime)} • ⏰ <span className="gv-clock-live">{formatVNTime(currentTime)}</span>
-                    </p>
-                </div>
-                <div className="gv-welcome-icon">
-                    <i className="fas fa-clipboard-check"></i>
+                <div className="gv-welcome-bg-glow-1"></div>
+                <div className="gv-welcome-bg-glow-2"></div>
+                <div className="gv-welcome-content">
+                    <div className="gv-welcome-text">
+                        <div className="gv-badge-role">
+                            <i className="fas fa-graduation-cap"></i>
+                            <span>CỔNG GIÁO VIÊN BÁN TRÚ</span>
+                            <span className="gv-badge-divider">•</span>
+                            <span className="gv-badge-school">THPT LÊ THỊ HỒNG GẤM</span>
+                        </div>
+                        <h2>
+                            Kính chào Thầy/Cô <span className="gv-user-name">{user?.fullname || user?.username}</span>!
+                        </h2>
+                        <div className="gv-meta-row">
+                            <div className="gv-meta-chip">
+                                <i className="fas fa-calendar-alt"></i>
+                                <span>{formatVNDate(currentTime)}</span>
+                            </div>
+                            <div className="gv-meta-chip gv-meta-clock">
+                                <span className="gv-pulse-live"></span>
+                                <i className="fas fa-clock"></i>
+                                <span className="gv-clock-live">{formatVNTime(currentTime)}</span>
+                            </div>
+                            {dutyData?.assignments?.length > 0 && (
+                                <div className="gv-meta-chip gv-meta-duty">
+                                    <i className="fas fa-tasks"></i>
+                                    <span>Hôm nay có <strong>{dutyData.assignments.length}</strong> ca trực</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="gv-welcome-visual">
+                        <div className="gv-welcome-avatar-ring">
+                            <div className="gv-welcome-icon-inner">
+                                <i className="fas fa-chalkboard-teacher"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -201,40 +230,6 @@ export default function GvDashboard() {
                 </div>
             )}
 
-            {/* Quick instructions for teachers */}
-            <div className="gv-guide-card">
-                <h4><i className="fas fa-lightbulb"></i> Hướng dẫn điểm danh bán trú bằng QR</h4>
-                <div className="gv-guide-steps">
-                    <div className="gv-guide-step">
-                        <span className="step-num">1</span>
-                        <div>
-                            <strong>Chọn đúng phòng trực</strong>
-                            <p>Hệ thống tự động khóa vào đúng phòng Thầy/Cô được phân công hôm nay.</p>
-                        </div>
-                    </div>
-                    <div className="gv-guide-step">
-                        <span className="step-num">2</span>
-                        <div>
-                            <strong>Bấm Quét mã QR thẻ</strong>
-                            <p>Camera tự nhận diện mã thẻ <code>MSBT: 26xxx</code>, phát âm thanh và hiển thị thẻ học sinh.</p>
-                        </div>
-                    </div>
-                    <div className="gv-guide-step">
-                        <span className="step-num">3</span>
-                        <div>
-                            <strong>Bảo toàn dữ liệu 100%</strong>
-                            <p>Mỗi lượt quét đều được lưu tức thì vào máy và đồng bộ lên máy chủ, không lo mất mạng hay tắt máy.</p>
-                        </div>
-                    </div>
-                    <div className="gv-guide-step">
-                        <span className="step-num">4</span>
-                        <div>
-                            <strong>Chốt điểm danh lên Tổng</strong>
-                            <p>Trước 11h30 (ca ăn) hoặc 12h00 (ca ngủ), bấm <em>Chốt điểm danh</em> để gửi báo cáo chính thức.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

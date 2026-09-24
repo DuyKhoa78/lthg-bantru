@@ -63,11 +63,11 @@ export default function DiemDanhAn() {
         return () => clearInterval(timer);
     }, []);
 
-    // Khung giờ trực ca ăn: 10h55 (655) -> 11h35 (695)
+    // Khung giờ trực ca ăn: 10h55 (655) -> 11h30 (690)
     const shiftTiming = useMemo(() => {
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         const start = 655;
-        const end = 695;
+        const end = 690;
         let state = 'sap_den';
         let remainingMins = 0;
         if (mins >= start && mins <= end) {
@@ -76,7 +76,7 @@ export default function DiemDanhAn() {
         } else if (mins > end) {
             state = 'da_qua_gio';
         }
-        return { state, remainingMins, startLabel: '10:55', endLabel: '11:35' };
+        return { state, remainingMins, startLabel: '10:55', endLabel: '11:30' };
     }, [currentTime]);
 
     const isDateToday = useMemo(() => {
@@ -85,7 +85,7 @@ export default function DiemDanhAn() {
 
     // Quyền thao tác của Giáo viên:
     // Admin/Học vụ: luôn được phép thao tác.
-    // Giáo viên: CHỈ được thao tác trong ngày hôm nay, trong khung giờ ca trực (10h55 - 11h35), và không phải nhiệm vụ giám sát thuần túy.
+    // Giáo viên: CHỈ được thao tác trong ngày hôm nay, trong khung giờ ca trực (10h55 - 11h30), và không phải nhiệm vụ giám sát thuần túy.
     const canTeacherOperate = useMemo(() => {
         if (!isGiaoVien) return true;
         return isDateToday && shiftTiming.state === 'dang_dien_ra';
@@ -96,7 +96,7 @@ export default function DiemDanhAn() {
         if (user?.is_admin || user?.is_superuser) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         if (isGiaoVien) {
-            return isDateToday && mins >= 655 && mins <= 695; // 10:55 - 11:35
+            return isDateToday && mins >= 655 && mins <= 690; // 10:55 - 11:30
         }
         return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
     }, [user, isGiaoVien, currentTime, isDateToday]);
@@ -1458,7 +1458,7 @@ ${htmlPages}
                                         <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e40af', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                                             <i className="fas fa-hourglass-half" style={{ fontSize: '1.3rem', color: '#2563eb' }}></i>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>CHƯA ĐẾN GIỜ ĐIỂM DANH CA ĂN (10h55 – 11h35)</div>
+                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>CHƯA ĐẾN GIỜ ĐIỂM DANH CA ĂN (10h55 – 11h30)</div>
                                                 <div style={{ fontSize: '0.88rem', marginTop: 2 }}>
                                                     Hệ thống sẽ mở điểm danh và quét mã QR lúc <strong>10h55</strong>. Hiện tại: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong>.
                                                 </div>
@@ -1468,9 +1468,9 @@ ${htmlPages}
                                         <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', color: '#991b1b', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                                             <i className="fas fa-lock" style={{ fontSize: '1.3rem', color: '#dc2626' }}></i>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>ĐÃ HẾT KHUNG GIỜ ĐIỂM DANH CA ĂN (10h55 – 11h35)</div>
+                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>ĐÃ HẾT KHUNG GIỜ ĐIỂM DANH CA ĂN (10h55 – 11h30)</div>
                                                 <div style={{ fontSize: '0.88rem', marginTop: 2, fontWeight: 500 }}>
-                                                    Sau 11h35, hệ thống tự động khóa thao tác của Giáo viên. Toàn bộ dữ liệu điểm danh đã được tự động thu thập về Tổng.
+                                                    Sau 11h30, hệ thống tự động khóa thao tác của Giáo viên. Toàn bộ dữ liệu điểm danh đã được tự động thu thập về Tổng.
                                                 </div>
                                             </div>
                                         </div>
