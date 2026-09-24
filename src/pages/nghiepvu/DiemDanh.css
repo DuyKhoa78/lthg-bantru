@@ -374,8 +374,42 @@
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   flex-shrink: 0;
 }
-.dd-main-header h3 { font-size: 1rem; font-weight: 800; color: #1a202c; margin-bottom: 2px; }
-.dd-main-header p { font-size: 0.82rem; color: #64748b; }
+.dd-main-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+.dd-main-header-title-row h3,
+.dd-main-header h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1a202c;
+  margin: 0;
+}
+.dd-main-header p { font-size: 0.82rem; color: #64748b; margin-top: 3px; }
+
+/* Badge ĐÃ CHỐT màu xanh dương đậm đặt trên header */
+.dd-chot-header-badge {
+  background: #1e40af; /* Xanh dương đậm */
+  color: #ffffff;
+  padding: 2.5px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(30, 64, 175, 0.25);
+  letter-spacing: 0.2px;
+  line-height: 1.4;
+}
+.dd-chot-header-badge i {
+  color: #93c5fd;
+  font-size: 0.82rem;
+}
 .dd-search-box { position: relative; width: 240px; }
 .dd-search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem; }
 .dd-search-box input {

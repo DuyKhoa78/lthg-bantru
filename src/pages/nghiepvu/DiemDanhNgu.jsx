@@ -1332,7 +1332,32 @@ ${htmlPages}
                         <>
                             <div className="dd-main-header">
                                 <div className="dd-main-header-info">
-                                    <h3>{selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : 'Chọn phòng để xem'}</h3>
+                                    <div className="dd-main-header-title-row">
+                                        <h3>{selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : 'Chọn phòng để xem'}</h3>
+                                        {selectedPhong && isDaChot && (() => {
+                                            const timeStr = currentPhongStatus?.thoi_gian
+                                                ? new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                                                : '';
+                                            const nguoiChotName = currentPhongStatus?.nguoi_chot?.fullname
+                                                || currentPhongStatus?.ten_nguoi_chot
+                                                || currentPhongStatus?.nguoi_chot?.username
+                                                || (currentPhongStatus?.ma_gv_chot_id === null ? 'Hệ thống' : '');
+                                            const userRole = currentPhongStatus?.nguoi_chot?.role;
+                                            const roleText = userRole === 'giao_vien' ? 'GV' : (userRole === 'admin' ? 'Admin' : (userRole === 'hoc_vu' ? 'Học vụ' : ''));
+                                            const username = currentPhongStatus?.nguoi_chot?.username || '';
+                                            const tooltipText = `Đã chốt${timeStr ? ` lúc ${timeStr}` : ''}${nguoiChotName ? ` bởi ${roleText ? `${roleText} ` : ''}${nguoiChotName}${username ? ` (tài khoản: ${username})` : ''}` : ''}`;
+
+                                            return (
+                                                <span
+                                                    className="dd-chot-header-badge"
+                                                    title={tooltipText}
+                                                >
+                                                    <i className="fas fa-check-circle"></i>
+                                                    ĐÃ CHỐT {timeStr ? `(${timeStr})` : ''} {nguoiChotName ? `• ${nguoiChotName}` : ''}
+                                                </span>
+                                            );
+                                        })()}
+                                    </div>
                                     <p>{selectedPhong ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh` : 'Nhấn vào phòng bên trái để bắt đầu điểm danh'}</p>
                                 </div>
                                 {selectedPhong && (
@@ -1541,12 +1566,6 @@ ${htmlPages}
                             {selectedPhong && !isGiaoVien && (
                                 <div className="dd-admin-actions-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', fontWeight: 600, flexWrap: 'nowrap', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                        {isDaChot && (
-                                            <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.78rem' }}>
-                                                <i className="fas fa-check-circle" style={{ color: '#059669' }}></i>
-                                                ĐÃ CHỐT {currentPhongStatus?.thoi_gian ? `(${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
-                                            </span>
-                                        )}
                                         <span style={{ color: '#16a34a' }}><i className="fas fa-check"></i> {roomCounts.comat} Có mặt</span>
                                         <span style={{ color: '#dc2626' }}><i className="fas fa-times"></i> {roomCounts.vang} Vắng</span>
                                         <span style={{ color: '#d97706' }}><i className="fas fa-file-alt"></i> {roomCounts.phep} Phép</span>

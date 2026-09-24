@@ -1128,6 +1128,26 @@
     gap: 4px;
 }
 
+.bctruc-btn-edit {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #2563eb;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.84rem;
+    transition: all 0.15s ease;
+}
+
+.bctruc-btn-edit:hover {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
 .bctruc-btn-del {
     width: 28px;
     height: 28px;

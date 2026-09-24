@@ -119,7 +119,7 @@ export default function BaoCao() {
     const [thLopData, setThLopData] = useState(null);
     const [loadingThLop, setLoadingThLop] = useState(false);
     const [thLopSelected, setThLopSelected] = useState('');
-    const [thLopDonGiaAn, setThLopDonGiaAn] = useState(35000);
+    const [thLopDonGiaAn, setThLopDonGiaAn] = useState(38000);
 
     // Báo cáo Suất ăn hàng tháng cho bên cung cấp
     const [showSuatAnModal, setShowSuatAnModal] = useState(false);
@@ -138,6 +138,17 @@ export default function BaoCao() {
     const [suatAnSoGD, setSuatAnSoGD] = useState('SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH');
     const [suatAnTenTruong, setSuatAnTenTruong] = useState('TRƯỜNG THPT LÊ THỊ HỒNG GẤM');
     const [suatAnBoPhan, setSuatAnBoPhan] = useState('BỘ PHẬN BÁN TRÚ');
+
+    // Lấy tiền ăn từ Thiết lập hệ thống để đồng bộ tự động
+    useEffect(() => {
+        api.get('/api/cauhinh/')
+            .then(res => {
+                if (res.data?.he_thong?.tien_an) {
+                    setThLopDonGiaAn(Number(res.data.he_thong.tien_an));
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     // Lấy dữ liệu Báo cáo HS
     useEffect(() => {
@@ -1140,11 +1151,13 @@ ${htmlPages}
         const [y, m] = activeMonthStr.split('-');
         setLoadingThLop(true);
         try {
-            const donGiaParam = customGia !== undefined ? customGia : thLopDonGiaAn;
             const startParam = customStart !== undefined ? customStart : thLopTuNgay;
             const endParam = customEnd !== undefined ? customEnd : thLopDenNgay;
             const dotParam = customDot !== undefined ? customDot : (thLopCheDo === 'dot' ? thLopDotSelected : null);
-            let url = `/api/baocao/tong-hop-lop/?thang=${m}&nam=${y}&don_gia_an=${donGiaParam}`;
+            let url = `/api/baocao/tong-hop-lop/?thang=${m}&nam=${y}`;
+            if (customGia !== undefined && customGia !== null && customGia > 0) {
+                url += `&don_gia_an=${customGia}`;
+            }
             if (startParam) url += `&tu_ngay=${startParam}`;
             if (endParam) url += `&den_ngay=${endParam}`;
             if (dotParam) url += `&dot=${dotParam}`;
@@ -1466,9 +1479,9 @@ ${htmlPages}
     <th class="c" style="width:85px">THÀNH TIỀN</th>
   </tr>
 </thead>
-<tbody>${rows}</tbody>
-<tfoot>
-  <tr>
+<tbody>
+  ${rows}
+  <tr class="tr-total">
     <td colspan="4" class="c b">TỔNG CỘNG</td>
     <td class="c b">${sumTongBuoiNgu}</td>
     <td class="c b hl">${sumNguThucTe}</td>
@@ -1480,47 +1493,58 @@ ${htmlPages}
     <td class="c b">${sumPhepAn}</td>
     <td class="r b total-cell">${fmtM(sumThanhTien)}</td>
   </tr>
-</tfoot>
+</tbody>
 </table>
-<div style="margin-top: 8px; margin-bottom: 10px; font-size: 8.5pt; line-height: 1.45; text-align: left;">
+<div style="margin-top: 6px; margin-bottom: 8px; font-size: 8pt; line-height: 1.35; text-align: left;">
   * Lớp ${lop}: <strong>${hsArr.length} học sinh</strong> | Tổng thành tiền: <strong>${fmtM(sumThanhTien)} đồng</strong>
 </div>
-<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; page-break-inside: avoid;">
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10px; page-break-inside: avoid;">
   <div style="width: 42%; text-align: center;">
-    <div style="height: 18px;"></div>
-    <div style="font-weight: bold; font-size: 9pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
-    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
-    <div style="height: 45px;"></div>
-    <div style="font-weight: bold; font-style: italic; font-size: 9pt;">${user?.fullname?.trim() || user?.username || ''}</div>
+    <div style="height: 14px;"></div>
+    <div style="font-weight: bold; font-size: 8.5pt; text-transform: uppercase;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+    <div style="font-style: italic; font-size: 7.5pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 40px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 8.5pt;">${user?.fullname?.trim() || user?.username || ''}</div>
   </div>
   <div style="width: 45%; text-align: center;">
-    <div style="font-style: italic; font-size: 8.5pt; height: 18px; line-height: 18px;">${todayStr}</div>
-    <div style="font-weight: bold; font-size: 9pt; text-transform: uppercase;">GIÁM ĐỐC</div>
-    <div style="font-style: italic; font-size: 8pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
-    <div style="height: 45px;"></div>
-    <div style="font-weight: bold; font-style: italic; font-size: 9pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
+    <div style="font-style: italic; font-size: 8pt; height: 14px; line-height: 14px;">${todayStr}</div>
+    <div style="font-weight: bold; font-size: 8.5pt; text-transform: uppercase;">GIÁM ĐỐC</div>
+    <div style="font-style: italic; font-size: 7.5pt; margin-top: 2px;">(Ký và ghi rõ họ tên)</div>
+    <div style="height: 40px;"></div>
+    <div style="font-weight: bold; font-style: italic; font-size: 8.5pt;">${nguoi_phu_trach || 'Vũ Quốc Phong'}</div>
   </div>
 </div>
 </div>`;
         }).join('');
 
         const css = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Times New Roman',Times,serif;font-size:8.5pt;color:#000;background:#fff}
-.page{page-break-before:always;padding:8mm 10mm}.page:first-of-type{page-break-before:auto}
+body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;background:#fff}
+.page{page-break-before:always;padding:5mm 8mm}.page:first-of-type{page-break-before:auto}
 .hdr td{border:none!important;padding:0}
-.main-title{text-align:center;margin-bottom:8px}
-.main-title h1{font-size:13pt;font-weight:bold;text-transform:uppercase}
-.main-title h2{font-size:10pt;font-weight:bold;margin-top:3px}
+.main-title{text-align:center;margin-bottom:6px}
+.main-title h1{font-size:12.5pt;font-weight:bold;text-transform:uppercase}
+.main-title h2{font-size:9.5pt;font-weight:bold;margin-top:2px}
 .dt{width:100%;border-collapse:collapse;margin-top:4px;border:1.2px solid #000}
-.dt th,.dt td{border:1px solid #000;padding:3px 2px;vertical-align:middle;font-size:8pt;line-height:1.2}
-.dt th{text-align:center;background:#f2f2f2;font-size:7.5pt;font-weight:bold}
+.dt th,.dt td{border:1px solid #000;padding:2.5px 2px;vertical-align:middle;font-size:7.8pt;line-height:1.15}
+.dt th{text-align:center;background:#f2f2f2;font-size:7.5pt;font-weight:bold;padding:3px 2px}
 .c{text-align:center}.l{text-align:left;padding-left:4px}.r{text-align:right;padding-right:4px}.b{font-weight:bold}
 .hl{font-weight:bold;color:#059669}
 .ngu-hdr{background:#eef2ff!important}.an-hdr{background:#fefce8!important}
 .price-tag{color:#dc2626!important;font-weight:bold}
 .total-cell{color:#dc2626;font-weight:bold}
-@page{size:A4 landscape;margin:.6cm .8cm .8cm .8cm}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.price-tag,.total-cell{color:#dc2626!important}.hl{color:#059669!important}}`;
+.tr-total{background:#f8fafc!important;font-weight:bold}
+.tr-total td{font-weight:bold!important;border-top:1.5px solid #000!important}
+@page{size:A4 landscape;margin:.5cm .6cm .5cm .6cm}
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  *{color:#000!important}
+  .dt th{background:#ececec!important}
+  .price-tag,.total-cell{color:#dc2626!important}
+  .hl{color:#059669!important}
+  tfoot{display:none!important}
+  thead{display:table-header-group}
+  tr{page-break-inside:avoid}
+}`;
 
         const w = window.open('', '_blank');
         if (!w) { alert('Trình duyệt chặn popup!'); return; }
@@ -1684,31 +1708,33 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.5pt;color:#000;backgr
         const headerRowAn = ['STT', 'Giáo viên', ...activeDaysAn.map(d => {
             const parts = d.dateStr.split('-');
             return `T${d.dowStr} (${parts[2]}/${parts[1]})`;
-        }), 'Tổng'];
+        }), 'Tổng', 'Ký tên'];
         const dataRowsAn = (listAn.length > 0 ? listAn : gvData).map((g, i) => {
             const row = [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : '')];
             activeDaysAn.forEach(wd => {
                 row.push((g.ngay_an || []).includes(wd.dateStr) ? 1 : '');
             });
             row.push(g.so_ca_an);
+            row.push(''); // Ký tên
             return row;
         });
-        const totalRowAn = ['', 'TỔNG CỘNG', ...activeDaysAn.map(wd => (listAn.length > 0 ? listAn : gvData).filter(g => (g.ngay_an || []).includes(wd.dateStr)).length || ''), totCaAn];
+        const totalRowAn = ['', 'TỔNG CỘNG', ...activeDaysAn.map(wd => (listAn.length > 0 ? listAn : gvData).filter(g => (g.ngay_an || []).includes(wd.dateStr)).length || ''), totCaAn, ''];
         dataRowsAn.push(totalRowAn);
 
         const headerRowNgu = ['STT', 'Giáo viên', ...activeDaysNgu.map(d => {
             const parts = d.dateStr.split('-');
             return `T${d.dowStr} (${parts[2]}/${parts[1]})`;
-        }), 'Tổng'];
+        }), 'Tổng', 'Ký tên'];
         const dataRowsNgu = (listNgu.length > 0 ? listNgu : gvData).map((g, i) => {
             const row = [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : '')];
             activeDaysNgu.forEach(wd => {
                 row.push((g.ngay_ngu || []).includes(wd.dateStr) ? 1 : '');
             });
             row.push(g.so_ca_ngu);
+            row.push(''); // Ký tên
             return row;
         });
-        const totalRowNgu = ['', 'TỔNG CỘNG', ...activeDaysNgu.map(wd => (listNgu.length > 0 ? listNgu : gvData).filter(g => (g.ngay_ngu || []).includes(wd.dateStr)).length || ''), totCaNgu];
+        const totalRowNgu = ['', 'TỔNG CỘNG', ...activeDaysNgu.map(wd => (listNgu.length > 0 ? listNgu : gvData).filter(g => (g.ngay_ngu || []).includes(wd.dateStr)).length || ''), totCaNgu, ''];
         dataRowsNgu.push(totalRowNgu);
 
         const wb = XLSX.utils.book_new();
@@ -1796,7 +1822,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     <div style="font-size:7.5pt; font-weight:normal; margin-top:2px;">${parts[2]}/${parts[1]}</div>
                 </th>`;
             });
-            thAn += `<th class="c" style="width:55px; font-weight:bold; color:#059669;">Tổng</th></tr>`;
+            thAn += `<th class="c" style="width:55px; font-weight:bold; color:#059669;">Tổng</th><th class="c" style="width:85px; font-weight:bold;">Ký tên</th></tr>`;
 
             let tbodyAn = '';
             const renderListAn = listAn.length > 0 ? listAn : gvData;
@@ -1806,11 +1832,11 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     const hasAn = (g.ngay_an || []).includes(wd.dateStr);
                     tr += `<td class="c">${hasAn ? '✓' : ''}</td>`;
                 });
-                tr += `<td class="c" style="font-weight:bold; color:#059669;">${g.so_ca_an}</td></tr>`;
+                tr += `<td class="c" style="font-weight:bold; color:#059669;">${g.so_ca_an}</td><td class="c" style="height:28px;"></td></tr>`;
                 tbodyAn += tr;
             });
             if (renderListAn.length === 0) {
-                tbodyAn = `<tr><td colspan="${activeDaysAn.length + 2}" class="c" style="padding:14px; font-style:italic; color:#64748b;">Không có dữ liệu công trực ăn</td></tr>`;
+                tbodyAn = `<tr><td colspan="${activeDaysAn.length + 4}" class="c" style="padding:14px; font-style:italic; color:#64748b;">Không có dữ liệu công trực ăn</td></tr>`;
             } else {
                 tbodyAn += `<tr style="font-weight:bold; background:#f9fafb;">
                     <td class="c" colspan="2">TỔNG CỘNG</td>
@@ -1819,6 +1845,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         return `<td class="c">${cnt || ''}</td>`;
                     }).join('')}
                     <td class="c" style="font-weight:bold; color:#059669; font-size:11pt;">${totCaAn}</td>
+                    <td class="c"></td>
                 </tr>`;
             }
 
@@ -1834,7 +1861,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     <div style="font-size:7.5pt; font-weight:normal; margin-top:2px;">${parts[2]}/${parts[1]}</div>
                 </th>`;
             });
-            thNgu += `<th class="c" style="width:55px; font-weight:bold; color:#4f46e5;">Tổng</th></tr>`;
+            thNgu += `<th class="c" style="width:55px; font-weight:bold; color:#4f46e5;">Tổng</th><th class="c" style="width:85px; font-weight:bold;">Ký tên</th></tr>`;
 
             let tbodyNgu = '';
             const renderListNgu = listNgu.length > 0 ? listNgu : gvData;
@@ -1844,11 +1871,11 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     const hasNgu = (g.ngay_ngu || []).includes(wd.dateStr);
                     tr += `<td class="c">${hasNgu ? '✓' : ''}</td>`;
                 });
-                tr += `<td class="c" style="font-weight:bold; color:#4f46e5;">${g.so_ca_ngu}</td></tr>`;
+                tr += `<td class="c" style="font-weight:bold; color:#4f46e5;">${g.so_ca_ngu}</td><td class="c" style="height:28px;"></td></tr>`;
                 tbodyNgu += tr;
             });
             if (renderListNgu.length === 0) {
-                tbodyNgu = `<tr><td colspan="${activeDaysNgu.length + 2}" class="c" style="padding:14px; font-style:italic; color:#64748b;">Không có dữ liệu công trực ngủ</td></tr>`;
+                tbodyNgu = `<tr><td colspan="${activeDaysNgu.length + 4}" class="c" style="padding:14px; font-style:italic; color:#64748b;">Không có dữ liệu công trực ngủ</td></tr>`;
             } else {
                 tbodyNgu += `<tr style="font-weight:bold; background:#f9fafb;">
                     <td class="c" colspan="2">TỔNG CỘNG</td>
@@ -1857,6 +1884,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         return `<td class="c">${cnt || ''}</td>`;
                     }).join('')}
                     <td class="c" style="font-weight:bold; color:#4f46e5; font-size:11pt;">${totCaNgu}</td>
+                    <td class="c"></td>
                 </tr>`;
             }
 
@@ -3432,7 +3460,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
                                             <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#047857' }}>
-                                                {(thLopDonGiaAn || 35000).toLocaleString('vi-VN')}
+                                                {(thLopDonGiaAn || 38000).toLocaleString('vi-VN')}
                                             </span>
                                             <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>VNĐ/ngày</span>
                                             <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: 4, border: '1px solid #a7f3d0' }}>

@@ -80,6 +80,24 @@ export default function BaoCaoTrucGV() {
     const [copySuccess, setCopySuccess] = useState(false);
     const [showPendingRooms, setShowPendingRooms] = useState(false);
 
+    // Chỉnh sửa báo cáo (Super Admin)
+    const [editRecord, setEditRecord] = useState(null);
+    const [editForm, setEditForm] = useState({
+        id: '',
+        ngay: '',
+        ca_truc: 0,
+        ma_phong: '',
+        ho_ten_gv: '',
+        si_so: '',
+        so_hs_vang: 0,
+        danh_sach_vang: '',
+        hs_vi_pham: '',
+        tinh_hinh: '',
+        ghi_chu: '',
+        vsat_thuc_pham: '',
+    });
+    const [savingEdit, setSavingEdit] = useState(false);
+
     // Load danh sách báo cáo theo viewMode
     const loadReports = useCallback(async () => {
         try {
@@ -218,6 +236,58 @@ export default function BaoCaoTrucGV() {
         } catch (err) {
             showAlert('Không thể xóa: ' + (err.response?.data?.error || err.message), 'danger');
             setConfirmDel(null);
+        }
+    };
+
+    // Mở modal chỉnh sửa báo cáo (Super Admin)
+    const handleEdit = (r) => {
+        setEditRecord(r);
+        setEditForm({
+            id: r.id,
+            ngay: r.ngay || '',
+            ca_truc: r.ca_truc !== undefined ? r.ca_truc : 0,
+            ma_phong: r.ma_phong || '',
+            ho_ten_gv: r.ho_ten_gv || '',
+            si_so: r.si_so || '',
+            so_hs_vang: r.so_hs_vang !== undefined ? r.so_hs_vang : 0,
+            danh_sach_vang: r.danh_sach_vang || '',
+            hs_vi_pham: r.hs_vi_pham || '',
+            tinh_hinh: r.tinh_hinh || '',
+            ghi_chu: r.ghi_chu || '',
+            vsat_thuc_pham: r.vsat_thuc_pham || '',
+        });
+    };
+
+    // Tự động tính số vắng từ danh sách HS vắng nhập vào
+    const handleRecountVangFromText = () => {
+        const text = editForm.danh_sach_vang || '';
+        if (!text.trim()) {
+            setEditForm(prev => ({ ...prev, so_hs_vang: 0 }));
+            return;
+        }
+        const lines = text.split(/\r?\n|;/).filter(Boolean);
+        const count = lines.length > 0 ? lines.length : 1;
+        setEditForm(prev => ({ ...prev, so_hs_vang: count }));
+    };
+
+    // Lưu chỉnh sửa báo cáo
+    const handleSaveEdit = async (e) => {
+        if (e) e.preventDefault();
+        if (!editRecord || !editForm.id) return;
+        try {
+            setSavingEdit(true);
+            const res = await api.post('/api/baocaotruc/update/', editForm);
+            if (res.data?.ok) {
+                showAlert('Đã cập nhật bản ghi báo cáo thành công!', 'success');
+                setEditRecord(null);
+                loadReports();
+            } else {
+                showAlert(res.data?.error || 'Không thể cập nhật báo cáo', 'danger');
+            }
+        } catch (err) {
+            showAlert('Lỗi cập nhật: ' + (err.response?.data?.error || err.message), 'danger');
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -2591,7 +2661,7 @@ function testSendLatestSheetRow() {
                                                 )}
                                                 <th style={{ width: 110 }}>Tình hình</th>
                                                 {type !== 'giamsat' && <th style={{ minWidth: 140 }}>Ghi chú / Kiến nghị</th>}
-                                                {isSuperAdmin && <th style={{ width: 44, textAlign: 'center' }}>Xóa</th>}
+                                                {isSuperAdmin && <th style={{ width: 78, textAlign: 'center' }}>Thao tác</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2722,17 +2792,27 @@ function testSendLatestSheetRow() {
                                                         </td>
                                                     )}
 
-                                                    {/* Nút xóa (Chỉ Super Admin được quyền thấy và thực hiện) */}
+                                                    {/* Thao tác Chỉnh sửa / Xóa (Chỉ Super Admin) */}
                                                     {isSuperAdmin && (
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <button
-                                                                type="button"
-                                                                className="bctruc-btn-del"
-                                                                title="Xóa bản ghi báo cáo này (Chỉ Super Admin)"
-                                                                onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
-                                                            >
-                                                                <i className="fas fa-trash-alt"></i>
-                                                            </button>
+                                                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className="bctruc-btn-edit"
+                                                                    title="Chỉnh sửa bản ghi báo cáo này (Super Admin)"
+                                                                    onClick={() => handleEdit(r)}
+                                                                >
+                                                                    <i className="fas fa-edit"></i>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="bctruc-btn-del"
+                                                                    title="Xóa bản ghi báo cáo này (Chỉ Super Admin)"
+                                                                    onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
+                                                                >
+                                                                    <i className="fas fa-trash-alt"></i>
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     )}
                                                 </tr>
@@ -2766,6 +2846,7 @@ function testSendLatestSheetRow() {
                                                             <th style={{ width: 60, textAlign: 'center', color: '#be123c' }}>Số vắng</th>
                                                             <th style={{ minWidth: 160 }}>Giáo viên trực</th>
                                                             <th style={{ minWidth: 280, color: '#be123c' }}>Danh sách HS vắng (Báo cáo GV)</th>
+                                                            {isSuperAdmin && <th style={{ width: 78, textAlign: 'center' }}>Thao tác</th>}
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -2780,14 +2861,14 @@ function testSendLatestSheetRow() {
                                                                 <Fragment key={r.id}>
                                                                     {showAnHeader && (
                                                                         <tr style={{ background: '#fffbeb', borderTop: '2px solid #fde68a', borderBottom: '1px solid #fef3c7' }}>
-                                                                            <td colSpan={7} style={{ padding: '8px 14px', fontWeight: 800, color: '#b45309', fontSize: '0.86rem' }}>
+                                                                            <td colSpan={isSuperAdmin ? 8 : 7} style={{ padding: '8px 14px', fontWeight: 800, color: '#b45309', fontSize: '0.86rem' }}>
                                                                                 <i className="fas fa-utensils" style={{ marginRight: 6 }}></i> CA ĂN TRƯA ({statsVangCa.anCount} phòng - {statsVangCa.totalAn} học sinh vắng)
                                                                             </td>
                                                                         </tr>
                                                                     )}
                                                                     {showNguHeader && (
                                                                         <tr style={{ background: '#f5f3ff', borderTop: '2px solid #ddd6fe', borderBottom: '1px solid #ede9fe' }}>
-                                                                            <td colSpan={7} style={{ padding: '8px 14px', fontWeight: 800, color: '#6d28d9', fontSize: '0.86rem' }}>
+                                                                            <td colSpan={isSuperAdmin ? 8 : 7} style={{ padding: '8px 14px', fontWeight: 800, color: '#6d28d9', fontSize: '0.86rem' }}>
                                                                                 <i className="fas fa-bed" style={{ marginRight: 6 }}></i> CA NGỦ TRƯA ({statsVangCa.nguCount} phòng - {statsVangCa.totalNgu} học sinh vắng)
                                                                             </td>
                                                                         </tr>
@@ -2835,6 +2916,28 @@ function testSendLatestSheetRow() {
                                                                                 ))}
                                                                             </div>
                                                                         </td>
+                                                                        {isSuperAdmin && (
+                                                                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                                                <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="bctruc-btn-edit"
+                                                                                        title="Chỉnh sửa bản ghi báo cáo này (Super Admin)"
+                                                                                        onClick={() => handleEdit(r)}
+                                                                                    >
+                                                                                        <i className="fas fa-edit"></i>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="bctruc-btn-del"
+                                                                                        title="Xóa bản ghi báo cáo này (Chỉ Super Admin)"
+                                                                                        onClick={() => handleDelete(r.id, r.ma_phong, r.ho_ten_gv, r.ca_truc)}
+                                                                                    >
+                                                                                        <i className="fas fa-trash-alt"></i>
+                                                                                    </button>
+                                                                                </div>
+                                                                            </td>
+                                                                        )}
                                                                     </tr>
                                                                 </Fragment>
                                                             );
@@ -2980,6 +3083,238 @@ function testSendLatestSheetRow() {
                         <div className="modal-footer">
                             <button className="btn btn-primary" onClick={() => setShowGuide(false)}>Đã hiểu</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Chỉnh sửa Báo cáo trực cho Super Admin */}
+            {editRecord && (
+                <div className="modal-overlay open" onClick={() => !savingEdit && setEditRecord(null)}>
+                    <div className="modal-box modal-lg" style={{ maxWidth: 740, borderRadius: 12, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+                        <form onSubmit={handleSaveEdit}>
+                            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', color: '#fff', padding: '16px 22px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
+                                        <i className="fas fa-edit"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="modal-title" style={{ margin: 0, fontSize: '1.08rem', color: '#fff', fontWeight: 700 }}>
+                                            Chỉnh sửa Báo cáo ca trực
+                                        </h3>
+                                        <div style={{ fontSize: '0.78rem', color: '#bfdbfe', marginTop: 2 }}>
+                                            Quyền Super Admin • ID #{editRecord.id} • {editRecord.ma_phong}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="modal-close"
+                                    style={{ color: '#fff', opacity: 0.8 }}
+                                    onClick={() => !savingEdit && setEditRecord(null)}
+                                >
+                                    &times;
+                                </button>
+                            </div>
+
+                            <div className="modal-body" style={{ maxHeight: '72vh', overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                {/* Hàng 1: Ngày trực, Ca trực, Phòng */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-calendar-alt" style={{ marginRight: 6, color: '#2563eb' }}></i>Ngày báo cáo:
+                                        </label>
+                                        <input
+                                            type="date"
+                                            className="form-control"
+                                            value={editForm.ngay}
+                                            onChange={(e) => setEditForm({ ...editForm, ngay: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-clock" style={{ marginRight: 6, color: '#d97706' }}></i>Ca trực:
+                                        </label>
+                                        <select
+                                            className="form-control form-select"
+                                            value={editForm.ca_truc}
+                                            onChange={(e) => setEditForm({ ...editForm, ca_truc: parseInt(e.target.value, 10) })}
+                                        >
+                                            <option value={0}>Ca Ăn trưa</option>
+                                            <option value={1}>Ca Nghỉ trưa</option>
+                                            <option value={2}>Ca Giám sát ATTP & Bếp ăn</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-door-open" style={{ marginRight: 6, color: '#10b981' }}></i>Mã phòng / Khu vực:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="VD: A20, E2, Toàn trường..."
+                                            value={editForm.ma_phong}
+                                            onChange={(e) => setEditForm({ ...editForm, ma_phong: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Hàng 2: Họ tên GV trực, Sĩ số, Số HS vắng */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14 }}>
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-user-tie" style={{ marginRight: 6, color: '#7c3aed' }}></i>Giáo viên / Cán bộ trực:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Nhập họ và tên giáo viên..."
+                                            value={editForm.ho_ten_gv}
+                                            onChange={(e) => setEditForm({ ...editForm, ho_ten_gv: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-users" style={{ marginRight: 6, color: '#0284c7' }}></i>Sĩ số:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="VD: 45"
+                                            value={editForm.si_so}
+                                            onChange={(e) => setEditForm({ ...editForm, si_so: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#be123c', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-user-times" style={{ marginRight: 6, color: '#be123c' }}></i>Số HS vắng:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            className="form-control"
+                                            value={editForm.so_hs_vang}
+                                            onChange={(e) => setEditForm({ ...editForm, so_hs_vang: parseInt(e.target.value, 10) || 0 })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Danh sách học sinh vắng */}
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#be123c', margin: 0 }}>
+                                            <i className="fas fa-list-ol" style={{ marginRight: 6 }}></i>Chi tiết Học sinh vắng (mỗi dòng 1 học sinh hoặc họ tên, lớp, lý do):
+                                        </label>
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-secondary"
+                                            style={{ fontSize: '0.74rem', padding: '1px 8px', borderRadius: 4 }}
+                                            onClick={handleRecountVangFromText}
+                                            title="Đếm số dòng để tự cập nhật Số HS vắng"
+                                        >
+                                            <i className="fas fa-calculator" style={{ marginRight: 4 }}></i>Tự đếm số vắng
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        className="form-control"
+                                        rows={3}
+                                        placeholder="VD:&#10;Nguyễn Văn A - 10A1 (có phép)&#10;Trần Thị B - 10A2 (không phép)"
+                                        value={editForm.danh_sach_vang}
+                                        onChange={(e) => setEditForm({ ...editForm, danh_sach_vang: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* Học sinh vi phạm */}
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#b91c1c', marginBottom: 5, display: 'block' }}>
+                                        <i className="fas fa-exclamation-triangle" style={{ marginRight: 6 }}></i>Học sinh vi phạm nề nếp / kỷ luật:
+                                    </label>
+                                    <textarea
+                                        className="form-control"
+                                        rows={2}
+                                        placeholder="Nhập học sinh và hành vi vi phạm nếu có..."
+                                        value={editForm.hs_vi_pham}
+                                        onChange={(e) => setEditForm({ ...editForm, hs_vi_pham: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* Tình hình chung & Ghi chú */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-clipboard-check" style={{ marginRight: 6, color: '#10b981' }}></i>Tình hình nề nếp chung:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="VD: Bình thường, ổn định..."
+                                            value={editForm.tinh_hinh}
+                                            onChange={(e) => setEditForm({ ...editForm, tinh_hinh: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-comment-dots" style={{ marginRight: 6, color: '#6366f1' }}></i>Ghi chú / Kiến nghị:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Ghi chú thêm nếu có..."
+                                            value={editForm.ghi_chu}
+                                            onChange={(e) => setEditForm({ ...editForm, ghi_chu: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* VSAT Thực phẩm (Ca giám sát) */}
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#047857', marginBottom: 5, display: 'block' }}>
+                                        <i className="fas fa-shield-alt" style={{ marginRight: 6, color: '#047857' }}></i>Ghi nhận Vệ sinh ATTP &amp; Bếp ăn (Ca giám sát):
+                                    </label>
+                                    <textarea
+                                        className="form-control"
+                                        rows={2}
+                                        placeholder="VD: Đạt tiêu chuẩn, thức ăn đảm bảo nóng sốt, lưu mẫu đúng quy trình..."
+                                        value={editForm.vsat_thuc_pham}
+                                        onChange={(e) => setEditForm({ ...editForm, vsat_thuc_pham: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="modal-footer" style={{ padding: '12px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setEditRecord(null)}
+                                    disabled={savingEdit}
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    style={{ minWidth: 120, background: '#2563eb', borderColor: '#2563eb' }}
+                                    disabled={savingEdit}
+                                >
+                                    {savingEdit ? (
+                                        <>
+                                            <i className="fas fa-spinner fa-spin" style={{ marginRight: 6 }}></i>Đang lưu...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fas fa-save" style={{ marginRight: 6 }}></i>Lưu thay đổi
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
