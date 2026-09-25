@@ -22,6 +22,13 @@
   status = 200
   force = true
 
+# Proxy /uploads/* sang Azure backend
+[[redirects]]
+  from = "/uploads/*"
+  to = "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/uploads/:splat"
+  status = 200
+  force = true
+
 # SPA fallback - phải để cuối cùng
 [[redirects]]
   from = "/*"

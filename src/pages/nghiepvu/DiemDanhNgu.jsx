@@ -106,6 +106,7 @@ export default function DiemDanhNgu() {
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
     const [diemDanhDb, setDiemDanhDb] = useState({}); // { [hsId]: 0|1|2 }
+    const [roomSnapshotDb, setRoomSnapshotDb] = useState({}); // { [hsId]: ma_phong }
 
     const [selectedPhongCode, setSelectedPhongCode] = useState(null);
     const [overrides, setOverrides] = useState({});
@@ -188,11 +189,14 @@ export default function DiemDanhNgu() {
             const res = await api.get(`/api/diemdanh/?ngay=${d}&loai=ngu`, { signal: controller.signal });
             if (res.data?.ok) {
                 const map = {};
+                const roomSnap = {};
                 res.data.records.forEach(r => {
                     // diem_danh_ngu: 0(comat), 1(vang), 2(phep)
                     if (r.diem_danh_ngu !== null) map[r.ma_hs_id] = r.diem_danh_ngu;
+                    if (r.ma_phong_ngu_id) roomSnap[r.ma_hs_id] = r.ma_phong_ngu_id;
                 });
                 setDiemDanhDb(map);
+                setRoomSnapshotDb(roomSnap);
                 setHasSchedule(res.data.has_schedule === true);
                 // Cấu hình ngày đặc biệt
                 const cfg = res.data.cauhinh_ngay || null;
@@ -201,6 +205,13 @@ export default function DiemDanhNgu() {
                 if (res.data.phong_statuses) setPhongStatuses(res.data.phong_statuses);
                 if (res.data.assigned_rooms !== undefined) setAssignedRoomCodes(res.data.assigned_rooms);
                 if (res.data.my_assignments !== undefined) setMyAssignments(res.data.my_assignments);
+
+                // Nếu xem ngày trong quá khứ hoặc tương lai, nạp danh sách HS theo lịch sử phân phòng của ngày đó
+                if (d !== todayVN()) {
+                    api.get(`/api/hocsinh/ngu?ngay=${d}`, { signal: controller.signal })
+                        .then(r => { if (r.data?.hocsinh) setHsList(r.data.hocsinh); })
+                        .catch(() => {});
+                }
             }
         } catch (err) {
             if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') console.error(err);
@@ -229,6 +240,8 @@ export default function DiemDanhNgu() {
         const phongObj = phongList.find(p => p.ma_phong === ma_phong);
         const phongGt = phongObj ? phongObj.gioi_tinh : null;
         const isGenderCompatible = (hs) => {
+            // Khi xem ngày trong quá khứ: tôn trọng dữ liệu điểm danh và phân phòng lịch sử, không chặn hiển thị
+            if (date < todayVN()) return true;
             if (phongGt === null || phongGt === undefined) return true;
             if (hs.gioi_tinh === null || hs.gioi_tinh === undefined) return true;
             return hs.gioi_tinh === phongGt;
@@ -249,14 +262,15 @@ export default function DiemDanhNgu() {
             const groupPhong = cauhinhNgay?.lop_phong_ngu?.[hs.lop];
             if (groupPhong) return groupPhong === ma_phong;
             if (phongTamNgu) return phongTamNgu === ma_phong;
-            return hs.phong_ngu === ma_phong;
+            const effectivePhong = roomSnapshotDb[hs.id] || hs.phong_ngu;
+            return effectivePhong === ma_phong;
         });
 
         const extraFiltered = extraHsList.filter(x => {
             const baseHs = hsList.find(h => h.id === x.id);
             if (!baseHs) return false;
             if (!isGenderCompatible(baseHs)) return false; // STRICT GENDER CHECK
-            const effectivePhong = x.phong_ngu || cauhinhNgay?.lop_phong_ngu?.[baseHs.lop] || phongTamNgu || baseHs.phong_ngu;
+            const effectivePhong = x.phong_ngu || cauhinhNgay?.lop_phong_ngu?.[baseHs.lop] || phongTamNgu || roomSnapshotDb[baseHs.id] || baseHs.phong_ngu;
             return effectivePhong === ma_phong;
         }).filter(x => !base.find(s => s.id === x.id))
             .map(x => {
@@ -264,7 +278,7 @@ export default function DiemDanhNgu() {
                 return { ...(baseHs || {}), ...x, phong_ngu: ma_phong };
             });
         return [...base, ...extraFiltered].sort((a, b) => Number(a.id) - Number(b.id));
-    }, [hsList, extraHsList, phongTamNgu, cauhinhNgay, isHsAllowed, phongList, date]);
+    }, [hsList, extraHsList, phongTamNgu, cauhinhNgay, isHsAllowed, phongList, date, roomSnapshotDb]);
 
     const visiblePhongList = useMemo(() => {
         let list = phongList;
@@ -610,6 +624,7 @@ export default function DiemDanhNgu() {
                 ma_hs: s.id,
                 ngay: date,
                 status: INV_STATUS_MAP[s.trang_thai],
+                ma_phong: selectedPhong.ma_phong,
             }));
             await api.post('/api/diemdanh/save/', { loai: 'ngu', records });
 

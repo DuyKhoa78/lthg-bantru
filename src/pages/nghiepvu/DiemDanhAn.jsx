@@ -104,6 +104,7 @@ export default function DiemDanhAn() {
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
     const [diemDanhDb, setDiemDanhDb] = useState({});
+    const [roomSnapshotDb, setRoomSnapshotDb] = useState({}); // { [hsId]: ma_phong }
     const [selectedPhong, setSelectedPhong] = useState(null);
     const [overrides, setOverrides] = useState({});
     const [saved, setSaved] = useState(false);
@@ -184,8 +185,13 @@ export default function DiemDanhAn() {
             const res = await api.get(`/api/diemdanh/?ngay=${d}&loai=an`, { signal: controller.signal });
             if (res.data?.ok) {
                 const map = {};
-                res.data.records.forEach(r => { if (r.diem_danh_an !== null) map[r.ma_hs_id] = r.diem_danh_an; });
+                const roomSnap = {};
+                res.data.records.forEach(r => {
+                    if (r.diem_danh_an !== null) map[r.ma_hs_id] = r.diem_danh_an;
+                    if (r.ma_phong_an_id) roomSnap[r.ma_hs_id] = r.ma_phong_an_id;
+                });
                 setDiemDanhDb(map);
+                setRoomSnapshotDb(roomSnap);
                 setHasSchedule(res.data.has_schedule === true);
                 // Lấy cấu hình ngày đặc biệt từ response (có hs_them_vao)
                 const cfg = res.data.cauhinh_ngay || null;
@@ -199,6 +205,13 @@ export default function DiemDanhAn() {
                 if (res.data.phong_statuses) setPhongStatuses(res.data.phong_statuses);
                 if (res.data.assigned_rooms !== undefined) setAssignedRoomCodes(res.data.assigned_rooms);
                 if (res.data.my_assignments !== undefined) setMyAssignments(res.data.my_assignments);
+
+                // Nếu xem ngày trong quá khứ hoặc tương lai, nạp danh sách HS theo lịch sử phân phòng của ngày đó
+                if (d !== todayVN()) {
+                    api.get(`/api/hocsinh/an?ngay=${d}`, { signal: controller.signal })
+                        .then(r => { if (r.data?.hocsinh) setHsList(r.data.hocsinh); })
+                        .catch(() => {});
+                }
             }
         } catch (err) {
             if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') console.error(err);
@@ -234,13 +247,14 @@ export default function DiemDanhAn() {
             const groupPhong = cauhinhNgay?.lop_phong_an?.[hs.lop];
             if (groupPhong) return groupPhong === ma_phong;
             if (phongTamAn) return phongTamAn === ma_phong;
-            return hs.phong_an === ma_phong;
+            const effectivePhong = roomSnapshotDb[hs.id] || hs.phong_an;
+            return effectivePhong === ma_phong;
         });
 
         const extraFiltered = extraHsList.filter(x => {
             const baseHs = hsList.find(h => h.id === x.id);
             if (!baseHs) return false;
-            const effectivePhong = x.phong_an || cauhinhNgay?.lop_phong_an?.[baseHs.lop] || phongTamAn || baseHs.phong_an;
+            const effectivePhong = x.phong_an || cauhinhNgay?.lop_phong_an?.[baseHs.lop] || phongTamAn || roomSnapshotDb[baseHs.id] || baseHs.phong_an;
             return effectivePhong === ma_phong;
         }).filter(x => !base.find(s => s.id === x.id))
             .map(x => {
@@ -248,7 +262,7 @@ export default function DiemDanhAn() {
                 return { ...(baseHs || {}), ...x, phong_an: ma_phong };
             });
         return sortStudentsForRoom([...base, ...extraFiltered], ma_phong);
-    }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date]);
+    }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb]);
 
     const visiblePhongList = useMemo(() => {
         let list = phongList;
@@ -595,7 +609,12 @@ export default function DiemDanhAn() {
         }
         setSaving(true);
         try {
-            const records = students.map(s => ({ ma_hs: s.id, ngay: date, status: INV_STATUS_MAP[s.trang_thai] }));
+            const records = students.map(s => ({
+                ma_hs: s.id,
+                ngay: date,
+                status: INV_STATUS_MAP[s.trang_thai],
+                ma_phong: selectedPhong.ma_phong,
+            }));
             await api.post('/api/diemdanh/save/', { loai: 'an', records });
 
             // Optimistic update: cập nhật diemDanhDb ngay lập tức để UI hiển thị ✓ mà không chờ fetch

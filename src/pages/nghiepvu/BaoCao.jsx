@@ -838,7 +838,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 api.get('/api/cauhinh/'),
                 api.get(`/api/diemdanh/?ngay=${specialDate}&loai=${specialLoai}`),
                 api.get(`/api/diemdanh/range/?tu=${specialDate}&den=${specialDate}`),
-                api.get(`/api/hocsinh/${specialLoai}`),
+                api.get(`/api/hocsinh/${specialLoai}?ngay=${specialDate}`),
                 api.get(`/api/phong/${specialLoai}`)
             ]);
 

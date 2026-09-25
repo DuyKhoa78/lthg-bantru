@@ -11,6 +11,10 @@
       "source": "/api/:path*",
       "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/api/:path*"
     },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://bantru-nodejs-fkhde9htaae7h5fm.southeastasia-01.azurewebsites.net/uploads/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

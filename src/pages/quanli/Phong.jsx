@@ -235,11 +235,11 @@ export default function Phong() {
                   <label className="form-label">Mã phòng <span className="required">*</span></label>
                   <input className="form-control" value={form.ma_phong}
                     disabled={modal !== 'add'}
-                    maxLength={4}
+                    maxLength={10}
                     onChange={e => setForm({...form, ma_phong: e.target.value.toUpperCase()})}
-                    placeholder="VD: PA01" />
+                    placeholder="VD: PA001" />
                   <small style={{ color: '#94a3b8', fontSize: '0.73rem', marginTop: 3, display: 'block' }}>
-                    Tối đa 4 ký tự — VD: <b>PA1</b>, <b>PA01</b>, <b>N1</b>
+                    Tối đa 10 ký tự — VD: <b>PA001</b>, <b>PN001</b>, <b>HT.A</b>, <b>D41</b>
                   </small>
                 </div>
                 <div className="form-group">
