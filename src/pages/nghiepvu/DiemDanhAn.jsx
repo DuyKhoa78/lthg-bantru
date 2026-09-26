@@ -232,15 +232,16 @@ export default function DiemDanhAn() {
         return true;
     }, [cauhinhNgay]);
 
-    const getStudentsForRoom = useCallback((ma_phong) => {
+    const getStudentsForRoom = useCallback((ma_phong, targetDate = date) => {
         const overridedElsewhere = new Set(
             extraHsList.filter(x => x.phong_an && x.phong_an !== ma_phong).map(x => x.id)
         );
         const base = hsList.filter(hs => {
-            // Lọc theo ngày đang xem: chỉ hiển thị học sinh đang tham gia bán trú vào ngày này
-            if (hs.ngay_vao && date < hs.ngay_vao) return false;
-            if (hs.ngay_rut && date > hs.ngay_rut) return false;
-            if (!hs.ngay_rut && !hs.dang_hoc) return false; // Đã rút bán trú (không có ngày rút cụ thể)
+            // Lọc theo ngày đang xem / ngày xuất file:
+            if (hs.ngay_vao && targetDate < hs.ngay_vao) return false;
+            if (hs.ngay_rut && targetDate > hs.ngay_rut) return false;
+            // Học sinh đã rút (dang_hoc === false): nếu ngày xem/xuất > ngày rút hoặc không có ngày rút thì loại bỏ hoàn toàn
+            if (!hs.dang_hoc && (!hs.ngay_rut || targetDate > hs.ngay_rut)) return false;
             if (!isHsAllowed(hs)) return false;
             if (overridedElsewhere.has(hs.id)) return false;
 
@@ -254,6 +255,9 @@ export default function DiemDanhAn() {
         const extraFiltered = extraHsList.filter(x => {
             const baseHs = hsList.find(h => h.id === x.id);
             if (!baseHs) return false;
+            if (baseHs.ngay_vao && targetDate < baseHs.ngay_vao) return false;
+            if (baseHs.ngay_rut && targetDate > baseHs.ngay_rut) return false;
+            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || targetDate > baseHs.ngay_rut)) return false;
             const effectivePhong = x.phong_an || cauhinhNgay?.lop_phong_an?.[baseHs.lop] || phongTamAn || roomSnapshotDb[baseHs.id] || baseHs.phong_an;
             return effectivePhong === ma_phong;
         }).filter(x => !base.find(s => s.id === x.id))
@@ -910,7 +914,7 @@ ${htmlPages}
         const wb = XLSX.utils.book_new();
 
         exportRooms.forEach(ma_phong => {
-            const roomStudents = sortStudentsForRoom(hsList.filter(s => s.phong_an === ma_phong), ma_phong);
+            const roomStudents = getStudentsForRoom(ma_phong, tuStr);
             let aoa = [];
             let merges = [];
 
@@ -1021,7 +1025,7 @@ ${htmlPages}
         ).join('');
 
         const htmlPages = exportRooms.flatMap(ma_phong => {
-            const roomStudents = sortStudentsForRoom(hsList.filter(s => s.phong_an === ma_phong), ma_phong);
+            const roomStudents = getStudentsForRoom(ma_phong, tuStr);
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;

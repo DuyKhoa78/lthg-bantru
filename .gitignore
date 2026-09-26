@@ -38,3 +38,4 @@ src/assets/hero.png
 *.sw?
 
 .vercel
+.env*

@@ -236,12 +236,12 @@ export default function DiemDanhNgu() {
         return true;
     }, [cauhinhNgay]);
 
-    const getStudentsForRoom = useCallback((ma_phong) => {
+    const getStudentsForRoom = useCallback((ma_phong, targetDate = date) => {
         const phongObj = phongList.find(p => p.ma_phong === ma_phong);
         const phongGt = phongObj ? phongObj.gioi_tinh : null;
         const isGenderCompatible = (hs) => {
             // Khi xem ngày trong quá khứ: tôn trọng dữ liệu điểm danh và phân phòng lịch sử, không chặn hiển thị
-            if (date < todayVN()) return true;
+            if (targetDate < todayVN()) return true;
             if (phongGt === null || phongGt === undefined) return true;
             if (hs.gioi_tinh === null || hs.gioi_tinh === undefined) return true;
             return hs.gioi_tinh === phongGt;
@@ -251,10 +251,11 @@ export default function DiemDanhNgu() {
             extraHsList.filter(x => x.phong_ngu && x.phong_ngu !== ma_phong).map(x => x.id)
         );
         const base = hsList.filter(hs => {
-            // Lọc theo ngày đang xem: chỉ hiển thị học sinh đang tham gia bán trú vào ngày này
-            if (hs.ngay_vao && date < hs.ngay_vao) return false;
-            if (hs.ngay_rut && date > hs.ngay_rut) return false;
-            if (!hs.ngay_rut && !hs.dang_hoc) return false; // Đã rút bán trú (không có ngày rút cụ thể)
+            // Lọc theo ngày đang xem / ngày xuất file:
+            if (hs.ngay_vao && targetDate < hs.ngay_vao) return false;
+            if (hs.ngay_rut && targetDate > hs.ngay_rut) return false;
+            // Học sinh đã rút bán trú (dang_hoc === false): nếu ngày xem/xuất > ngày rút hoặc không có ngày rút thì loại bỏ hoàn toàn
+            if (!hs.dang_hoc && (!hs.ngay_rut || targetDate > hs.ngay_rut)) return false;
             if (!isHsAllowed(hs)) return false;
             if (!isGenderCompatible(hs)) return false; // STRICT GENDER CHECK
             if (overridedElsewhere.has(hs.id)) return false;
@@ -269,6 +270,9 @@ export default function DiemDanhNgu() {
         const extraFiltered = extraHsList.filter(x => {
             const baseHs = hsList.find(h => h.id === x.id);
             if (!baseHs) return false;
+            if (baseHs.ngay_vao && targetDate < baseHs.ngay_vao) return false;
+            if (baseHs.ngay_rut && targetDate > baseHs.ngay_rut) return false;
+            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || targetDate > baseHs.ngay_rut)) return false;
             if (!isGenderCompatible(baseHs)) return false; // STRICT GENDER CHECK
             const effectivePhong = x.phong_ngu || cauhinhNgay?.lop_phong_ngu?.[baseHs.lop] || phongTamNgu || roomSnapshotDb[baseHs.id] || baseHs.phong_ngu;
             return effectivePhong === ma_phong;
@@ -905,8 +909,9 @@ ${htmlPages}
         } catch { /* bỏ qua */ }
 
         const wb = XLSX.utils.book_new();
+        const monISO = toISO(mon);
         exportRooms.forEach(ma_phong => {
-            const roomStudents = getStudentsForRoom(ma_phong).sort((a, b) => Number(a.id) - Number(b.id));
+            const roomStudents = getStudentsForRoom(ma_phong, monISO).sort((a, b) => Number(a.id) - Number(b.id));
             const markedDays = new Set(
                 weekDays.map(d => toISO(d)).filter(dateStr =>
                     roomStudents.length > 0 && roomStudents.every(s => ddMap[s.id]?.[dateStr]?.ngu != null)
@@ -1005,8 +1010,9 @@ ${htmlPages}
         const dayTH = weekDays.map((d, di) =>
             `<th class="col-day"${di === 0 ? ' style="border-left:1.5px solid #333;"' : ''}>${d.getDate()}/${p2(d.getMonth() + 1)}<br><small>${DOWS[d.getDay()]}</small></th>`
         ).join('');
+        const monStr = toISO(weekDays[0]);
         const htmlPages = exportRooms.flatMap(ma_phong => {
-            const roomStudents = getStudentsForRoom(ma_phong).sort((a, b) => Number(a.id) - Number(b.id));
+            const roomStudents = getStudentsForRoom(ma_phong, monStr).sort((a, b) => Number(a.id) - Number(b.id));
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;

@@ -352,7 +352,14 @@ export default function BaoCao() {
             ).join('')).join('');
 
             const htmlPages = exportAnRooms.map(ma_phong => {
-                const roomStudents = sortStudentsForRoom([...(dataByPhong[ma_phong] || [])], ma_phong);
+                const roomStudents = sortStudentsForRoom(
+                    [...(dataByPhong[ma_phong] || [])].filter(s => {
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    }),
+                    ma_phong
+                );
                 const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
                 const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
                 const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -505,7 +512,14 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             const numDays = ngay_ban_tru.length;
             const wb = XLSX.utils.book_new();
             exportAnRooms.forEach(ma_phong => {
-                const roomStudents = sortStudentsForRoom([...(dataByPhong[ma_phong] || [])], ma_phong);
+                const roomStudents = sortStudentsForRoom(
+                    [...(dataByPhong[ma_phong] || [])].filter(s => {
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    }),
+                    ma_phong
+                );
                 const h1 = ['STT', 'STT\nDS BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'Phòng\nĂn'];
                 const h2 = ['', '', '', '', '', ''];
                 ngay_ban_tru.forEach(ngay => {
@@ -605,7 +619,13 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             ).join('')).join('');
 
             const htmlPages = exportNguRooms.map(ma_phong => {
-                const roomStudents = [...(dataByPhong[ma_phong] || [])].sort((a, b) => a.id - b.id);
+                const roomStudents = [...(dataByPhong[ma_phong] || [])]
+                    .filter(s => {
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    })
+                    .sort((a, b) => a.id - b.id);
                 const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
                 const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
                 const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -771,7 +791,13 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             const numDays = ngay_ban_tru.length;
             const wb = XLSX.utils.book_new();
             exportNguRooms.forEach(ma_phong => {
-                const roomStudents = [...(dataByPhong[ma_phong] || [])].sort((a, b) => a.id - b.id);
+                const roomStudents = [...(dataByPhong[ma_phong] || [])]
+                    .filter(s => {
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    })
+                    .sort((a, b) => a.id - b.id);
                 const h1 = ['STT', 'STT\nDS BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'Phòng\nNgủ'];
                 const h2 = ['', '', '', '', '', ''];
                 ngay_ban_tru.forEach(ngay => {
