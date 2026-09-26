@@ -1024,6 +1024,7 @@ ${htmlPages}
             ).join('')
         ).join('');
 
+        const tuStr = allDaysList.length ? toISO(allDaysList[0]) : null;
         const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong, tuStr);
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);

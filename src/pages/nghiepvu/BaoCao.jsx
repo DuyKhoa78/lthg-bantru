@@ -32,8 +32,8 @@ const getDefaultSuatAnRange = (month, year) => {
     return { startStr, endStr };
 };
 
-// ── Cấu hình các Đợt thanh toán bán trú (Chu kỳ 4 tuần = 1 lần thanh toán, năm học đến tháng 6/2027) ──
-const DOT_THANH_TOAN_CONFIG = [
+// ── Cấu hình mặc định các Đợt thanh toán bán trú (Fallback nếu CSDL chưa cấu hình) ──
+const DEFAULT_DOT_THANH_TOAN_CONFIG = [
     { dot: 1, label: 'Đợt 1 (Tuần 1 - 4): 07/09/2026 → 02/10/2026', start: '2026-09-07', end: '2026-10-02', weeks: 'Tuần 1 - 4' },
     { dot: 2, label: 'Đợt 2 (Tuần 5 - 8): 05/10/2026 → 30/10/2026', start: '2026-10-05', end: '2026-10-30', weeks: 'Tuần 5 - 8' },
     { dot: 3, label: 'Đợt 3 (Tuần 9 - 12): 02/11/2026 → 27/11/2026', start: '2026-11-02', end: '2026-11-27', weeks: 'Tuần 9 - 12' },
@@ -52,6 +52,25 @@ export default function BaoCao() {
     const canExportHS = user?.is_admin || user?.is_superuser || user?.is_ke_toan || user?.is_hoc_vu;
     const canExportGV = user?.is_admin || user?.is_superuser || user?.is_ke_toan;
     const [activeTab, setActiveTab] = useState('panel-hs');
+    const [dotThanhToanConfig, setDotThanhToanConfig] = useState(DEFAULT_DOT_THANH_TOAN_CONFIG);
+
+    // Tab Tài chính / Sổ thu tiền bán trú
+    const [tcDotSelected, setTcDotSelected] = useState(1);
+    const [tcLopSelected, setTcLopSelected] = useState('');
+    const [tcData, setTcData] = useState([]);
+    const [tcSummary, setTcSummary] = useState(null);
+    const [tcIsKhoa, setTcIsKhoa] = useState(false);
+    const [tcLoading, setTcLoading] = useState(false);
+    const [tcSearch, setTcSearch] = useState('');
+    const [showThuTienModal, setShowThuTienModal] = useState(false);
+    const [showMienGiamModal, setShowMienGiamModal] = useState(false);
+    const [selectedHsForTc, setSelectedHsForTc] = useState(null);
+    const [tcAmountInput, setTcAmountInput] = useState('');
+    const [tcMethodInput, setTcMethodInput] = useState('tien_mat');
+    const [tcNoteInput, setTcNoteInput] = useState('');
+    const [tcMienGiamInput, setTcMienGiamInput] = useState('');
+    const [tcLyDoMienGiamInput, setTcLyDoMienGiamInput] = useState('');
+
     const today = (() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -149,6 +168,154 @@ export default function BaoCao() {
             })
             .catch(() => {});
     }, []);
+
+    // Lấy cấu hình các Đợt thanh toán từ CSDL
+    useEffect(() => {
+        let isMounted = true;
+        api.get('/api/cauhinh/dot-thanh-toan/')
+            .then(res => {
+                if (res.data?.ok && Array.isArray(res.data.dots) && res.data.dots.length > 0 && isMounted) {
+                    const mapped = res.data.dots.map(d => ({
+                        dot: d.dot,
+                        label: d.label,
+                        start: d.tu_ngay,
+                        end: d.den_ngay,
+                        weeks: d.ghi_chu || `Đợt ${d.dot}`,
+                        is_khoa: Boolean(d.is_khoa),
+                        id: d.id
+                    }));
+                    setDotThanhToanConfig(mapped);
+                }
+            })
+            .catch(() => {});
+        return () => { isMounted = false; };
+    }, []);
+
+    // ── Xử lý Sổ Thu Tiền & Khóa Kỳ Kế Toán ──
+    const fetchTaiChinh = async (dotVal, lopVal) => {
+        setTcLoading(true);
+        try {
+            const dot = dotVal !== undefined ? dotVal : tcDotSelected;
+            const lop = lopVal !== undefined ? lopVal : tcLopSelected;
+            let url = `/api/taichinh/so-thu-tien/?dot=${dot}`;
+            if (lop) url += `&lop=${encodeURIComponent(lop)}`;
+            const res = await api.get(url);
+            if (res.data?.ok) {
+                setTcData(res.data.data || []);
+                setTcSummary(res.data.summary || null);
+                setTcIsKhoa(Boolean(res.data.is_khoa));
+            }
+        } catch (err) {
+            console.error('Lỗi tải sổ thu tiền:', err);
+        } finally {
+            setTcLoading(false);
+        }
+    };
+
+    const handleTcDotChange = (dotVal) => {
+        setTcDotSelected(dotVal);
+        fetchTaiChinh(dotVal, tcLopSelected);
+    };
+
+    const handleTcLopChange = (lopVal) => {
+        setTcLopSelected(lopVal);
+        fetchTaiChinh(tcDotSelected, lopVal);
+    };
+
+    const toggleKhoaDot = async () => {
+        const activeDot = dotThanhToanConfig.find(d => String(d.dot) === String(tcDotSelected));
+        if (!activeDot?.id) return;
+        const willLock = !activeDot.is_khoa;
+        const confirmMsg = willLock
+            ? `Thầy/Cô có chắc chắn muốn KHÓA SỔ ${activeDot.label}?\nSau khi khóa, toàn bộ điểm danh và biên lai trong đợt này sẽ bị cố định.`
+            : `Thầy/Cô có chắc chắn muốn MỞ KHÓA SỔ ${activeDot.label}?\nSau khi mở khóa, người dùng được phân quyền có thể tiếp tục chỉnh sửa.`;
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const res = await api.post(`/api/cauhinh/dot-thanh-toan/${activeDot.id}/khoa`, { is_khoa: willLock });
+            if (res.data?.ok) {
+                setDotThanhToanConfig(prev => prev.map(d => d.id === activeDot.id ? { ...d, is_khoa: willLock } : d));
+                setTcIsKhoa(willLock);
+                alert(res.data.message);
+            }
+        } catch (err) {
+            alert(err.response?.data?.error || 'Lỗi cập nhật trạng thái khóa sổ');
+        }
+    };
+
+    const syncPhaiThu = async () => {
+        if (tcIsKhoa) {
+            alert('Đợt này đã bị khóa sổ kế toán, không thể đồng bộ lại.');
+            return;
+        }
+        if (!window.confirm(`Đồng bộ lại số tiền phải thu từ dữ liệu điểm danh thực tế cho Đợt ${tcDotSelected}?`)) return;
+        setTcLoading(true);
+        try {
+            const res = await api.post('/api/taichinh/dong-bo-phai-thu/', { dot: tcDotSelected });
+            if (res.data?.ok) {
+                alert(res.data.message);
+                fetchTaiChinh(tcDotSelected, tcLopSelected);
+            }
+        } catch (err) {
+            alert(err.response?.data?.error || 'Lỗi đồng bộ tiền phải thu');
+        } finally {
+            setTcLoading(false);
+        }
+    };
+
+    const openThuTienModal = (hs) => {
+        setSelectedHsForTc(hs);
+        setTcAmountInput(hs.con_lai > 0 ? hs.con_lai : hs.so_tien_phai_thu);
+        setTcMethodInput(hs.hinh_thuc_thu || 'tien_mat');
+        setTcNoteInput(hs.ghi_chu || '');
+        setShowThuTienModal(true);
+    };
+
+    const submitThuTien = async () => {
+        if (!selectedHsForTc) return;
+        try {
+            const res = await api.post('/api/taichinh/thu-tien/', {
+                ma_hs_id: selectedHsForTc.ma_hs_id,
+                dot: tcDotSelected,
+                so_tien_da_thu: tcAmountInput,
+                hinh_thuc_thu: tcMethodInput,
+                ghi_chu: tcNoteInput,
+                so_tien_phai_thu: selectedHsForTc.so_tien_phai_thu
+            });
+            if (res.data?.ok) {
+                setShowThuTienModal(false);
+                fetchTaiChinh(tcDotSelected, tcLopSelected);
+            }
+        } catch (err) {
+            alert(err.response?.data?.error || 'Lỗi lưu thu tiền');
+        }
+    };
+
+    const openMienGiamModal = (hs) => {
+        setSelectedHsForTc(hs);
+        setTcMienGiamInput(hs.so_tien_mien_giam || 0);
+        setTcLyDoMienGiamInput(hs.ly_do_mien_giam || '');
+        setShowMienGiamModal(true);
+    };
+
+    const submitMienGiam = async () => {
+        if (!selectedHsForTc) return;
+        try {
+            const res = await api.post('/api/taichinh/mien-giam/', {
+                ma_hs_id: selectedHsForTc.ma_hs_id,
+                dot: tcDotSelected,
+                so_tien_mien_giam: tcMienGiamInput,
+                ly_do_mien_giam: tcLyDoMienGiamInput,
+                so_tien_phai_thu: selectedHsForTc.so_tien_phai_thu
+            });
+            if (res.data?.ok) {
+                setShowMienGiamModal(false);
+                fetchTaiChinh(tcDotSelected, tcLopSelected);
+            }
+        } catch (err) {
+            alert(err.response?.data?.error || 'Lỗi cập nhật miễn giảm');
+        }
+    };
 
     // Lấy dữ liệu Báo cáo HS
     useEffect(() => {
@@ -1157,7 +1324,7 @@ ${htmlPages}
         setThLopData(null);
         setThLopSelected('');
         if (thLopCheDo === 'dot') {
-            const dotObj = DOT_THANH_TOAN_CONFIG.find(d => String(d.dot) === String(thLopDotSelected)) || DOT_THANH_TOAN_CONFIG[0];
+            const dotObj = dotThanhToanConfig.find(d => String(d.dot) === String(thLopDotSelected)) || dotThanhToanConfig[0] || DEFAULT_DOT_THANH_TOAN_CONFIG[0];
             setThLopTuNgay(dotObj.start);
             setThLopDenNgay(dotObj.end);
             await fetchThLop(undefined, undefined, dotObj.start, dotObj.end, dotObj.dot);
@@ -1202,7 +1369,7 @@ ${htmlPages}
 
     const handleThLopDotChange = (dotVal) => {
         setThLopDotSelected(dotVal);
-        const dotObj = DOT_THANH_TOAN_CONFIG.find(d => String(d.dot) === String(dotVal));
+        const dotObj = dotThanhToanConfig.find(d => String(d.dot) === String(dotVal));
         if (dotObj) {
             setThLopTuNgay(dotObj.start);
             setThLopDenNgay(dotObj.end);
@@ -1213,7 +1380,7 @@ ${htmlPages}
     const handleThLopCheDoChange = (mode) => {
         setThLopCheDo(mode);
         if (mode === 'dot') {
-            const dotObj = DOT_THANH_TOAN_CONFIG.find(d => String(d.dot) === String(thLopDotSelected)) || DOT_THANH_TOAN_CONFIG[0];
+            const dotObj = dotThanhToanConfig.find(d => String(d.dot) === String(thLopDotSelected)) || dotThanhToanConfig[0] || DEFAULT_DOT_THANH_TOAN_CONFIG[0];
             setThLopTuNgay(dotObj.start);
             setThLopDenNgay(dotObj.end);
             fetchThLop(undefined, undefined, dotObj.start, dotObj.end, dotObj.dot);
@@ -2720,6 +2887,11 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
                 </button>
                 )}
+                {canExportGV && (
+                <button className={`bc-main-tab${activeTab === 'panel-taichinh' ? ' active' : ''}`} onClick={() => { setActiveTab('panel-taichinh'); if (tcData.length === 0) fetchTaiChinh(tcDotSelected, tcLopSelected); }}>
+                    <i className="fas fa-file-invoice-dollar"></i> Sổ Thu Tiền &amp; Khóa Kỳ
+                </button>
+                )}
             </div>
 
             {/* PANEL HỌC SINH */}
@@ -3115,6 +3287,219 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                 </div>
             )}
 
+            {/* PANEL TÀI CHÍNH / SỔ THU TIỀN */}
+            {canExportGV && activeTab === 'panel-taichinh' && (
+                <div className="bc-main-panel active">
+                    {/* Header bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <div>
+                                <label style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155', marginRight: 6 }}>
+                                    <i className="fas fa-calendar-alt" style={{ color: '#10b981' }}></i> ĐỢT THANH TOÁN:
+                                </label>
+                                <select
+                                    value={tcDotSelected}
+                                    onChange={e => handleTcDotChange(Number(e.target.value))}
+                                    style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #10b981', fontWeight: 600, color: '#065f46', background: '#fff' }}
+                                >
+                                    {dotThanhToanConfig.map(d => (
+                                        <option key={d.dot} value={d.dot}>
+                                            {d.label} {d.is_khoa ? '🔒 (Đã khóa)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155', marginRight: 6 }}>
+                                    <i className="fas fa-filter" style={{ color: '#6366f1' }}></i> LỚP:
+                                </label>
+                                <select
+                                    value={tcLopSelected}
+                                    onChange={e => handleTcLopChange(e.target.value)}
+                                    style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontWeight: 600 }}
+                                >
+                                    <option value="">Tất cả các lớp</option>
+                                    {lopList.map(l => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                            </div>
+
+                            <input
+                                type="text"
+                                placeholder="🔍 Tìm tên học sinh..."
+                                value={tcSearch}
+                                onChange={e => setTcSearch(e.target.value)}
+                                style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', width: 200 }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={syncPhaiThu}
+                                disabled={tcLoading || tcIsKhoa}
+                                title="Đồng bộ số tiền phải thu từ dữ liệu điểm danh thực tế"
+                                style={{ background: '#f8fafc', fontWeight: 600 }}
+                            >
+                                <i className="fas fa-sync-alt"></i> Đồng bộ điểm danh
+                            </button>
+
+                            <button
+                                className={`btn btn-sm ${tcIsKhoa ? 'btn-danger' : 'btn-warning'}`}
+                                onClick={toggleKhoaDot}
+                                disabled={tcLoading}
+                                style={{ fontWeight: 700 }}
+                            >
+                                <i className={`fas ${tcIsKhoa ? 'fa-lock' : 'fa-lock-open'}`}></i> {tcIsKhoa ? 'ĐÃ KHÓA SỔ (Mở khóa)' : 'KHÓA SỔ ĐỢT NÀY'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Lock alert notice */}
+                    {tcIsKhoa && (
+                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, color: '#991b1b', fontSize: '0.9rem' }}>
+                            <i className="fas fa-lock" style={{ fontSize: '1.1rem' }}></i>
+                            <span><strong>Đợt thanh toán này đã bị khóa sổ kế toán.</strong> Điểm danh và biên lai đã được bảo vệ cố định.</span>
+                        </div>
+                    )}
+
+                    {/* Summary KPI Cards */}
+                    {tcSummary && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+                            <div style={{ background: '#fff', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Tổng học sinh</div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', marginTop: 4 }}>{tcSummary.tong_hs} HS</div>
+                                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: 4 }}>
+                                    Đã thu: <strong>{tcSummary.so_hs_da_thu}</strong> / Chưa thu: <strong>{tcSummary.so_hs_chua_thu}</strong>
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#fff', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Tổng phải thu</div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#2563eb', marginTop: 4 }}>{tcSummary.tong_phai_thu.toLocaleString('vi-VN')} đ</div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4 }}>Theo dữ liệu suất ăn thực tế</div>
+                            </div>
+
+                            <div style={{ background: '#fff', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Đã thực thu</div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#16a34a', marginTop: 4 }}>{tcSummary.tong_da_thu.toLocaleString('vi-VN')} đ</div>
+                                <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: 4 }}>
+                                    {tcSummary.tong_phai_thu > 0 ? Math.round((tcSummary.tong_da_thu / tcSummary.tong_phai_thu) * 100) : 0}% kế hoạch
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#fff', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Miễn giảm &amp; Còn lại</div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#dc2626', marginTop: 4 }}>{tcSummary.tong_con_lai.toLocaleString('vi-VN')} đ</div>
+                                <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: 4 }}>Miễn giảm: {tcSummary.tong_mien_giam.toLocaleString('vi-VN')} đ</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Table */}
+                    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                            <thead>
+                                <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
+                                    <th style={{ padding: '10px 12px', textAlign: 'center', width: 45 }}>STT</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>Học sinh</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'center', width: 70 }}>Lớp</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'center' }}>Bữa ăn</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Phải thu</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Đã thu</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Miễn giảm</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Còn nợ</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'center' }}>Trạng thái</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'center' }}>Biên lai / Phiếu thu</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'center', width: 140 }}>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tcLoading ? (
+                                    <tr>
+                                        <td colSpan={11} style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>
+                                            <i className="fas fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: '#10b981', marginBottom: 8 }}></i>
+                                            <div>Đang tải sổ thu tiền bán trú...</div>
+                                        </td>
+                                    </tr>
+                                ) : tcData.filter(h => !tcSearch || h.ho_ten.toLowerCase().includes(tcSearch.toLowerCase()) || h.lop.toLowerCase().includes(tcSearch.toLowerCase())).length === 0 ? (
+                                    <tr>
+                                        <td colSpan={11} style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>
+                                            Không có học sinh nào phù hợp bộ lọc.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    tcData.filter(h => !tcSearch || h.ho_ten.toLowerCase().includes(tcSearch.toLowerCase()) || h.lop.toLowerCase().includes(tcSearch.toLowerCase())).map((h, idx) => (
+                                        <tr key={h.ma_hs_id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fcfdfd' }}>
+                                            <td style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>{idx + 1}</td>
+                                            <td style={{ fontWeight: 600, color: '#1e293b' }}>
+                                                {h.ho_ten}
+                                                {!h.dang_hoc && <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#dc2626', background: '#fee2e2', padding: '1px 5px', borderRadius: 4 }}>Rút bán trú</span>}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{h.lop}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{ fontWeight: 600, color: '#047857' }}>{h.so_buoi_an}</span>
+                                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}> / {h.tong_buoi_an}</span>
+                                                {h.so_buoi_phep > 0 && <span style={{ marginLeft: 4, fontSize: '0.72rem', color: '#b45309' }}>(-{h.so_buoi_phep}p)</span>}
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{h.so_tien_phai_thu.toLocaleString('vi-VN')} đ</td>
+                                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{h.so_tien_da_thu.toLocaleString('vi-VN')} đ</td>
+                                            <td style={{ textAlign: 'right', color: '#b45309' }}>
+                                                {h.so_tien_mien_giam > 0 ? `${h.so_tien_mien_giam.toLocaleString('vi-VN')} đ` : '-'}
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: 700, color: h.con_lai > 0 ? '#dc2626' : '#16a34a' }}>
+                                                {h.con_lai.toLocaleString('vi-VN')} đ
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                {h.trang_thai === 1 ? (
+                                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem' }}>✓ Đủ</span>
+                                                ) : h.trang_thai === 2 ? (
+                                                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem' }}>Một phần</span>
+                                                ) : h.trang_thai === 3 ? (
+                                                    <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem' }}>Miễn 100%</span>
+                                                ) : (
+                                                    <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem' }}>Chưa thu</span>
+                                                )}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontSize: '0.78rem', color: '#64748b' }}>
+                                                {h.so_phieu ? (
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, color: '#334155' }}>{h.so_phieu}</div>
+                                                        <div>{h.ngay_thu ? h.ngay_thu.split('-').reverse().join('/') : ''} ({h.hinh_thuc_thu === 'chuyen_khoan' ? 'CK' : 'TM'})</div>
+                                                    </div>
+                                                ) : '-'}
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                                                    <button
+                                                        className="btn btn-sm btn-primary"
+                                                        onClick={() => openThuTienModal(h)}
+                                                        disabled={tcIsKhoa}
+                                                        style={{ padding: '3px 8px', fontSize: '0.78rem' }}
+                                                        title="Thu tiền học sinh"
+                                                    >
+                                                        <i className="fas fa-hand-holding-usd"></i> Thu
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm btn-outline"
+                                                        onClick={() => openMienGiamModal(h)}
+                                                        disabled={tcIsKhoa}
+                                                        style={{ padding: '3px 8px', fontSize: '0.78rem' }}
+                                                        title="Miễn giảm học sinh"
+                                                    >
+                                                        <i className="fas fa-percent"></i> Giảm
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* ── MODAL XUẤT BÁO CÁO ĐIỂM DANH ĂN ── */}
             {showExportAnModal && (
                 <div className="export-modal-overlay">
@@ -3400,9 +3785,9 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                                 boxShadow: '0 1px 2px rgba(16,185,129,0.08)'
                                             }}
                                         >
-                                            {DOT_THANH_TOAN_CONFIG.map(d => (
+                                            {dotThanhToanConfig.map(d => (
                                                 <option key={d.dot} value={d.dot}>
-                                                    {d.label}
+                                                    {d.label} {d.is_khoa ? '🔒 (Đã khóa sổ)' : ''}
                                                 </option>
                                             ))}
                                         </select>
@@ -4170,6 +4555,145 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 style={{ background: '#ea580c', borderColor: '#ea580c' }}
                             >
                                 <i className="fas fa-print"></i> In / Xuất PDF (A4)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL THU TIỀN BÁN TRÚ ── */}
+            {showThuTienModal && selectedHsForTc && (
+                <div className="export-modal-overlay">
+                    <div className="export-modal" style={{ maxWidth: 460 }}>
+                        <div className="export-modal-header" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+                            <div className="icon" style={{ background: 'rgba(255,255,255,0.2)' }}><i className="fas fa-hand-holding-usd"></i></div>
+                            <div>
+                                <h3 style={{ color: '#fff' }}>Thu tiền bán trú</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.9)' }}>{selectedHsForTc.ho_ten} — Lớp {selectedHsForTc.lop}</p>
+                            </div>
+                        </div>
+                        <div className="export-modal-body" style={{ padding: 20 }}>
+                            <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 14, fontSize: '0.88rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <span>Tiền phải thu kỳ này:</span>
+                                    <strong>{selectedHsForTc.so_tien_phai_thu.toLocaleString('vi-VN')} đ</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <span>Đã thu trước đó:</span>
+                                    <strong style={{ color: '#16a34a' }}>{selectedHsForTc.so_tien_da_thu.toLocaleString('vi-VN')} đ</strong>
+                                </div>
+                                {selectedHsForTc.so_tien_mien_giam > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                        <span>Miễn giảm:</span>
+                                        <strong style={{ color: '#b45309' }}>{selectedHsForTc.so_tien_mien_giam.toLocaleString('vi-VN')} đ</strong>
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: 4, marginTop: 4 }}>
+                                    <span>Còn lại:</span>
+                                    <strong style={{ color: '#dc2626' }}>{selectedHsForTc.con_lai.toLocaleString('vi-VN')} đ</strong>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6 }}>Số tiền thực thu (VNĐ):</label>
+                                <input
+                                    type="number"
+                                    value={tcAmountInput}
+                                    onChange={e => setTcAmountInput(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '1rem', fontWeight: 700 }}
+                                />
+                                <div style={{ marginTop: 4, display: 'flex', gap: 6 }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-sm"
+                                        style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                                        onClick={() => setTcAmountInput(selectedHsForTc.con_lai > 0 ? selectedHsForTc.con_lai : selectedHsForTc.so_tien_phai_thu)}
+                                    >
+                                        Thu đủ còn lại ({selectedHsForTc.con_lai.toLocaleString('vi-VN')} đ)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6 }}>Hình thức thanh toán:</label>
+                                <select
+                                    value={tcMethodInput}
+                                    onChange={e => setTcMethodInput(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                >
+                                    <option value="tien_mat">💵 Tiền mặt</option>
+                                    <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6 }}>Ghi chú phiếu thu:</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ví dụ: Phụ huynh chuyển khoản VCB..."
+                                    value={tcNoteInput}
+                                    onChange={e => setTcNoteInput(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem' }}
+                                />
+                            </div>
+                        </div>
+                        <div className="export-modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button className="btn btn-outline" onClick={() => setShowThuTienModal(false)}>Hủy bỏ</button>
+                            <button className="btn btn-success" onClick={submitThuTien} style={{ fontWeight: 700 }}>
+                                <i className="fas fa-check"></i> Lưu phiếu thu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL MIỄN GIẢM TIỀN BÁN TRÚ ── */}
+            {showMienGiamModal && selectedHsForTc && (
+                <div className="export-modal-overlay">
+                    <div className="export-modal" style={{ maxWidth: 460 }}>
+                        <div className="export-modal-header" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
+                            <div className="icon" style={{ background: 'rgba(255,255,255,0.2)' }}><i className="fas fa-percent"></i></div>
+                            <div>
+                                <h3 style={{ color: '#fff' }}>Miễn giảm tiền bán trú</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.9)' }}>{selectedHsForTc.ho_ten} — Lớp {selectedHsForTc.lop}</p>
+                            </div>
+                        </div>
+                        <div className="export-modal-body" style={{ padding: 20 }}>
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6 }}>Số tiền miễn giảm (VNĐ):</label>
+                                <input
+                                    type="number"
+                                    value={tcMienGiamInput}
+                                    onChange={e => setTcMienGiamInput(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '1rem', fontWeight: 700 }}
+                                />
+                                <div style={{ marginTop: 4, display: 'flex', gap: 6 }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-sm"
+                                        style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                                        onClick={() => setTcMienGiamInput(selectedHsForTc.so_tien_phai_thu)}
+                                    >
+                                        Miễn giảm 100% ({selectedHsForTc.so_tien_phai_thu.toLocaleString('vi-VN')} đ)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6 }}>Lý do miễn giảm:</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ví dụ: Con giáo viên / Hộ nghèo / Hoàn cảnh khó khăn..."
+                                    value={tcLyDoMienGiamInput}
+                                    onChange={e => setTcLyDoMienGiamInput(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem' }}
+                                />
+                            </div>
+                        </div>
+                        <div className="export-modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button className="btn btn-outline" onClick={() => setShowMienGiamModal(false)}>Hủy bỏ</button>
+                            <button className="btn btn-warning" onClick={submitMienGiam} style={{ fontWeight: 700 }}>
+                                <i className="fas fa-check"></i> Lưu miễn giảm
                             </button>
                         </div>
                     </div>

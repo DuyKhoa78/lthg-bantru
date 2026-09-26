@@ -1165,7 +1165,9 @@ export default function LichTruc() {
               </tr>
             </thead>
             <tbody>
-              {(phongList || []).map(phong => (
+              {(phongList || [])
+                .filter(p => p.dang_dung !== false || pcData.some(pc => pc.ma_phong_id === p.ma_phong))
+                .map(phong => (
                 <tr key={phong.ma_phong}>
                   <td className="lt-admin-td-phong">
                     <div style={{ fontWeight: 600 }}>{phong.ma_phong}</div>
