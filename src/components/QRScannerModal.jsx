@@ -296,6 +296,7 @@ export default function QRScannerModal({
         setMiniToast({
             name: pendingStudent.ho_ten,
             lop: pendingStudent.lop,
+            room: pendingStudent.phong_hien_thi || pendingStudent.phong_an || pendingStudent.phong_ngu,
         });
         setTimeout(() => setMiniToast(null), 2000);
 
@@ -803,7 +804,10 @@ export default function QRScannerModal({
                     <div className="zalo-toast-avatar">✅</div>
                     <div className="zalo-toast-text">
                         <strong className="zalo-toast-name">{miniToast.name}</strong>
-                        <span className="zalo-toast-sub">Lớp {miniToast.lop} — ĐÃ XÁC NHẬN CÓ MẶT</span>
+                        <span className="zalo-toast-sub">
+                            {miniToast.room && <strong style={{ color: '#bae6fd', marginRight: 5 }}>[P.{miniToast.room}]</strong>}
+                            Lớp {miniToast.lop} — ĐÃ XÁC NHẬN CÓ MẶT
+                        </span>
                     </div>
                 </div>
             )}
@@ -899,6 +903,12 @@ export default function QRScannerModal({
                                     <div className="zalo-confirm-info">
                                         <h3 className="zalo-confirm-name">{pendingStudent.ho_ten}</h3>
                                         <div className="zalo-confirm-tags">
+                                            {(pendingStudent.phong_hien_thi || pendingStudent.phong_an || pendingStudent.phong_ngu) && (
+                                                <span className="zalo-tag" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 800, border: '1px solid #bae6fd' }}>
+                                                    <i className="fas fa-door-open" style={{ marginRight: 3 }}></i>
+                                                    Phòng {pendingStudent.phong_hien_thi || pendingStudent.phong_an || pendingStudent.phong_ngu}
+                                                </span>
+                                            )}
                                             <span className="zalo-tag lop">Lớp {pendingStudent.lop}</span>
                                             <span className="zalo-tag id">ID #{pendingStudent.id}</span>
                                             {pendingStudent.gioi_tinh !== null && pendingStudent.gioi_tinh !== undefined && (
@@ -928,6 +938,12 @@ export default function QRScannerModal({
                                     <div className="zalo-confirm-info">
                                         <h3 className="zalo-confirm-name">{pendingStudent.ho_ten}</h3>
                                         <div className="zalo-confirm-tags">
+                                            {(pendingStudent.phong_hien_thi || pendingStudent.phong_an || pendingStudent.phong_ngu) && (
+                                                <span className="zalo-tag" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 800, border: '1px solid #bae6fd' }}>
+                                                    <i className="fas fa-door-open" style={{ marginRight: 3 }}></i>
+                                                    Phòng {pendingStudent.phong_hien_thi || pendingStudent.phong_an || pendingStudent.phong_ngu}
+                                                </span>
+                                            )}
                                             <span className="zalo-tag lop">Lớp {pendingStudent.lop}</span>
                                             <span className="zalo-tag id">ID #{pendingStudent.id}</span>
                                         </div>

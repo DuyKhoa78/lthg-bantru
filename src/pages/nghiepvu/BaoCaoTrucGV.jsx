@@ -249,6 +249,7 @@ export default function BaoCaoTrucGV() {
             ma_phong: r.ma_phong || '',
             ho_ten_gv: r.ho_ten_gv || '',
             si_so: r.si_so || '',
+            so_hs_phep: r.so_hs_phep !== undefined ? r.so_hs_phep : 0,
             so_hs_vang: r.so_hs_vang !== undefined ? r.so_hs_vang : 0,
             danh_sach_vang: r.danh_sach_vang || '',
             hs_vi_pham: r.hs_vi_pham || '',
@@ -607,6 +608,7 @@ export default function BaoCaoTrucGV() {
           </td>
           <td style="text-align:center; font-size:9.5pt; font-weight:bold; color:#0f172a;">
             ${r.si_so || '—'}
+            ${r.so_hs_phep > 0 ? `<div style="font-size:8pt; color:#b45309; font-weight:normal; margin-top:1px;">(${r.so_hs_phep} phép)</div>` : ''}
           </td>
           <td style="font-size:8.5pt;">
             ${soVang > 0 ? `
@@ -620,7 +622,7 @@ export default function BaoCaoTrucGV() {
                 })()}
               </div>
             ` : `
-              <span style="color:#16a34a; font-weight:500;">✓ Đủ sĩ số</span>
+              <span style="color:#16a34a; font-weight:500;">✓ Đủ sĩ số ${r.so_hs_phep > 0 ? `<span style="color:#b45309;">(${r.so_hs_phep} phép)</span>` : ''}</span>
             `}
           </td>
           <td style="font-size:9pt; color:#334155;">
@@ -2696,6 +2698,11 @@ function testSendLatestSheetRow() {
                                                             ) : (
                                                                 <span style={{ color: '#cbd5e1' }}>—</span>
                                                             )}
+                                                            {r.so_hs_phep > 0 && (
+                                                                <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 700, marginTop: 2 }}>
+                                                                    <i className="fas fa-file-medical" style={{ marginRight: 2 }}></i>{r.so_hs_phep} phép
+                                                                </div>
+                                                            )}
                                                         </td>
                                                     )}
 
@@ -2703,6 +2710,39 @@ function testSendLatestSheetRow() {
                                                     <td>
                                                         <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
                                                             {r.ho_ten_gv}
+                                                        </div>
+                                                        <div style={{ marginTop: 3 }}>
+                                                            {r.nguon === 'phan_mem' ? (
+                                                                <span style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4,
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: 12,
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 600,
+                                                                    background: '#ede9fe',
+                                                                    color: '#6d28d9',
+                                                                    border: '1px solid #ddd6fe'
+                                                                }}>
+                                                                    <i className="fas fa-mobile-alt"></i> Phần mềm
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4,
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: 12,
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 600,
+                                                                    background: '#f0fdf4',
+                                                                    color: '#15803d',
+                                                                    border: '1px solid #bbf7d0'
+                                                                }}>
+                                                                    <i className="fab fa-google"></i> Google Form
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </td>
 
@@ -2753,6 +2793,11 @@ function testSendLatestSheetRow() {
                                                                     <div className="bctruc-vang-cell-header">
                                                                         <i className="fas fa-user-times"></i>
                                                                         <span>{countVang(r)} HS vắng</span>
+                                                                        {r.so_hs_phep > 0 && (
+                                                                            <span style={{ color: '#b45309', marginLeft: 6, fontWeight: 700 }}>
+                                                                                • {r.so_hs_phep} phép
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                     <div className="bctruc-vang-cell-list">
                                                                         {r.danh_sach_vang.split('\n').filter(Boolean).map((hs, i) => (
@@ -2763,6 +2808,11 @@ function testSendLatestSheetRow() {
                                                             ) : (
                                                                 <span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 600 }}>
                                                                     <i className="fas fa-check"></i> Đủ sĩ số
+                                                                    {r.so_hs_phep > 0 && (
+                                                                        <span style={{ color: '#b45309', marginLeft: 6, fontWeight: 700 }}>
+                                                                            ({r.so_hs_phep} phép)
+                                                                        </span>
+                                                                    )}
                                                                 </span>
                                                             )}
                                                         </td>
@@ -2908,7 +2958,42 @@ function testSendLatestSheetRow() {
                                                                                 {countVang(r)}
                                                                             </span>
                                                                         </td>
-                                                                        <td style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.ho_ten_gv}</td>
+                                                                        <td style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                                                                            <div>{r.ho_ten_gv}</div>
+                                                                            <div style={{ marginTop: 3 }}>
+                                                                                {r.nguon === 'phan_mem' ? (
+                                                                                    <span style={{
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: 4,
+                                                                                        padding: '1px 6px',
+                                                                                        borderRadius: 10,
+                                                                                        fontSize: '0.68rem',
+                                                                                        fontWeight: 600,
+                                                                                        background: '#ede9fe',
+                                                                                        color: '#6d28d9',
+                                                                                        border: '1px solid #ddd6fe'
+                                                                                    }}>
+                                                                                        <i className="fas fa-mobile-alt"></i> App
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span style={{
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: 4,
+                                                                                        padding: '1px 6px',
+                                                                                        borderRadius: 10,
+                                                                                        fontSize: '0.68rem',
+                                                                                        fontWeight: 600,
+                                                                                        background: '#f0fdf4',
+                                                                                        color: '#15803d',
+                                                                                        border: '1px solid #bbf7d0'
+                                                                                    }}>
+                                                                                        <i className="fab fa-google"></i> Form
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
                                                                         <td>
                                                                             <div className="bctruc-vang-cell-box">
                                                                                 {r.danh_sach_vang.split('\n').filter(Boolean).map((hs, i) => (
@@ -3162,8 +3247,8 @@ function testSendLatestSheetRow() {
                                     </div>
                                 </div>
 
-                                {/* Hàng 2: Họ tên GV trực, Sĩ số, Số HS vắng */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14 }}>
+                                {/* Hàng 2: Họ tên GV trực, Sĩ số, Số HS phép, Số HS vắng */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 14 }}>
                                     <div className="form-group" style={{ margin: 0 }}>
                                         <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: 5, display: 'block' }}>
                                             <i className="fas fa-user-tie" style={{ marginRight: 6, color: '#7c3aed' }}></i>Giáo viên / Cán bộ trực:
@@ -3185,9 +3270,22 @@ function testSendLatestSheetRow() {
                                         <input
                                             type="text"
                                             className="form-control"
-                                            placeholder="VD: 45"
+                                            placeholder="VD: 55/56"
                                             value={editForm.si_so}
                                             onChange={(e) => setEditForm({ ...editForm, si_so: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#b45309', marginBottom: 5, display: 'block' }}>
+                                            <i className="fas fa-file-medical" style={{ marginRight: 6, color: '#b45309' }}></i>HS phép:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            className="form-control"
+                                            value={editForm.so_hs_phep !== undefined ? editForm.so_hs_phep : 0}
+                                            onChange={(e) => setEditForm({ ...editForm, so_hs_phep: parseInt(e.target.value, 10) || 0 })}
                                         />
                                     </div>
 

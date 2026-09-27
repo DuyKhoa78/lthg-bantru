@@ -410,15 +410,76 @@
   color: #93c5fd;
   font-size: 0.82rem;
 }
-.dd-search-box { position: relative; width: 240px; }
-.dd-search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem; }
-.dd-search-box input {
-  width: 100%; height: 36px; padding: 0 12px 0 32px;
-  border: 1.5px solid #e2e8f0; border-radius: 8px;
-  font-size: 0.85rem; font-family: 'Be Vietnam Pro', sans-serif;
-  color: #374151; outline: none; transition: 0.2s;
+.dd-search-box { position: relative; width: 290px; max-width: 100%; flex-shrink: 0; }
+.dd-search-box > i:first-child,
+.dd-search-box .dd-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.82rem;
+  pointer-events: none;
 }
-.dd-search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,156,255,0.1); }
+.dd-search-box input {
+  width: 100%;
+  height: 36px;
+  padding: 0 32px 0 32px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  color: #374151;
+  background: #ffffff;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+.dd-search-box input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+.dd-search-box .dd-search-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+.dd-search-box .dd-search-clear-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+.dd-search-box .dd-search-clear-btn i {
+  position: static !important;
+  transform: none !important;
+  font-size: 0.72rem !important;
+  color: inherit !important;
+}
+
+.dd-search-box-wrap {
+  margin: 6px 0 8px !important;
+  padding: 0 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.dd-search-box-wrap .dd-search-box {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
 
 /* Thanh thao tác Admin & Giáo viên (Cố định ở đầu Panel, không bao giờ bị cuộn mất) */
 .dd-admin-actions-bar {
@@ -791,10 +852,11 @@
     width: 100% !important;
   }
   .dd-search-box input {
-    height: 44px !important;
-    font-size: 16px !important; /* Bắt buộc 16px để iOS Safari không tự động zoom vào ô nhập */
-    border-radius: 10px !important;
-    padding-left: 36px !important;
+    height: 36px !important;
+    font-size: 0.88rem !important;
+    border-radius: 8px !important;
+    padding-left: 32px !important;
+    padding-right: 32px !important;
   }
   .dd-teacher-actions-bar {
     flex-direction: column !important;
@@ -1037,4 +1099,478 @@
   gap: 12px;
   justify-content: flex-end;
 }
+
+/* ── Chế độ Điểm danh Gộp Liên Phòng (Multi-Room Consolidated Mode) ── */
+.dd-room-item.is-group-all {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+  border-left: 4px solid #2563eb !important;
+  border-bottom: 2px solid #bfdbfe !important;
+  margin-bottom: 8px !important;
+}
+
+.dd-room-item.is-group-all.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #fff !important;
+}
+
+.dd-room-item.is-group-all.active .dd-room-item-name strong {
+  color: #fff !important;
+}
+
+.dd-room-item.is-group-all.active .dd-room-item-name small {
+  color: #bfdbfe !important;
+}
+
+.dd-room-item.is-group-all.active .dd-room-count {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #fff !important;
+}
+
+/* Subroom Filter Bar */
+.dd-subroom-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+.dd-subroom-filter-bar .filter-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.subroom-chip {
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.subroom-chip:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.subroom-chip.active {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+
+.subroom-chip.theme-ngu.active {
+  background: #6d28d9;
+  border-color: #6d28d9;
+  box-shadow: 0 2px 6px rgba(109, 40, 217, 0.3);
+}
+
+.dd-student-room-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  border: 1px solid #bae6fd;
+}
+
+/* Bảng Chốt Sổ Liên Phòng */
+.dd-multichot-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 16px;
+  font-size: 0.88rem;
+}
+
+.dd-multichot-table th {
+  background: #f1f5f9;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  font-weight: 700;
+  color: #334155;
+}
+
+.dd-multichot-table td {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+/* ── THẺ GỘP TẤT CẢ PHÒNG TRONG SIDEBAR ── */
+.dd-group-room-card {
+  grid-column: 1 / -1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  background: #f0f7ff !important;
+  border: 1.5px solid #bfdbfe !important;
+  color: #1e40af !important;
+  margin-bottom: 2px !important;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08) !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+.dd-group-room-card:hover {
+  background: #e0f2fe !important;
+  border-color: #60a5fa !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15) !important;
+}
+.dd-group-room-card.active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+  border-color: #1e40af !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+}
+.dd-group-room-card.theme-ngu {
+  background: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+  color: #5b21b6 !important;
+}
+.dd-group-room-card.theme-ngu:hover {
+  background: #ede9fe !important;
+  border-color: #a78bfa !important;
+}
+.dd-group-room-card.theme-ngu.active {
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
+  border-color: #5b21b6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.35) !important;
+}
+.dd-group-header-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+}
+.dd-group-header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.dd-group-icon {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  background: #dbeafe !important;
+  color: #2563eb !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.8rem !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s !important;
+}
+.dd-group-room-card.active .dd-group-icon {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+.dd-group-room-card.theme-ngu .dd-group-icon {
+  background: #ede9fe !important;
+  color: #7c3aed !important;
+}
+.dd-group-room-card.theme-ngu.active .dd-group-icon {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+.dd-group-title {
+  font-size: 0.8rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.3px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+}
+.dd-group-sub {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  font-size: 0.72rem !important;
+  opacity: 0.92 !important;
+  padding: 0 2px !important;
+  margin-top: 4px !important;
+  gap: 6px !important;
+}
+.dd-group-sub-text {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 !important;
+}
+.dd-group-badge {
+  font-size: 0.7rem !important;
+  font-weight: 800 !important;
+  padding: 1.5px 6px !important;
+  border-radius: 5px !important;
+  background: #dbeafe !important;
+  color: #1e40af !important;
+  flex-shrink: 0 !important;
+}
+.dd-group-room-card.active .dd-group-badge {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+.dd-group-room-card.theme-ngu .dd-group-badge {
+  background: #ede9fe !important;
+  color: #6d28d9 !important;
+}
+.dd-group-room-card.theme-ngu.active .dd-group-badge {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* ── HUY HIỆU TRẠNG THÁI CHỐT TRÊN TIÊU ĐỀ ── */
+.dd-chot-header-badge.neutral {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: none !important;
+}
+.dd-chot-header-badge.neutral i {
+  color: #94a3b8 !important;
+}
+.dd-chot-header-badge.warning {
+  background: #fffbeb !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15) !important;
+}
+.dd-chot-header-badge.warning i {
+  color: #f59e0b !important;
+}
+.dd-chot-header-badge.success {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 1px solid #a7f3d0 !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.15) !important;
+}
+.dd-chot-header-badge.success i {
+  color: #10b981 !important;
+}
+
+/* ── BỘ LỌC SUB-ROOM CHIPS MƯỢT MÀ ── */
+.dd-subroom-filter-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  padding: 8px 16px !important;
+  background: #f8fafc !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  margin-bottom: 0 !important;
+  scrollbar-width: thin !important;
+}
+.dd-subroom-filter-bar::-webkit-scrollbar {
+  height: 4px;
+}
+.dd-subroom-filter-bar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* ── BANNER THÔNG BÁO CA TRỰC GỌN GÀNG ── */
+.dd-shift-notice-banner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
+  margin: 8px 16px !important;
+  font-size: 0.84rem !important;
+}
+.dd-shift-notice-banner.danger {
+  background: #fff1f2 !important;
+  border: 1px solid #fecdd3 !important;
+  color: #9f1239 !important;
+}
+.dd-shift-notice-banner.danger i {
+  color: #e11d48 !important;
+  font-size: 1rem !important;
+}
+.dd-shift-notice-banner.pending {
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  color: #1e40af !important;
+}
+.dd-shift-notice-banner.pending i {
+  color: #2563eb !important;
+  font-size: 1rem !important;
+}
+.dd-shift-notice-banner.info {
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  color: #065f46 !important;
+}
+.dd-shift-notice-banner.info i {
+  color: #10b981 !important;
+  font-size: 1rem !important;
+}
+
+/* ── TỐI ƯU HÓA ĐẶC BIỆT CHO GIAO DIỆN ĐIỆN THOẠI (SMARTPHONE MOBILE-FIRST) ── */
+@media (max-width: 900px) {
+  /* Thẻ gộp phòng khi ở dạng trượt ngang trên mobile */
+  .dd-group-room-card {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 140px !important;
+    max-width: 200px !important;
+    margin-bottom: 0 !important;
+    scroll-snap-align: start !important;
+  }
+
+  .dd-room-item {
+    flex: 0 0 78px !important;
+    min-width: 78px !important;
+    height: 58px !important;
+    scroll-snap-align: start !important;
+    border-radius: 10px !important;
+  }
+
+  .dd-subroom-filter-bar {
+    padding: 8px 12px !important;
+    gap: 6px !important;
+  }
+
+  .subroom-chip {
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Thanh thao tác giáo viên: Quét QR & Lưu/Chốt */
+  .dd-teacher-actions-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  .dd-teacher-actions-bar > div:first-child {
+    width: 100% !important;
+    display: flex !important;
+  }
+
+  .dd-teacher-actions-bar > div:last-child {
+    width: 100% !important;
+    margin-left: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .dd-qr-scan-btn {
+    width: 100% !important;
+    height: 44px !important;
+    font-size: 0.92rem !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+  }
+
+  .dd-teacher-actions-bar > div:last-child .btn {
+    flex: 1 1 0% !important;
+    height: 36px !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+  }
+
+  .dd-teacher-actions-bar > div:last-child span {
+    flex-shrink: 0 !important;
+  }
+
+  /* Thẻ học sinh trên điện thoại */
+  .dd-student-card {
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .dd-student-name {
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+  }
+
+  .dd-student-class {
+    font-size: 0.78rem !important;
+    margin-top: 3px !important;
+  }
+
+  /* 3 nút bấm trạng thái Có mặt / Vắng / Phép to bản, dễ bấm ngón cái */
+  .dd-status-btns {
+    gap: 8px !important;
+  }
+
+  .dd-status-btn {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 1.1rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Modal xác nhận trên mobile */
+  .dd-confirm-modal {
+    width: 95% !important;
+    max-width: 420px !important;
+    padding: 18px !important;
+    border-radius: 16px !important;
+  }
+
+  .dd-modal-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .dd-modal-actions .btn {
+    width: 100% !important;
+    height: 46px !important;
+    font-size: 0.95rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Bảng chi tiết chốt liên phòng trên mobile */
+  .dd-multichot-table {
+    font-size: 0.8rem !important;
+  }
+  .dd-multichot-table th,
+  .dd-multichot-table td {
+    padding: 6px 8px !important;
+  }
+}
+
+
 

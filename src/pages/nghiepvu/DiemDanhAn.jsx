@@ -9,6 +9,7 @@ import { formatLopList, sortStudentsForRoom, splitStudentsByTeachers, isHTARoom 
 import { matchStudentSearch } from '../../utils/qrUtils';
 import BaoPhepModal from '../../components/BaoPhepModal';
 import QRScannerModal from '../../components/QRScannerModal';
+import BaoCaoTrucModal from '../../components/BaoCaoTrucModal';
 import '../../styles/admin.css';
 import './DiemDanh.css';
 
@@ -53,8 +54,53 @@ export default function DiemDanhAn() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
     const { showAlert, AlertUI } = useAlert();
-    const [searchParams] = useSearchParams();
-    const [date, setDate] = useState(() => searchParams.get('ngay') || searchParams.get('date') || todayVN());
+    const [searchParams, setSearchParams] = useSearchParams();
+    const urlDate = searchParams.get('ngay') || searchParams.get('date');
+    const urlPhong = searchParams.get('phong');
+    const urlGop = isGiaoVien && (searchParams.get('gop') === '1' || urlPhong === 'ALL');
+
+    const [date, setDate] = useState(() => urlDate || todayVN());
+    const [isGopMode, setIsGopMode] = useState(urlGop);
+    const [filterSubPhong, setFilterSubPhong] = useState('ALL');
+    const [showMultiChotModal, setShowMultiChotModal] = useState(false);
+    const [showBaoCaoModal, setShowBaoCaoModal] = useState(false);
+
+    // Chuyển sang chế độ gộp tất cả phòng trực
+    const handleSelectGop = () => {
+        setIsGopMode(true);
+        setSelectedPhong(null);
+        setFilterSubPhong('ALL');
+        setSaved(false);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('gop', '1');
+            next.delete('phong');
+            return next;
+        }, { replace: true });
+    };
+
+    // Chuyển sang phòng đơn lẻ
+    const handleSelectRoom = (p) => {
+        setSelectedPhong(p);
+        setIsGopMode(false);
+        setSaved(false);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('phong', p.ma_phong);
+            next.delete('gop');
+            return next;
+        }, { replace: true });
+    };
+
+    // Đổi ngày có đồng bộ URL
+    const handleDateChange = (newDate) => {
+        setDate(newDate);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('ngay', newDate);
+            return next;
+        }, { replace: true });
+    };
 
     // Live clock cho ca trực
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -83,23 +129,6 @@ export default function DiemDanhAn() {
         return date === todayVN();
     }, [date]);
 
-    // Quyền thao tác của Giáo viên:
-    // Admin/Học vụ: luôn được phép thao tác.
-    // Giáo viên: CHỈ được thao tác trong ngày hôm nay, trong khung giờ ca trực (10h55 - 11h30), và không phải nhiệm vụ giám sát thuần túy.
-    const canTeacherOperate = useMemo(() => {
-        if (!isGiaoVien) return true;
-        return isDateToday && shiftTiming.state === 'dang_dien_ra';
-    }, [isGiaoVien, isDateToday, shiftTiming.state]);
-
-    // Kiểm tra khung giờ điểm danh
-    const isAllowedTime = useCallback(() => {
-        if (user?.is_admin || user?.is_superuser) return true;
-        const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
-        if (isGiaoVien) {
-            return isDateToday && mins >= 655 && mins <= 690; // 10:55 - 11:30
-        }
-        return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
-    }, [user, isGiaoVien, currentTime, isDateToday]);
 
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
@@ -178,9 +207,11 @@ export default function DiemDanhAn() {
         const controller = new AbortController();
         fetchAbortRef.current = controller;
 
-        if (!silent) setLoading(true);
-        setOverrides({});
-        setSaved(false);
+        if (!silent) {
+            setLoading(true);
+            setOverrides({});
+            setSaved(false);
+        }
         try {
             const res = await api.get(`/api/diemdanh/?ngay=${d}&loai=an`, { signal: controller.signal });
             if (res.data?.ok) {
@@ -294,60 +325,217 @@ export default function DiemDanhAn() {
         fetchDiemDanh(date);
     }, [date, fetchDiemDanh]);
 
+    // Danh sách mã các phòng được phân công cho GV (chỉ dành cho GV)
+    const myDutyRooms = useMemo(() => {
+        if (isGiaoVien && Array.isArray(assignedRoomCodes) && assignedRoomCodes.length > 0) {
+            return assignedRoomCodes;
+        }
+        return [];
+    }, [isGiaoVien, assignedRoomCodes]);
+
+    // Kiểm tra Giáo viên có lịch phân công trực trong ngày này hay không
+    const hasTeacherDuty = useMemo(() => {
+        if (!isGiaoVien) return true;
+        if (isGopMode) {
+            return Boolean(myDutyRooms && myDutyRooms.length > 0);
+        }
+        if (selectedPhong) {
+            return Boolean(myDutyRooms && myDutyRooms.includes(selectedPhong.ma_phong));
+        }
+        return false;
+    }, [isGiaoVien, isGopMode, myDutyRooms, selectedPhong]);
+
+    // Quyền thao tác của Giáo viên:
+    // Admin/Học vụ: luôn được phép thao tác.
+    // Giáo viên: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ đúng khung giờ ca ăn (10h55 - 11h30).
+    const canTeacherOperate = useMemo(() => {
+        if (!isGiaoVien) return true;
+        if (!hasTeacherDuty) return false;
+        return isDateToday && shiftTiming.state === 'dang_dien_ra';
+    }, [isGiaoVien, hasTeacherDuty, isDateToday, shiftTiming.state]);
+
+    // Kiểm tra khung giờ điểm danh
+    const isAllowedTime = useCallback(() => {
+        if (user?.is_admin || user?.is_superuser) return true;
+        const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
+        if (isGiaoVien) {
+            return isDateToday && mins >= 655 && mins <= 690; // 10:55 - 11:30
+        }
+        return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
+    }, [user, isGiaoVien, currentTime, isDateToday]);
+
+    // Toàn bộ học sinh thuộc tất cả các phòng phụ trách (chỉ dành cho GV khi có phân công)
+    const allAssignedStudents = useMemo(() => {
+        if (!isGiaoVien || myDutyRooms.length === 0) return [];
+        const list = [];
+        myDutyRooms.forEach(maPhong => {
+            const roomHs = getStudentsForRoom(maPhong);
+            roomHs.forEach(hs => {
+                list.push({
+                    ...hs,
+                    phong_hien_thi: maPhong,
+                    ma_phong_target: maPhong,
+                });
+            });
+        });
+        return sortStudentsForRoom(list, 'ALL');
+    }, [isGiaoVien, myDutyRooms, getStudentsForRoom]);
+
+    // Tự động chọn phòng hoặc chế độ gộp
     useEffect(() => {
-        if (visiblePhongList.length > 0) {
-            const isCurrentValid = selectedPhong && visiblePhongList.some(p => p.ma_phong === selectedPhong.ma_phong);
-            if (!isCurrentValid) setSelectedPhong(visiblePhongList[0]);
-        } else {
+        // ADMIN / HỌC VỤ: Giữ nguyên như cũ hoàn toàn!
+        if (!isGiaoVien) {
+            setIsGopMode(false);
+            if (urlPhong && visiblePhongList.some(p => p.ma_phong === urlPhong)) {
+                setSelectedPhong(visiblePhongList.find(p => p.ma_phong === urlPhong));
+            } else if (visiblePhongList.length > 0) {
+                const isCurrentValid = selectedPhong && visiblePhongList.some(p => p.ma_phong === selectedPhong.ma_phong);
+                if (!isCurrentValid) setSelectedPhong(visiblePhongList[0]);
+            } else {
+                setSelectedPhong(null);
+            }
+            return;
+        }
+
+        // DÀNH RIÊNG CHO GIÁO VIÊN:
+        if (urlPhong && urlPhong !== 'ALL' && visiblePhongList.some(p => p.ma_phong === urlPhong)) {
+            setSelectedPhong(visiblePhongList.find(p => p.ma_phong === urlPhong));
+            setIsGopMode(false);
+            return;
+        }
+        if (urlGop) {
+            setIsGopMode(true);
             setSelectedPhong(null);
+            return;
         }
-    }, [visiblePhongList, selectedPhong]);
+        // Trường hợp ban đầu vào trang chưa có query param:
+        if (!urlPhong && !urlGop) {
+            if (assignedRoomCodes && assignedRoomCodes.length >= 2) {
+                setIsGopMode(true);
+                setSelectedPhong(null);
+            } else if (visiblePhongList.length > 0) {
+                setSelectedPhong(visiblePhongList[0]);
+                setIsGopMode(false);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visiblePhongList, urlPhong, urlGop, isGiaoVien, assignedRoomCodes]);
 
-    // Tự động phục hồi bản nháp (LocalStorage + Server Draft) khi đổi phòng hoặc đổi ngày
+    // Tự động phục hồi bản nháp (LocalStorage + Server Draft) khi đổi phòng hoặc chế độ gộp
     useEffect(() => {
-        if (!selectedPhong) return;
-        const localKey = `bantru_draft_${date}_an_${selectedPhong.ma_phong}`;
-        let localItems = [];
-        try {
-            const cached = localStorage.getItem(localKey);
-            if (cached) localItems = JSON.parse(cached);
-        } catch (e) {
-            console.warn('Local storage draft read error:', e);
+        if (!isGopMode) {
+            if (!selectedPhong) return;
+            const localKey = `bantru_draft_${date}_an_${selectedPhong.ma_phong}`;
+            let localItems = [];
+            try {
+                const cached = localStorage.getItem(localKey);
+                if (cached) localItems = JSON.parse(cached);
+            } catch (e) {
+                console.warn('Local storage draft read error:', e);
+            }
+
+            api.get(`/api/diemdanh/draft/?ngay=${date}&loai_truc=0&ma_phong_id=${selectedPhong.ma_phong}`)
+                .then(r => {
+                    const serverItems = r.data?.draft?.danh_sach_hs || [];
+                    const merged = {};
+                    serverItems.forEach(s => { merged[s.id] = s; });
+                    localItems.forEach(s => { merged[s.id] = s; });
+                    const list = Object.values(merged);
+                    if (list.length > 0) {
+                        const newOverrides = {};
+                        list.forEach(s => {
+                            if (s.status === 0) newOverrides[s.id] = 'comat';
+                        });
+                        setOverrides(prev => ({ ...prev, ...newOverrides }));
+                        const validScannedCount = list.filter(x => x.status === 0).length;
+                        if (validScannedCount > 0) {
+                            setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp (${validScannedCount} học sinh đã quét)`);
+                            setTimeout(() => setDraftRestoredMsg(null), 3500);
+                        }
+                    }
+                })
+                .catch(() => { });
+            return;
         }
 
-        api.get(`/api/diemdanh/draft/?ngay=${date}&loai_truc=0&ma_phong_id=${selectedPhong.ma_phong}`)
-            .then(r => {
+        // Chế độ gộp: Nạp nháp từ tất cả các phòng phụ trách
+        if (!myDutyRooms || myDutyRooms.length === 0) return;
+        let totalRestored = 0;
+        const allDraftOverrides = {};
+
+        Promise.all(myDutyRooms.map(async (code) => {
+            let localItems = [];
+            try {
+                const cached = localStorage.getItem(`bantru_draft_${date}_an_${code}`);
+                if (cached) localItems = JSON.parse(cached);
+            } catch { /* ignore */ }
+
+            try {
+                const r = await api.get(`/api/diemdanh/draft/?ngay=${date}&loai_truc=0&ma_phong_id=${code}`);
                 const serverItems = r.data?.draft?.danh_sach_hs || [];
                 const merged = {};
                 serverItems.forEach(s => { merged[s.id] = s; });
-                localItems.forEach(s => { merged[s.id] = s; }); // local có ưu tiên ghi đè nếu mới hơn
+                localItems.forEach(s => { merged[s.id] = s; });
                 const list = Object.values(merged);
-                if (list.length > 0) {
-                    const newOverrides = {};
-                    list.forEach(s => {
-                        if (s.status === 0) newOverrides[s.id] = 'comat';
-                    });
-                    setOverrides(prev => ({ ...prev, ...newOverrides }));
-                    const validScannedCount = list.filter(x => x.status === 0).length;
-                    if (validScannedCount > 0) {
-                        setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp (${validScannedCount} học sinh đã quét)`);
-                        setTimeout(() => setDraftRestoredMsg(null), 3500);
+                list.forEach(s => {
+                    if (s.status === 0) {
+                        allDraftOverrides[s.id] = 'comat';
+                        totalRestored++;
                     }
-                }
-            })
-            .catch(() => { });
-    }, [selectedPhong, date]);
+                });
+            } catch { /* ignore */ }
+        })).then(() => {
+            if (Object.keys(allDraftOverrides).length > 0) {
+                setOverrides(prev => ({ ...prev, ...allDraftOverrides }));
+                setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp của tất cả các phòng (${totalRestored} học sinh đã ghi nhận)`);
+                setTimeout(() => setDraftRestoredMsg(null), 3500);
+            }
+        });
+    }, [isGopMode, selectedPhong, date, myDutyRooms]);
 
-    // Trạng thái chốt phòng hiện tại
+    // Phòng đơn lẻ đang được chọn (từ thanh lọc phòng gộp hoặc từ sidebar)
+    const activeSingleRoom = useMemo(() => {
+        if (!isGopMode && selectedPhong) return selectedPhong.ma_phong;
+        if (isGopMode && filterSubPhong && filterSubPhong !== 'ALL') return filterSubPhong;
+        return null;
+    }, [isGopMode, selectedPhong, filterSubPhong]);
+
+    // Trạng thái chốt phòng hiện tại (cho phòng đang chọn, hoặc phòng đơn trong chế độ gộp)
     const currentPhongStatus = useMemo(() => {
-        if (!selectedPhong) return null;
-        return phongStatuses.find(ps => ps.ma_phong_id === selectedPhong.ma_phong);
-    }, [phongStatuses, selectedPhong]);
+        const targetRoom = activeSingleRoom || selectedPhong?.ma_phong;
+        if (!targetRoom) return null;
+        return phongStatuses.find(ps => ps.ma_phong_id === targetRoom);
+    }, [phongStatuses, selectedPhong, activeSingleRoom]);
 
     const isDaChot = currentPhongStatus?.trang_thai_chot === 'da_chot' || Boolean(currentPhongStatus?.da_diem_danh);
 
-    // Danh sách học sinh trong phòng: Sắp xếp theo cấu hình phòng (HT.A: DS1 -> DS2 -> DS3, phòng khác: MSBT)
+    // Danh sách học sinh trong phòng hoặc chế độ gộp
     const students = useMemo(() => {
+        if (isGopMode) {
+            let baseList = allAssignedStudents;
+            if (filterSubPhong && filterSubPhong !== 'ALL') {
+                baseList = baseList.filter(s => (s.phong_hien_thi || s.phong_an) === filterSubPhong);
+            }
+            return baseList.map(s => {
+                const effectivePhong = s.phong_hien_thi || s.phong_an || s.ma_phong_target;
+                let st = overrides[s.id];
+                if (st === undefined) {
+                    if (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null) {
+                        st = STATUS_MAP[diemDanhDb[s.id]];
+                    } else {
+                        const pStat = phongStatuses.find(ps => ps.ma_phong_id === effectivePhong);
+                        const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+                        st = isRoomChot ? 'comat' : 'chua_diem_danh';
+                    }
+                }
+                return {
+                    ...s,
+                    phong_hien_thi: effectivePhong,
+                    trang_thai: st,
+                };
+            });
+        }
+
         if (!selectedPhong) return [];
         return sortStudentsForRoom(getStudentsForRoom(selectedPhong.ma_phong), selectedPhong.ma_phong)
             .map(s => {
@@ -361,14 +549,15 @@ export default function DiemDanhAn() {
                 }
                 return {
                     ...s,
+                    phong_hien_thi: selectedPhong.ma_phong,
                     trang_thai: st,
                 };
             });
-    }, [selectedPhong, diemDanhDb, overrides, getStudentsForRoom, isDaChot]);
+    }, [isGopMode, filterSubPhong, allAssignedStudents, selectedPhong, overrides, diemDanhDb, phongStatuses, isDaChot, getStudentsForRoom]);
 
     const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
-    // Thống kê nhanh sĩ số trong phòng hiện tại
+    // Thống kê nhanh sĩ số
     const roomCounts = useMemo(() => {
         let comat = 0, vang = 0, phep = 0, chua = 0;
         students.forEach(s => {
@@ -380,24 +569,64 @@ export default function DiemDanhAn() {
         return { comat, vang, phep, chua };
     }, [students]);
 
-    // Nhiệm vụ của GV trong phòng này
+    // Thống kê chi tiết theo từng phòng cho Modal chốt liên phòng
+    const multiRoomSummary = useMemo(() => {
+        const rooms = (isGiaoVien && myDutyRooms.length > 0) ? myDutyRooms : (isGopMode ? myDutyRooms : []);
+        if (rooms.length === 0) return [];
+        return rooms.map(maPhong => {
+            const roomHs = allAssignedStudents.filter(s => (s.phong_hien_thi || s.phong_an) === maPhong);
+            let comat = 0, vang = 0, phep = 0, chua = 0;
+            roomHs.forEach(s => {
+                const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh');
+                if (curSt === 'comat') comat++;
+                else if (curSt === 'vang') vang++;
+                else if (curSt === 'phep') phep++;
+                else chua++;
+            });
+            const pStatus = phongStatuses.find(ps => ps.ma_phong_id === maPhong);
+            const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
+            return {
+                ma_phong: maPhong,
+                total: roomHs.length,
+                comat,
+                vang,
+                phep,
+                chua,
+                isChot,
+                pStatus
+            };
+        });
+    }, [isGopMode, isGiaoVien, myDutyRooms, allAssignedStudents, overrides, diemDanhDb, phongStatuses]);
+
+    // Nhiệm vụ của GV
     const currentDuty = useMemo(() => {
-        if (!isGiaoVien || !myAssignments || !selectedPhong) return 0;
+        if (!isGiaoVien || !myAssignments) return 0;
+        if (isGopMode) {
+            // Nếu có ít nhất 1 phòng điểm danh thì coi như có quyền điểm danh
+            const hasAttendanceDuty = myAssignments.some(a => a.nhiem_vu === 0);
+            return hasAttendanceDuty ? 0 : 1;
+        }
+        if (!selectedPhong) return 0;
         const pc = myAssignments.find(a => a.ma_phong_id === selectedPhong.ma_phong);
-        return pc ? pc.nhiem_vu : 0; // 0=Điểm danh, 1=Giám sát
-    }, [isGiaoVien, myAssignments, selectedPhong]);
+        return pc ? pc.nhiem_vu : 0;
+    }, [isGiaoVien, myAssignments, selectedPhong, isGopMode]);
 
     const isGiamSatOnly = isGiaoVien && currentDuty !== 0;
 
-    // Xác nhận học sinh từ camera quét mã QR (Zero data loss)
+    // Xác nhận học sinh từ camera quét mã QR (Zero data loss, hỗ trợ liên phòng)
     const handleConfirmStudent = (student) => {
+        const studentRoom = student.phong_hien_thi || student.phong_an || student.ma_phong_target || selectedPhong?.ma_phong;
+
         setOverrides(prev => {
             const next = { ...prev, [student.id]: 'comat' };
 
-            // Lưu tức thì vào LocalStorage
-            if (selectedPhong) {
-                const localKey = `bantru_draft_${date}_an_${selectedPhong.ma_phong}`;
-                const draftList = students.map(s => {
+            // Lưu tức thì vào LocalStorage của đúng phòng đó
+            if (studentRoom) {
+                const localKey = `bantru_draft_${date}_an_${studentRoom}`;
+                const allSource = allAssignedStudents.length > 0 ? allAssignedStudents : students;
+                const targetRoomStudents = allSource.filter(s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === studentRoom);
+
+                const draftList = targetRoomStudents.map(s => {
                     const st = (s.id === student.id)
                         ? 'comat'
                         : (next[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh'));
@@ -420,11 +649,11 @@ export default function DiemDanhAn() {
                     console.warn('LocalStorage save error:', err);
                 }
 
-                // Đồng bộ nền lên server draft
+                // Đồng bộ nền lên server draft của phòng đó
                 api.post('/api/diemdanh/draft-sync/', {
                     ngay: date,
                     loai_truc: 0,
-                    ma_phong_id: selectedPhong.ma_phong,
+                    ma_phong_id: studentRoom,
                     danh_sach_hs: draftList
                 }).then(r => {
                     if (r.data?.ok) setLastSyncedTime(new Date());
@@ -437,18 +666,25 @@ export default function DiemDanhAn() {
         });
     };
 
-    // Chốt dữ liệu phòng lên Tổng
+    // Chốt dữ liệu phòng đơn lẻ lên Tổng
     const handleChotPhong = async () => {
-        if (!selectedPhong || students.length === 0) return;
+        const targetRoom = activeSingleRoom || selectedPhong?.ma_phong;
+        if (!targetRoom) return;
 
-        // Những học sinh chưa điểm danh sẽ tự động ghi nhận là VẮNG (status: 1)
+        // Lấy đúng danh sách học sinh của phòng đang chọn
+        const targetStudents = (allAssignedStudents.length > 0 ? allAssignedStudents : students).filter(
+            s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === targetRoom
+        );
+        if (targetStudents.length === 0) return;
+
         const updatedOverrides = {};
-        const danhSachHs = students.map(s => {
-            const isUnchecked = s.trang_thai === 'chua_diem_danh' || !s.trang_thai;
+        const danhSachHs = targetStudents.map(s => {
+            const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh');
+            const isUnchecked = curSt === 'chua_diem_danh' || !curSt;
             if (isUnchecked) {
                 updatedOverrides[s.id] = 'vang';
             }
-            const finalSt = isUnchecked ? 1 : (INV_STATUS_MAP[s.trang_thai] ?? 1);
+            const finalSt = isUnchecked ? 1 : (INV_STATUS_MAP[curSt] ?? 1);
             return {
                 id: s.id,
                 ho_ten: s.ho_ten,
@@ -464,20 +700,84 @@ export default function DiemDanhAn() {
 
         setChotting(true);
         try {
+            const pStat = phongStatuses.find(ps => ps.ma_phong_id === targetRoom);
+            const isTargetRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+
             const res = await api.post('/api/diemdanh/chot-phong/', {
                 ngay: date,
                 loai_truc: 0,
-                ma_phong_id: selectedPhong.ma_phong,
+                ma_phong_id: targetRoom,
                 danh_sach_hs: danhSachHs,
-                ghi_chu: isDaChot ? 'Cập nhật bổ sung' : 'Chốt điểm danh phòng thành công'
+                ghi_chu: isTargetRoomChot ? 'Cập nhật bổ sung' : 'Chốt điểm danh phòng thành công'
             });
 
             if (res.data?.ok) {
-                showAlert(res.data.message || `Đã chốt danh sách phòng ${selectedPhong.ma_phong} thành công!`, 'success');
+                showAlert(res.data.message || `Đã chốt danh sách phòng ${targetRoom} thành công!`, 'success');
                 setShowChotConfirmModal(false);
-                setOverrides({});
+                setOverrides(prev => {
+                    const next = { ...prev };
+                    targetStudents.forEach(s => { delete next[s.id]; });
+                    return next;
+                });
                 await fetchDiemDanh(date, true);
             }
+        } catch (err) {
+            showAlert(err.response?.data?.error || 'Lỗi khi chốt điểm danh lên Tổng', 'danger');
+        } finally {
+            setChotting(false);
+        }
+    };
+
+    // Chốt tất cả các phòng phụ trách của GV lên Tổng (cả 3 phòng)
+    const handleChotAllRooms = async () => {
+        const roomsToChot = (isGiaoVien && myDutyRooms.length > 0) ? myDutyRooms : (isGopMode ? myDutyRooms : (selectedPhong ? [selectedPhong.ma_phong] : []));
+        if (roomsToChot.length === 0) return;
+        setChotting(true);
+        try {
+            let successCount = 0;
+            const updatedOverrides = {};
+
+            for (const maPhong of roomsToChot) {
+                const roomStudents = (allAssignedStudents.length > 0 ? allAssignedStudents : students).filter(s => (s.phong_hien_thi || s.phong_an) === maPhong);
+                if (roomStudents.length === 0) continue;
+
+                const danhSachHs = roomStudents.map(s => {
+                    const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh');
+                    const isUnchecked = curSt === 'chua_diem_danh' || !curSt;
+                    if (isUnchecked) {
+                        updatedOverrides[s.id] = 'vang';
+                    }
+                    const finalSt = isUnchecked ? 1 : (INV_STATUS_MAP[curSt] ?? 1);
+                    return {
+                        id: s.id,
+                        ho_ten: s.ho_ten,
+                        lop: s.lop,
+                        status: finalSt,
+                        phuong_thuc: 'thu_cong'
+                    };
+                });
+
+                const pStat = phongStatuses.find(ps => ps.ma_phong_id === maPhong);
+                const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+
+                const res = await api.post('/api/diemdanh/chot-phong/', {
+                    ngay: date,
+                    loai_truc: 0,
+                    ma_phong_id: maPhong,
+                    danh_sach_hs: danhSachHs,
+                    ghi_chu: isRoomChot ? 'Cập nhật bổ sung' : 'Chốt điểm danh liên phòng thành công'
+                });
+                if (res.data?.ok) successCount++;
+            }
+
+            if (Object.keys(updatedOverrides).length > 0) {
+                setOverrides(prev => ({ ...prev, ...updatedOverrides }));
+            }
+
+            showAlert(`Đã chốt sổ thành công cho cả ${successCount}/${roomsToChot.length} phòng phụ trách gửi lên Tổng!`, 'success');
+            setShowMultiChotModal(false);
+            setOverrides({});
+            await fetchDiemDanh(date, true);
         } catch (err) {
             showAlert(err.response?.data?.error || 'Lỗi khi chốt điểm danh lên Tổng', 'danger');
         } finally {
@@ -538,9 +838,10 @@ export default function DiemDanhAn() {
                 const s = filteredStudents[0];
                 if (!canTeacherOperate) {
                     if (isGiaoVien) {
-                        if (!isDateToday) showAlert(`Ngày ${fmtDate(date)} không cho phép chỉnh sửa. Giáo viên chỉ được điểm danh trong ngày hôm nay.`, 'warning');
-                        else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}).`, 'warning');
-                        else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa chỉnh sửa.`, 'warning');
+                        if (!hasTeacherDuty) showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
+                        else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ăn từ 10h55 đến 11h30 ngày ${fmtDate(date)}.`, 'warning');
+                        else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 10h55.`, 'warning');
+                        else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
                     }
                     return;
                 }
@@ -562,7 +863,7 @@ export default function DiemDanhAn() {
             const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
 
             const hsTrongPhong = getStudentsForRoom(p.ma_phong);
-            const isAllStudentsMarked = hsTrongPhong.length > 0 && hsTrongPhong.every(hs => diemDanhDb[hs.id] != null);
+            const isAllStudentsMarked = hsTrongPhong.length > 0 && hsTrongPhong.every(hs => (overrides[hs.id] !== undefined || diemDanhDb[hs.id] != null));
 
             if (isChot || isAllStudentsMarked) {
                 markedCount++;
@@ -570,14 +871,15 @@ export default function DiemDanhAn() {
             }
         });
         return { markedCount, unmarkedCount: visiblePhongList.length - markedCount, markedRooms };
-    }, [visiblePhongList, diemDanhDb, getStudentsForRoom, phongStatuses]);
+    }, [visiblePhongList, diemDanhDb, overrides, getStudentsForRoom, phongStatuses]);
 
     const changeStatus = (id, st) => {
         if (!canTeacherOperate) {
             if (isGiaoVien) {
-                if (!isDateToday) showAlert(`Ngày ${fmtDate(date)} không cho phép chỉnh sửa. Giáo viên chỉ được điểm danh trong ngày hôm nay.`, 'warning');
-                else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}).`, 'warning');
-                else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa chỉnh sửa.`, 'warning');
+                if (!hasTeacherDuty) showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
+                else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ăn từ 10h55 đến 11h30 ngày ${fmtDate(date)}.`, 'warning');
+                else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 10h55.`, 'warning');
+                else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
             }
             return;
         }
@@ -587,7 +889,11 @@ export default function DiemDanhAn() {
     const setAll = (st) => {
         if (!canTeacherOperate) return;
         const o = {};
-        students.forEach(s => {
+        // Khi chọn gộp: áp dụng cho tất cả HS trong cả 3 phòng
+        // Khi chọn từng phòng: CHỈ áp dụng cho học sinh của phòng đang chọn
+        const targetList = isGopMode ? allAssignedStudents : students;
+
+        targetList.forEach(s => {
             // Khi đánh dấu tất cả có mặt, giữ nguyên học sinh đã báo phép
             if (st === 'comat' && s.trang_thai === 'phep') {
                 o[s.id] = 'phep';
@@ -595,44 +901,63 @@ export default function DiemDanhAn() {
                 o[s.id] = st;
             }
         });
-        setOverrides(o);
+        setOverrides(prev => ({ ...prev, ...o }));
         setSaved(false);
     };
 
     const handleSave = async () => {
-        if (!selectedPhong || students.length === 0) return;
         if (!canTeacherOperate) {
             if (isGiaoVien) {
-                if (!isDateToday) return showAlert(`Ngày ${fmtDate(date)} không cho phép chỉnh sửa. Giáo viên chỉ được điểm danh trong ngày hôm nay.`, 'warning');
-                if (shiftTiming.state === 'sap_den') return showAlert(`Chưa đến giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}).`, 'warning');
-                if (shiftTiming.state === 'da_qua_gio') return showAlert(`Đã hết khung giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa thao tác.`, 'warning');
+                if (!hasTeacherDuty) return showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
+                if (!isDateToday) return showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ăn từ 10h55 đến 11h30 ngày ${fmtDate(date)}.`, 'warning');
+                if (shiftTiming.state === 'sap_den') return showAlert(`Chưa đến giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 10h55.`, 'warning');
+                if (shiftTiming.state === 'da_qua_gio') return showAlert(`Đã hết khung giờ điểm danh ca ăn (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
             }
         }
         if (!isAllowedTime()) {
-            return showAlert('Ngoài khung giờ điểm danh quy định!', 'warning');
+            return showAlert('Ngoài khung giờ điểm danh quy định (10h55 – 11h30)!', 'warning');
         }
+
+        // TÁCH BẠCH RÕ RÀNG:
+        // - Khi đang chọn tất cả các phòng (chế độ gộp filterSubPhong === 'ALL'): Lưu cả các phòng phụ trách
+        // - Khi chọn từng phòng (activeSingleRoom): CHỈ LƯU TỪNG PHÒNG ĐANG CHỌN
+        const isSavingAll = !activeSingleRoom;
+        const targetStudents = activeSingleRoom
+            ? (allAssignedStudents.length > 0 ? allAssignedStudents : students).filter(s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === activeSingleRoom)
+            : (allAssignedStudents.length > 0 ? allAssignedStudents : students);
+
+        if (targetStudents.length === 0) return;
         setSaving(true);
         try {
-            const records = students.map(s => ({
-                ma_hs: s.id,
-                ngay: date,
-                status: INV_STATUS_MAP[s.trang_thai],
-                ma_phong: selectedPhong.ma_phong,
-            }));
+            const records = targetStudents.map(s => {
+                const effectivePhong = s.phong_hien_thi || s.phong_an || s.ma_phong_target || activeSingleRoom || selectedPhong?.ma_phong;
+                const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh');
+                return {
+                    ma_hs: s.id,
+                    ngay: date,
+                    status: INV_STATUS_MAP[curSt],
+                    ma_phong: effectivePhong,
+                };
+            });
             await api.post('/api/diemdanh/save/', { loai: 'an', records });
 
-            // Optimistic update: cập nhật diemDanhDb ngay lập tức để UI hiển thị ✓ mà không chờ fetch
             setDiemDanhDb(prev => {
                 const next = { ...prev };
                 records.forEach(r => { next[r.ma_hs] = r.status; });
                 return next;
             });
-            setOverrides({});
+            // Xóa overrides của các học sinh vừa được nộp (học sinh các phòng khác chưa nộp vẫn giữ nguyên)
+            setOverrides(prev => {
+                const next = { ...prev };
+                records.forEach(r => { delete next[r.ma_hs]; });
+                return next;
+            });
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
 
-            // Fetch lại từ DB để đồng bộ dữ liệu chính xác (silent, không block UI)
             await fetchDiemDanh(date, true);
+            const roomMsg = isSavingAll ? `cho cả ${myDutyRooms.length} phòng phụ trách` : `phòng ${activeSingleRoom}`;
+            showAlert(`Đã lưu thành công điểm danh ${roomMsg} (${records.length} học sinh)!`, 'success');
         } catch (err) {
             showAlert(err.response?.data?.error || 'Lỗi khi lưu điểm danh');
         } finally { setSaving(false); }
@@ -1332,7 +1657,7 @@ ${htmlPagesStr}
                             <input
                                 type="date"
                                 value={date}
-                                onChange={e => setDate(e.target.value)}
+                                onChange={e => handleDateChange(e.target.value)}
                                 className="dd-date-native-input"
                             />
                         </div>
@@ -1346,7 +1671,7 @@ ${htmlPagesStr}
                                     alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
                                 }}
                                 title="Ngày trước"
-                                onClick={() => setDate(shiftDate(date, -1))}
+                                onClick={() => handleDateChange(shiftDate(date, -1))}
                             >
                                 <i className="fas fa-chevron-left"></i>
                             </button>
@@ -1358,7 +1683,7 @@ ${htmlPagesStr}
                                     color: '#009CFF', cursor: 'pointer', fontSize: '0.78rem',
                                     fontWeight: 700
                                 }}
-                                onClick={() => setDate(todayVN())}
+                                onClick={() => handleDateChange(todayVN())}
                             >
                                 Hôm nay
                             </button>
@@ -1371,7 +1696,7 @@ ${htmlPagesStr}
                                     alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
                                 }}
                                 title="Ngày sau"
-                                onClick={() => setDate(shiftDate(date, 1))}
+                                onClick={() => handleDateChange(shiftDate(date, 1))}
                             >
                                 <i className="fas fa-chevron-right"></i>
                             </button>
@@ -1384,14 +1709,37 @@ ${htmlPagesStr}
                                 <span>Chưa điểm: <span className="unmarked">{roomStats.unmarkedCount}</span></span>
                             </div>
                             <ul className="dd-room-list">
+                                {/* Mục Tất cả phòng phụ trách chỉ hiển thị cho Giáo viên khi được phân công từ 2 phòng trở lên */}
+                                {isGiaoVien && myDutyRooms && myDutyRooms.length >= 2 && (
+                                    <li
+                                        className={`dd-group-room-card ${isGopMode ? 'active' : ''}`}
+                                        onClick={handleSelectGop}
+                                        title={`Điểm danh gộp tất cả ${myDutyRooms.length} phòng: ${myDutyRooms.join(', ')}`}
+                                    >
+                                        <div className="dd-group-header-left">
+                                            <div className="dd-group-icon">
+                                                <i className="fas fa-layer-group"></i>
+                                            </div>
+                                            <div className="dd-group-title">TẤT CẢ PHÒNG TRỰC</div>
+                                        </div>
+                                        <div className="dd-group-sub">
+                                            <span className="dd-group-sub-text">Gộp: {myDutyRooms.map(r => (typeof r === 'string' && r.startsWith('P')) ? r : `P${r}`).join(', ')}</span>
+                                            <span className="dd-group-badge">{allAssignedStudents.length} HS</span>
+                                        </div>
+                                    </li>
+                                )}
+
                                 {visiblePhongList.map(p => {
-                                    // Số HS hiển thị: lấy chính xác theo helper
                                     const count = getStudentsForRoom(p.ma_phong).length;
                                     const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
                                     const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
                                     const isMarked = isChot || roomStats.markedRooms.has(p.ma_phong);
                                     return (
-                                        <li key={p.ma_phong} className={`dd-room-item${cauhinhNgay ? ' is-special' : ''}${selectedPhong?.ma_phong === p.ma_phong ? ' active' : ''}`} onClick={() => { setSelectedPhong(p); setOverrides({}); setSaved(false); }}>
+                                        <li
+                                            key={p.ma_phong}
+                                            className={`dd-room-item${cauhinhNgay ? ' is-special' : ''}${(!isGopMode && selectedPhong?.ma_phong === p.ma_phong) ? ' active' : ''}`}
+                                            onClick={() => handleSelectRoom(p)}
+                                        >
                                             <div className={`dd-room-status-icon ${isMarked ? 'marked' : 'unmarked'}`} title={isMarked ? (isChot ? 'Đã chốt danh sách lên tổng' : 'Đã điểm danh') : 'Chưa điểm danh'}>
                                                 <i className={isMarked ? 'fas fa-check' : 'fas fa-exclamation'}></i>
                                             </div>
@@ -1429,8 +1777,29 @@ ${htmlPagesStr}
                             <div className="dd-main-header">
                                 <div className="dd-main-header-info">
                                     <div className="dd-main-header-title-row">
-                                        <h3>{selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : 'Chọn phòng để xem'}</h3>
-                                        {selectedPhong && isDaChot && (() => {
+                                        <h3>
+                                            {isGopMode ? (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                                    <i className="fas fa-layer-group" style={{ color: '#0284c7' }}></i>
+                                                    Điểm danh gộp ({myDutyRooms.join(' • ')})
+                                                </span>
+                                            ) : selectedPhong ? (
+                                                `Phòng ${selectedPhong.ma_phong}`
+                                            ) : 'Chọn phòng để xem'}
+                                        </h3>
+                                        {/* Nếu là chế độ gộp, hiện huy hiệu tổng kết chốt */}
+                                        {isGopMode && (() => {
+                                            const totalR = myDutyRooms.length;
+                                            const chotR = multiRoomSummary.filter(r => r.isChot).length;
+                                            const allChot = chotR === totalR && totalR > 0;
+                                            return (
+                                                <span className={`dd-chot-header-badge ${allChot ? 'success' : chotR > 0 ? 'warning' : 'neutral'}`} style={{ marginLeft: 8 }}>
+                                                    <i className={`fas ${allChot ? 'fa-check-circle' : 'fa-info-circle'}`}></i>
+                                                    {allChot ? 'ĐÃ CHỐT TẤT CẢ PHÒNG' : chotR > 0 ? `ĐÃ CHỐT ${chotR}/${totalR} PHÒNG` : 'CHƯA CHỐT'}
+                                                </span>
+                                            );
+                                        })()}
+                                        {!isGopMode && selectedPhong && isDaChot && (() => {
                                             const timeStr = currentPhongStatus?.thoi_gian
                                                 ? new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                                                 : '';
@@ -1454,14 +1823,20 @@ ${htmlPagesStr}
                                             );
                                         })()}
                                     </div>
-                                    <p>{selectedPhong ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh` : 'Nhấn vào phòng bên trái để bắt đầu điểm danh'}</p>
+                                    <p>
+                                        {isGopMode 
+                                            ? `Chế độ gộp ${myDutyRooms.length} phòng — Ngày: ${fmtDate(date)} — Tổng cộng: ${students.length} học sinh` 
+                                            : selectedPhong 
+                                                ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh` 
+                                                : 'Nhấn vào phòng bên trái để bắt đầu điểm danh'}
+                                    </p>
                                 </div>
-                                {selectedPhong && (
+                                {!isGiaoVien && (selectedPhong || isGopMode) && (
                                     <div className="dd-search-box">
-                                        <i className="fas fa-search"></i>
+                                        <i className="fas fa-search dd-search-icon"></i>
                                         <input
                                             type="text"
-                                            placeholder="Tìm tên hoặc mã HS (VD: 1, 2, 10, 180, 26xxx)..."
+                                            placeholder="Tìm tên hoặc mã HS (VD: 1, 10, 180)..."
                                             value={searchTerm}
                                             onChange={e => setSearchTerm(e.target.value)}
                                             onKeyDown={handleSearchKeyDown}
@@ -1470,8 +1845,8 @@ ${htmlPagesStr}
                                         {searchTerm && (
                                             <button
                                                 type="button"
+                                                className="dd-search-clear-btn"
                                                 onClick={() => setSearchTerm('')}
-                                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0 4px', fontSize: '0.9rem' }}
                                                 title="Xóa tìm kiếm"
                                             >
                                                 <i className="fas fa-times"></i>
@@ -1481,37 +1856,72 @@ ${htmlPagesStr}
                                 )}
                             </div>
 
+                            {/* ── BỘ LỌC NHANH THEO PHÒNG TRONG CHẾ ĐỘ GỘP ── */}
+                            {isGopMode && myDutyRooms.length > 1 && (
+                                <div className="dd-subroom-filter-bar">
+                                    <span className="filter-label"><i className="fas fa-filter" style={{ color: '#0284c7' }}></i> Lọc phòng:</span>
+                                    <button
+                                        type="button"
+                                        className={`subroom-chip ${filterSubPhong === 'ALL' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setFilterSubPhong('ALL');
+                                            setSelectedPhong(null);
+                                        }}
+                                    >
+                                        Tất cả ({allAssignedStudents.length})
+                                    </button>
+                                    {myDutyRooms.map(code => {
+                                        const count = allAssignedStudents.filter(s => (s.phong_hien_thi || s.phong_an) === code).length;
+                                        const pStat = phongStatuses.find(ps => ps.ma_phong_id === code);
+                                        const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+                                        return (
+                                            <button
+                                                key={code}
+                                                type="button"
+                                                className={`subroom-chip ${filterSubPhong === code ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    setFilterSubPhong(code);
+                                                    const matched = visiblePhongList.find(p => p.ma_phong === code) || { ma_phong: code };
+                                                    setSelectedPhong(matched);
+                                                }}
+                                            >
+                                                Phòng {code} ({count})
+                                                {isRoomChot && <i className="fas fa-check-circle" style={{ marginLeft: 4, color: '#16a34a' }}></i>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
-                            {selectedPhong && isGiaoVien && (
+                            {(selectedPhong || isGopMode) && isGiaoVien && (
                                 <>
-                                    {!isDateToday ? (
-                                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', color: '#991b1b', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            <i className="fas fa-lock" style={{ fontSize: '1.3rem', color: '#dc2626' }}></i>
+                                    {!hasTeacherDuty ? (
+                                        <div className="dd-shift-notice-banner pending">
+                                            <i className="fas fa-calendar-times"></i>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>KHÓA ĐIỂM DANH – CHẾ ĐỘ CHỈ ĐỌC</div>
-                                                <div style={{ fontSize: '0.88rem', marginTop: 2, fontWeight: 500 }}>
-                                                    Ngày <strong>{fmtDate(date)}</strong> không cho phép chỉnh sửa. Theo quy định, Giáo viên chỉ được thực hiện điểm danh trong ngày hôm nay (<strong>{fmtDate(todayVN())}</strong>).
-                                                </div>
+                                                <strong>Chế độ chỉ xem:</strong> Thầy/Cô không có lịch phân công trực {!isGopMode && selectedPhong ? `phòng ${selectedPhong.ma_phong}` : ''} trong ngày <b>{fmtDate(date)}</b>.
+                                            </div>
+                                        </div>
+                                    ) : !isDateToday ? (
+                                        <div className="dd-shift-notice-banner danger">
+                                            <i className="fas fa-lock"></i>
+                                            <div>
+                                                <strong>Khóa điểm danh ca trực {fmtDate(date)}:</strong> Theo quy định, hệ thống chỉ mở vào đúng khung giờ ăn từ <b>10h55 đến 11h30</b> ngày <b>{fmtDate(date)}</b>.
                                             </div>
                                         </div>
                                     ) : shiftTiming.state === 'sap_den' ? (
-                                        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e40af', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            <i className="fas fa-hourglass-half" style={{ fontSize: '1.3rem', color: '#2563eb' }}></i>
+                                        <div className="dd-shift-notice-banner pending">
+                                            <i className="fas fa-hourglass-half"></i>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>CHƯA ĐẾN GIỜ ĐIỂM DANH CA ĂN (10h55 – 11h30)</div>
-                                                <div style={{ fontSize: '0.88rem', marginTop: 2 }}>
-                                                    Hệ thống sẽ mở điểm danh và quét mã QR lúc <strong>10h55</strong>. Hiện tại: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong>.
-                                                </div>
+                                                <strong>Chưa đến giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống mở quét QR lúc 10h55. Hiện tại: <b>{currentTime.toLocaleTimeString('vi-VN')}</b>.
                                             </div>
                                         </div>
                                     ) : shiftTiming.state === 'da_qua_gio' ? (
-                                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', color: '#991b1b', padding: '12px 18px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            <i className="fas fa-lock" style={{ fontSize: '1.3rem', color: '#dc2626' }}></i>
+                                        <div className="dd-shift-notice-banner danger">
+                                            <i className="fas fa-lock"></i>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: '0.96rem' }}>ĐÃ HẾT KHUNG GIỜ ĐIỂM DANH CA ĂN (10h55 – 11h30)</div>
-                                                <div style={{ fontSize: '0.88rem', marginTop: 2, fontWeight: 500 }}>
-                                                    Sau 11h30, hệ thống tự động khóa thao tác của Giáo viên. Toàn bộ dữ liệu điểm danh đã được tự động thu thập về Tổng.
-                                                </div>
+                                                <strong>Đã hết khung giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống đã tự động khóa chỉnh sửa và thu thập dữ liệu về Tổng.
                                             </div>
                                         </div>
                                     ) : (
@@ -1548,117 +1958,195 @@ ${htmlPagesStr}
                                 </>
                             )}
 
-                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN (ADMIN KHÔNG CÓ CÁI NÀY) ── */}
-                            {selectedPhong && isGiaoVien && (
+                            {/* ── NÚT QUÉT QR & THAO TÁC DÀNH CHO GIÁO VIÊN ── */}
+                            {/* Chỉ hiển thị khi có phòng chọn/gộp, là GV VÀ CÓ LỊCH TRỰC (nếu không có lịch trực thì ẩn hoàn toàn) */}
+                            {(selectedPhong || isGopMode) && isGiaoVien && hasTeacherDuty && (
                                 <div className="dd-teacher-actions-bar">
-                                    <button
-                                        type="button"
-                                        className="dd-qr-scan-btn"
-                                        onClick={() => setShowQRModal(true)}
-                                        disabled={!canTeacherOperate}
-                                        style={{
-                                            background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
-                                            color: '#fff',
-                                            fontWeight: 700,
-                                            borderRadius: 8,
-                                            padding: '7px 16px',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            border: 'none',
-                                            cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
-                                            boxShadow: !canTeacherOperate ? 'none' : '0 3px 10px rgba(2,132,199,0.3)',
-                                            opacity: !canTeacherOperate ? 0.6 : 1
-                                        }}
-                                        title={!canTeacherOperate ? 'Chế độ chỉ đọc: ngoài khung giờ hoặc ngày khác' : 'Mở máy quét mã QR học sinh'}
-                                    >
-                                        <i className="fas fa-qrcode"></i>
-                                        {isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR thẻ HS'}
-                                    </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                        <button
+                                            type="button"
+                                            className="dd-qr-scan-btn"
+                                            onClick={() => setShowQRModal(true)}
+                                            disabled={!canTeacherOperate}
+                                            style={{
+                                                background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                borderRadius: 8,
+                                                padding: '6px 14px',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                border: 'none',
+                                                cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                boxShadow: !canTeacherOperate ? 'none' : '0 2px 8px rgba(2,132,199,0.3)',
+                                                opacity: !canTeacherOperate ? 0.6 : 1,
+                                                height: 34
+                                            }}
+                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : 'Mở máy quét mã QR học sinh'}
+                                        >
+                                            <i className="fas fa-qrcode"></i>
+                                            <span>{isGopMode ? 'Quét QR gộp' : isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR'}</span>
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline"
-                                        onClick={() => setAll('comat')}
-                                        disabled={!canTeacherOperate}
-                                        style={{
-                                            fontWeight: 700,
-                                            padding: '7px 14px',
-                                            borderRadius: 8,
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            borderColor: '#86efac',
-                                            color: '#166534',
-                                            background: '#f0fdf4',
-                                            cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
-                                            opacity: !canTeacherOperate ? 0.6 : 1
-                                        }}
-                                        title="Đánh dấu tất cả học sinh trong phòng có mặt (vẫn giữ học sinh có phép)"
-                                    >
-                                        <i className="fas fa-check-double"></i> Tất cả đều có mặt
-                                    </button>
+                                        {!isGiaoVien && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline"
+                                                onClick={() => setAll('comat')}
+                                                disabled={!canTeacherOperate}
+                                                style={{
+                                                    fontWeight: 700,
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    borderColor: '#86efac',
+                                                    color: '#166534',
+                                                    background: '#f0fdf4',
+                                                    cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                    opacity: !canTeacherOperate ? 0.6 : 1,
+                                                    height: 34
+                                                }}
+                                                title={isGopMode ? 'Đánh dấu tất cả học sinh đang hiển thị có mặt' : 'Đánh dấu tất cả học sinh trong phòng có mặt'}
+                                            >
+                                                <i className="fas fa-check-double"></i>
+                                                <span>Tất cả có mặt</span>
+                                            </button>
+                                        )}
+                                    </div>
 
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline"
-                                        style={{
-                                            fontWeight: 600,
-                                            padding: '7px 16px',
-                                            borderRadius: 8,
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            borderColor: '#60a5fa',
-                                            color: '#1d4ed8',
-                                            background: '#eff6ff',
-                                            cursor: (!canTeacherOperate || saving) ? 'not-allowed' : 'pointer',
-                                            opacity: (!canTeacherOperate && !saving) ? 0.6 : 1
-                                        }}
-                                        onClick={handleSave}
-                                        disabled={saving || !canTeacherOperate}
-                                        title={!canTeacherOperate ? 'Chế độ chỉ đọc' : 'Lưu dữ liệu điểm danh'}
-                                    >
-                                        {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                        {saved ? ' Đã lưu!' : saving ? ' Đang lưu...' : ' Lưu dữ liệu'}
-                                    </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexShrink: 0, flexWrap: 'nowrap' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{
+                                                fontWeight: 600,
+                                                padding: '5px 10px',
+                                                borderRadius: 8,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 5,
+                                                borderColor: '#60a5fa',
+                                                color: '#1d4ed8',
+                                                background: '#eff6ff',
+                                                cursor: (!canTeacherOperate || saving) ? 'not-allowed' : 'pointer',
+                                                opacity: (!canTeacherOperate && !saving) ? 0.6 : 1,
+                                                height: 32,
+                                                fontSize: '0.82rem',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                            onClick={handleSave}
+                                            disabled={saving || !canTeacherOperate}
+                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : (activeSingleRoom ? `Lưu điểm danh phòng ${activeSingleRoom}` : `Lưu cả ${myDutyRooms.length} phòng phụ trách`)}
+                                        >
+                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
+                                            <span>
+                                                {saved 
+                                                    ? 'Đã lưu!' 
+                                                    : saving 
+                                                        ? 'Đang lưu...' 
+                                                        : (activeSingleRoom ? `Lưu ${activeSingleRoom}` : (myDutyRooms.length > 0 ? `Lưu (${myDutyRooms.length}P)` : 'Lưu'))}
+                                            </span>
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        className="btn btn-success"
-                                        onClick={() => setShowChotConfirmModal(true)}
-                                        disabled={chotting || saving || !canTeacherOperate}
-                                        style={{
-                                            fontWeight: 700,
-                                            padding: '7px 18px',
-                                            borderRadius: 8,
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            background: isDaChot ? '#059669' : '#16a34a',
-                                            borderColor: isDaChot ? '#059669' : '#16a34a',
-                                            color: '#fff',
-                                            boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
-                                            cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
-                                            opacity: (!canTeacherOperate && !isDaChot) ? 0.6 : 1
-                                        }}
-                                        title="Chốt danh sách điểm danh và gửi lên Tổng để Admin ghi nhận thời gian chốt"
-                                    >
-                                        {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
-                                        {isDaChot ? ' Cập nhật chốt sổ' : ' Chốt sổ gửi lên Tổng'}
-                                    </button>
+                                        {(() => {
+                                            const pStat = activeSingleRoom ? phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom) : null;
+                                            const isSingleChot = pStat ? (pStat.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh)) : isDaChot;
+                                            const isAllChot = multiRoomSummary.length > 0 && multiRoomSummary.every(r => r.isChot);
+                                            const isButtonChotDone = activeSingleRoom ? isSingleChot : isAllChot;
 
-                                    {isDaChot && (
-                                        <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: 10, fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                            <i className="fas fa-check-circle"></i>
-                                            {currentPhongStatus?.ma_gv_chot_id ? 'ĐÃ CHỐT SỔ GỬI LÊN TỔNG' : 'HỆ THỐNG ĐÃ TỰ ĐỘNG THU THẬP VỀ TỔNG'}
-                                            {currentPhongStatus?.thoi_gian ? ` (${new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
-                                        </span>
-                                    )}
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-success"
+                                                    onClick={() => activeSingleRoom ? setShowChotConfirmModal(true) : setShowMultiChotModal(true)}
+                                                    disabled={chotting || saving || !canTeacherOperate}
+                                                    style={{
+                                                        fontWeight: 700,
+                                                        padding: '5px 12px',
+                                                        borderRadius: 8,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 5,
+                                                        background: isButtonChotDone ? '#059669' : '#16a34a',
+                                                        borderColor: isButtonChotDone ? '#059669' : '#16a34a',
+                                                        color: '#fff',
+                                                        boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
+                                                        cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
+                                                        opacity: (!canTeacherOperate && !isButtonChotDone) ? 0.6 : 1,
+                                                        height: 32,
+                                                        fontSize: '0.82rem',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                    title={activeSingleRoom ? `Chốt danh sách phòng ${activeSingleRoom} gửi lên Tổng` : `Chốt sổ đồng thời cả ${myDutyRooms.length} phòng phụ trách gửi lên Tổng`}
+                                                >
+                                                    {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                                    <span>
+                                                        {activeSingleRoom
+                                                            ? (isSingleChot ? `Cập nhật ${activeSingleRoom}` : `Chốt ${activeSingleRoom}`)
+                                                            : (isAllChot ? `Cập nhật (${myDutyRooms.length}P)` : `Chốt (${myDutyRooms.length} phòng)`)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })()}
+
+                                        {(() => {
+                                            const isChotDone = activeSingleRoom
+                                                ? Boolean(phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom)?.trang_thai_chot === 'da_chot' || phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom)?.da_diem_danh)
+                                                : (isGopMode ? (multiRoomSummary.length > 0 && multiRoomSummary.every(r => r.isChot)) : isDaChot);
+                                            const canReport = !isGiaoVien || isChotDone;
+                                            return (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        className="btn"
+                                                        onClick={() => {
+                                                            if (!canReport) {
+                                                                showAlert('Thầy/Cô phải hoàn thành điểm danh và CHỐT SỔ các phòng phụ trách trước khi gửi Báo cáo ca trực!', 'warning');
+                                                                return;
+                                                            }
+                                                            setShowBaoCaoModal(true);
+                                                        }}
+                                                        style={{
+                                                            fontWeight: 700,
+                                                            padding: '5px 10px',
+                                                            borderRadius: 8,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 5,
+                                                            background: canReport ? 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' : '#94a3b8',
+                                                            borderColor: 'transparent',
+                                                            color: '#fff',
+                                                            boxShadow: canReport ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none',
+                                                            cursor: canReport ? 'pointer' : 'not-allowed',
+                                                            opacity: canReport ? 1 : 0.48,
+                                                            height: 32,
+                                                            fontSize: '0.82rem',
+                                                            whiteSpace: 'nowrap',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        title={!canReport ? 'Thầy/Cô phải hoàn thành điểm danh và Chốt sổ trước khi gửi Báo cáo' : 'Gửi Báo Cáo lên Ban Quản Lý'}
+                                                    >
+                                                        <i className="fas fa-file-signature"></i>
+                                                        <span>Báo cáo</span>
+                                                    </button>
+
+                                                    {isChotDone && (
+                                                        <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
+                                                            <i className="fas fa-check-circle"></i>
+                                                            {activeSingleRoom ? `ĐÃ CHỐT ${activeSingleRoom}` : (currentPhongStatus?.ma_gv_chot_id ? 'ĐÃ CHỐT' : 'ĐÃ CHỐT CẢ PHÒNG')}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             )}
 
-                            {/* ── THANH CÔNG CỤ DÀNH CHO ADMIN & HỌC VỤ (TẤT CẢ ĐỀU CÓ MẶT, LƯU, CHỐT NẰM BÊN PHẢI) ── */}
+                            {/* ── THANH CÔNG CỤ DÀNH CHO ADMIN & HỌC VỤ (GIỮ NGUYÊN NHƯ CŨ) ── */}
                             {selectedPhong && !isGiaoVien && (
                                 <div className="dd-admin-actions-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', fontWeight: 600, flexWrap: 'nowrap', whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -1722,9 +2210,35 @@ ${htmlPagesStr}
                                 </div>
                             )}
 
+                            {/* ── THANH TÌM KIẾM HỌC SINH (CHỈ ÁP DỤNG CHO GIÁO VIÊN - ĐẶT NGAY PHÍA TRÊN DANH SÁCH HS) ── */}
+                            {isGiaoVien && (selectedPhong || isGopMode) && (
+                                <div className="dd-search-box-wrap" style={{ padding: '0 10px', boxSizing: 'border-box' }}>
+                                    <div className="dd-search-box" style={{ maxWidth: '100%', width: '100%', boxSizing: 'border-box' }}>
+                                        <i className="fas fa-search dd-search-icon"></i>
+                                        <input
+                                            type="text"
+                                            placeholder="Tìm tên hoặc mã HS (VD: 1, 10, 180)..."
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                            onKeyDown={handleSearchKeyDown}
+                                            title="Nhập số cuối (1, 2, 10, 180...) hoặc tên học sinh. Nhấn Enter để đánh dấu Có mặt ngay lập tức."
+                                        />
+                                        {searchTerm && (
+                                            <button
+                                                type="button"
+                                                className="dd-search-clear-btn"
+                                                onClick={() => setSearchTerm('')}
+                                                title="Xóa tìm kiếm"
+                                            >
+                                                <i className="fas fa-times"></i>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div id="dd-student-area">
-                                {!selectedPhong ? (
+                                {!selectedPhong && !isGopMode ? (
                                     <div className="dd-empty">
                                         <i className="fas fa-hand-pointer"></i>
                                         <h3>Chọn một phòng ăn</h3>
@@ -1739,7 +2253,7 @@ ${htmlPagesStr}
                                     <div className="dd-empty">
                                         <i className="fas fa-users-slash"></i>
                                         <h3>Chưa có học sinh</h3>
-                                        <p>Phòng này chưa được xếp học sinh nào</p>
+                                        <p>Không tìm thấy học sinh nào</p>
                                     </div>
                                 ) : (
                                     <div className="dd-student-grid">
@@ -1748,7 +2262,15 @@ ${htmlPagesStr}
                                                 style={{ background: STATUS[s.trang_thai]?.bg || '#fff', borderColor: STATUS[s.trang_thai]?.border || '#e2e8f0' }}>
                                                 <div className="dd-student-info">
                                                     <span className="dd-student-name">{(s.ho_ten || '').normalize('NFC')}</span>
-                                                    <span className="dd-student-class"><b style={{ color: '#0ea5e9', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
+                                                    <span className="dd-student-class">
+                                                        <b style={{ color: '#0ea5e9', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}
+                                                        {isGopMode && s.phong_hien_thi && (
+                                                            <span className="dd-student-room-badge" style={{ marginLeft: 6 }}>
+                                                                <i className="fas fa-door-open" style={{ marginRight: 3, fontSize: '0.65rem' }}></i>
+                                                                {typeof s.phong_hien_thi === 'string' && s.phong_hien_thi.startsWith('P') ? s.phong_hien_thi : `P.${s.phong_hien_thi}`}
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </div>
 
                                                 <div className="dd-status-btns">
@@ -1939,12 +2461,104 @@ ${htmlPagesStr}
             <QRScannerModal
                 isOpen={showQRModal}
                 onClose={() => setShowQRModal(false)}
-                roomStudents={students}
+                roomStudents={isGopMode ? allAssignedStudents : students}
                 allStudents={hsList}
-                currentRoomName={selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : ''}
+                currentRoomName={isGopMode ? `Gộp (${myDutyRooms.join(', ')})` : (selectedPhong ? `Phòng ${selectedPhong.ma_phong}` : '')}
                 onConfirmStudent={handleConfirmStudent}
                 scannedIds={scannedIds}
             />
+
+            {/* Modal Xác nhận Chốt Tất Cả Các Phòng Gộp lên Tổng */}
+            {showMultiChotModal && (
+                <div className="dd-modal-backdrop">
+                    <div className="dd-confirm-modal" style={{ maxWidth: 640 }}>
+                        <div className="dd-modal-title">
+                            <i className="fas fa-layer-group" style={{ color: '#009CFF' }}></i>
+                            <span>Xác nhận chốt điểm danh cả {myDutyRooms.length} phòng phụ trách</span>
+                        </div>
+                        <div className="dd-modal-body">
+                            <p style={{ margin: '0 0 12px', fontSize: '0.95rem' }}>
+                                Thầy/Cô đang thực hiện chốt điểm danh cho cả <strong>{myDutyRooms.length} phòng phụ trách</strong> ({myDutyRooms.join(', ')}) với tổng số <strong>{allAssignedStudents.length} học sinh</strong>:
+                            </p>
+
+                            <table className="dd-multichot-table">
+                                <thead>
+                                    <tr>
+                                        <th>Phòng</th>
+                                        <th style={{ textAlign: 'center' }}>Sĩ số</th>
+                                        <th style={{ textAlign: 'center' }}>Có mặt</th>
+                                        <th style={{ textAlign: 'center' }}>Phép</th>
+                                        <th style={{ textAlign: 'center' }}>Vắng</th>
+                                        <th style={{ textAlign: 'center' }}>Chưa điểm danh</th>
+                                        <th style={{ textAlign: 'center' }}>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {multiRoomSummary.map(r => (
+                                        <tr key={r.ma_phong}>
+                                            <td style={{ fontWeight: 700, color: '#1e293b' }}>Phòng {r.ma_phong}</td>
+                                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{r.total}</td>
+                                            <td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 700 }}>{r.comat}</td>
+                                            <td style={{ textAlign: 'center', color: '#d97706', fontWeight: 700 }}>{r.phep}</td>
+                                            <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>{r.vang}</td>
+                                            <td style={{ textAlign: 'center', color: r.chua > 0 ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
+                                                {r.chua > 0 ? `${r.chua} em` : '✓ Đủ'}
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                {r.isChot ? (
+                                                    <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, background: '#dcfce7', padding: '2px 8px', borderRadius: 10 }}>
+                                                        Đã chốt
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 600, background: '#fef3c7', padding: '2px 8px', borderRadius: 10 }}>
+                                                        Chưa chốt
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            {multiRoomSummary.reduce((acc, r) => acc + r.chua, 0) > 0 ? (
+                                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#991b1b', fontSize: '0.88rem' }}>
+                                    <i className="fas fa-exclamation-triangle" style={{ marginRight: 6 }}></i>
+                                    <strong>CẢNH BÁO RÀNG BUỘC:</strong> Có tổng cộng <strong>{multiRoomSummary.reduce((acc, r) => acc + r.chua, 0)} học sinh chưa điểm danh</strong>. Khi xác nhận Chốt, hệ thống sẽ <strong>tự động ghi nhận các em này là VẮNG (Không phép)</strong> và hoàn tất chốt sổ cho cả {myDutyRooms.length} phòng trên.
+                                </div>
+                            ) : (
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#166534', fontSize: '0.88rem' }}>
+                                    <i className="fas fa-check-circle" style={{ marginRight: 6 }}></i>
+                                    Tất cả học sinh trong {myDutyRooms.length} phòng đã được điểm danh đầy đủ!
+                                </div>
+                            )}
+
+                            <p style={{ fontSize: '0.88rem', margin: 0, color: '#475569' }}>
+                                Thầy/Cô có chắc chắn muốn chốt điểm danh đồng thời cho cả {myDutyRooms.length} phòng phụ trách trên gửi lên Tổng không?
+                            </p>
+                        </div>
+                        <div className="dd-modal-actions">
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => setShowMultiChotModal(false)}
+                                disabled={chotting}
+                            >
+                                Quay lại kiểm tra
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-success"
+                                onClick={handleChotAllRooms}
+                                disabled={chotting}
+                                style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff', fontWeight: 700 }}
+                            >
+                                {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-check-double"></i>}
+                                Xác nhận chốt cả {myDutyRooms.length} phòng lên Tổng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal Xác nhận Chốt điểm danh lên Tổng với ràng buộc rõ ràng */}
             {showChotConfirmModal && (
@@ -1955,45 +2569,61 @@ ${htmlPagesStr}
                             <span>Xác nhận chốt điểm danh ca ăn</span>
                         </div>
                         <div className="dd-modal-body">
-                            <p style={{ margin: '0 0 10px' }}>
-                                Phòng <strong>{selectedPhong?.ma_phong}</strong> có tổng cộng <strong>{students.length} học sinh</strong>. Thống kê hiện tại:
-                            </p>
-                            <div className="dd-modal-stats-list">
-                                <div className="dd-modal-stats-item">
-                                    <span>✓ Đã điểm danh Có mặt:</span>
-                                    <strong style={{ color: '#16a34a' }}>{students.filter(s => s.trang_thai === 'comat').length} em</strong>
-                                </div>
-                                <div className="dd-modal-stats-item">
-                                    <span>📄 Nghỉ có phép (Báo phép trước):</span>
-                                    <strong style={{ color: '#d97706' }}>{students.filter(s => s.trang_thai === 'phep').length} em</strong>
-                                </div>
-                                <div className="dd-modal-stats-item">
-                                    <span>✕ Đã đánh dấu Vắng:</span>
-                                    <strong style={{ color: '#dc2626' }}>{students.filter(s => s.trang_thai === 'vang').length} em</strong>
-                                </div>
-                                <div className="dd-modal-stats-item" style={{ paddingTop: 6, borderTop: '1px dashed #cbd5e1' }}>
-                                    <span>⏳ CHƯA ĐIỂM DANH:</span>
-                                    <strong style={{ color: (students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length > 0) ? '#dc2626' : '#16a34a' }}>
-                                        {students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length} em
-                                    </strong>
-                                </div>
-                            </div>
+                            {(() => {
+                                const targetRoomName = activeSingleRoom || selectedPhong?.ma_phong || '';
+                                const targetStudents = activeSingleRoom
+                                    ? students.filter(s => (s.phong === activeSingleRoom || s.ma_phong === activeSingleRoom))
+                                    : students;
+                                const totalTarget = targetStudents.length;
+                                const cmCount = targetStudents.filter(s => s.trang_thai === 'comat').length;
+                                const phepCount = targetStudents.filter(s => s.trang_thai === 'phep').length;
+                                const vangCount = targetStudents.filter(s => s.trang_thai === 'vang').length;
+                                const chuaCount = targetStudents.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length;
 
-                            {students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length > 0 ? (
-                                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#991b1b', fontSize: '0.88rem' }}>
-                                    <i className="fas fa-exclamation-triangle" style={{ marginRight: 6 }}></i>
-                                    <strong>CẢNH BÁO RÀNG BUỘC:</strong> Có <strong>{students.filter(s => s.trang_thai === 'chua_diem_danh' || !s.trang_thai).length} học sinh chưa điểm danh</strong>. Khi xác nhận Chốt, hệ thống sẽ <strong>tự động ghi nhận các em này là VẮNG (Không phép)</strong> và hoàn tất chốt sổ ca trực.
-                                </div>
-                            ) : (
-                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#166534', fontSize: '0.88rem' }}>
-                                    <i className="fas fa-check-circle" style={{ marginRight: 6 }}></i>
-                                    Tất cả <strong>{students.length} học sinh</strong> trong phòng đã được điểm danh đầy đủ.
-                                </div>
-                            )}
+                                return (
+                                    <>
+                                        <p style={{ margin: '0 0 10px' }}>
+                                            Phòng <strong>{targetRoomName}</strong> có tổng cộng <strong>{totalTarget} học sinh</strong>. Thống kê hiện tại:
+                                        </p>
+                                        <div className="dd-modal-stats-list">
+                                            <div className="dd-modal-stats-item">
+                                                <span>✓ Đã điểm danh Có mặt:</span>
+                                                <strong style={{ color: '#16a34a' }}>{cmCount} em</strong>
+                                            </div>
+                                            <div className="dd-modal-stats-item">
+                                                <span>📄 Nghỉ có phép (Báo phép trước):</span>
+                                                <strong style={{ color: '#d97706' }}>{phepCount} em</strong>
+                                            </div>
+                                            <div className="dd-modal-stats-item">
+                                                <span>✕ Đã đánh dấu Vắng:</span>
+                                                <strong style={{ color: '#dc2626' }}>{vangCount} em</strong>
+                                            </div>
+                                            <div className="dd-modal-stats-item" style={{ paddingTop: 6, borderTop: '1px dashed #cbd5e1' }}>
+                                                <span>⏳ CHƯA ĐIỂM DANH:</span>
+                                                <strong style={{ color: chuaCount > 0 ? '#dc2626' : '#16a34a' }}>
+                                                    {chuaCount} em
+                                                </strong>
+                                            </div>
+                                        </div>
 
-                            <p style={{ fontSize: '0.88rem', margin: 0, color: '#475569' }}>
-                                Thầy/Cô có chắc chắn muốn chốt điểm danh phòng này lên hệ thống không?
-                            </p>
+                                        {chuaCount > 0 ? (
+                                            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#991b1b', fontSize: '0.88rem' }}>
+                                                <i className="fas fa-exclamation-triangle" style={{ marginRight: 6 }}></i>
+                                                <strong>CẢNH BÁO RÀNG BUỘC:</strong> Có <strong>{chuaCount} học sinh chưa điểm danh</strong>. Khi xác nhận Chốt, hệ thống sẽ <strong>tự động ghi nhận các em này là VẮNG (Không phép)</strong> và hoàn tất chốt sổ ca trực.
+                                            </div>
+                                        ) : (
+                                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#166534', fontSize: '0.88rem' }}>
+                                                <i className="fas fa-check-circle" style={{ marginRight: 6 }}></i>
+                                                Tất cả <strong>{totalTarget} học sinh</strong> trong phòng đã được điểm danh đầy đủ.
+                                            </div>
+                                        )}
+
+                                        <p style={{ fontSize: '0.88rem', margin: 0, color: '#475569' }}>
+                                            Thầy/Cô có chắc chắn muốn chốt điểm danh phòng {targetRoomName} lên hệ thống không?
+                                        </p>
+                                    </>
+                                );
+                            })()}
                         </div>
                         <div className="dd-modal-actions">
                             <button
@@ -2028,6 +2658,16 @@ ${htmlPagesStr}
                 onSuccess={() => fetchDiemDanh(date, true)}
             />
             {AlertUI}
+
+            {/* Modal Gửi Báo Cáo Ca Trực */}
+            <BaoCaoTrucModal
+                isOpen={showBaoCaoModal}
+                onClose={() => setShowBaoCaoModal(false)}
+                initialNgay={date}
+                initialCaTruc={0}
+                initialMaPhong={isGopMode ? myDutyRooms.join(', ') : (selectedPhong?.ma_phong || '')}
+                roomList={phongList}
+            />
         </div>
     );
 }
