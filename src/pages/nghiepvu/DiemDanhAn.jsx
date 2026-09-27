@@ -1871,23 +1871,53 @@ ${htmlPagesStr}
                                         <label style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: 4 }}>
                                             Từ ngày:
                                         </label>
-                                        <input
-                                            type="date"
-                                            className="export-modal-date-input"
-                                            value={exportTuNgay}
-                                            onChange={e => setExportTuNgay(e.target.value)}
-                                        />
+                                        <div
+                                            className="dd-date-input-wrapper"
+                                            title="Bấm để chọn ngày trên lịch"
+                                            onClick={(e) => {
+                                                const inp = e.currentTarget.querySelector('input[type="date"]');
+                                                if (inp && typeof inp.showPicker === 'function') {
+                                                    try { inp.showPicker(); } catch { /* unsupported */ }
+                                                }
+                                            }}
+                                        >
+                                            <span className="dd-date-display" style={{ fontSize: '0.92rem' }}>
+                                                {fmtDate(exportTuNgay) || 'dd/mm/yyyy'}
+                                            </span>
+                                            <i className="far fa-calendar-alt dd-date-icon"></i>
+                                            <input
+                                                type="date"
+                                                value={exportTuNgay}
+                                                onChange={e => setExportTuNgay(e.target.value)}
+                                                className="dd-date-native-input"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: 4 }}>
                                             Đến ngày:
                                         </label>
-                                        <input
-                                            type="date"
-                                            className="export-modal-date-input"
-                                            value={exportDenNgay}
-                                            onChange={e => setExportDenNgay(e.target.value)}
-                                        />
+                                        <div
+                                            className="dd-date-input-wrapper"
+                                            title="Bấm để chọn ngày trên lịch"
+                                            onClick={(e) => {
+                                                const inp = e.currentTarget.querySelector('input[type="date"]');
+                                                if (inp && typeof inp.showPicker === 'function') {
+                                                    try { inp.showPicker(); } catch { /* unsupported */ }
+                                                }
+                                            }}
+                                        >
+                                            <span className="dd-date-display" style={{ fontSize: '0.92rem' }}>
+                                                {fmtDate(exportDenNgay) || 'dd/mm/yyyy'}
+                                            </span>
+                                            <i className="far fa-calendar-alt dd-date-icon"></i>
+                                            <input
+                                                type="date"
+                                                value={exportDenNgay}
+                                                onChange={e => setExportDenNgay(e.target.value)}
+                                                className="dd-date-native-input"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
