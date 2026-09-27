@@ -150,6 +150,7 @@ export default function DiemDanhAn() {
     const [exportWeeksActive, setExportWeeksActive] = useState([]);
     const [exportWeeksT6, setExportWeeksT6] = useState([]);
     const [exportRooms, setExportRooms] = useState([]);
+    const [dotList, setDotList] = useState([]);
 
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
     const [namHocCauHinh, setNamHocCauHinh] = useState('2026-2027');
@@ -160,9 +161,11 @@ export default function DiemDanhAn() {
             api.get('/api/phong/an').then(r => r.data?.phong || []),
             cachedFetch('cache_hocsinh_an', () => api.get('/api/hocsinh/an').then(r => r.data?.hocsinh || [])),
             cachedFetch('cache_cauhinh', () => api.get('/api/cauhinh/').then(r => r.data?.he_thong || null), 60 * 60 * 1000),
-        ]).then(([phong, { data: hs }, { data: cauhinh }]) => {
+            api.get('/api/cauhinh/dot-thanh-toan/').then(r => (r.data?.ok && Array.isArray(r.data.dots)) ? r.data.dots : []).catch(() => []),
+        ]).then(([phong, { data: hs }, { data: cauhinh }, dots]) => {
             if (phong) setPhongList(phong);
             if (hs) setHsList(hs);
+            if (dots) setDotList(dots);
             if (cauhinh) {
                 setNguoiPhuTrach(cauhinh.nguoi_phu_trach || 'Người phụ trách');
                 setNamHocCauHinh(cauhinh.nam_hoc || '2026-2027');
@@ -831,6 +834,11 @@ ${htmlPages}
         let curMon = new Date(tuDate);
         curMon.setDate(tuDate.getDate() - dDow + 1);
 
+        // Ngày bắt đầu năm học chính thức (Đợt 1 bắt đầu ngày 07/09/2026)
+        const firstDotStart = (dotList && dotList.length > 0 && dotList[0].tu_ngay)
+            ? new Date(dotList[0].tu_ngay + 'T00:00:00')
+            : new Date('2026-09-07T00:00:00');
+
         const list = [];
         let idx = 0;
         while (curMon <= denDate && idx < 20) {
@@ -838,8 +846,13 @@ ${htmlPages}
             const thuDate = new Date(curMon); thuDate.setDate(curMon.getDate() + 3);
             const friDate = new Date(curMon); friDate.setDate(curMon.getDate() + 4);
 
+            // Số tuần học chính thức liên tục trong năm học
+            const diffWeeks = Math.round((curMon.getTime() - firstDotStart.getTime()) / (7 * 24 * 3600 * 1000));
+            const schoolWeek = diffWeeks >= 0 ? diffWeeks + 1 : idx + 1;
+
             list.push({
                 index: idx,
+                schoolWeek: schoolWeek,
                 monStr: monStr,
                 monDate: new Date(curMon),
                 thuDate: thuDate,
@@ -851,7 +864,7 @@ ${htmlPages}
             idx++;
         }
         return list;
-    }, [exportTuNgay, exportDenNgay]);
+    }, [exportTuNgay, exportDenNgay, dotList]);
 
     // Tự động kích hoạt tất cả các tuần khi danh sách tuần thay đổi
     useEffect(() => {
@@ -859,82 +872,147 @@ ${htmlPages}
         setExportWeeksT6([]);
     }, [weeksList]);
 
-    // Các preset chọn nhanh khoảng ngày
-    const setPresetRange = (type) => {
-        const cur = new Date((date || todayVN()) + 'T00:00:00');
-        const dow = cur.getDay() || 7;
-        const mon = new Date(cur);
-        mon.setDate(cur.getDate() - dow + 1);
+    // ── Chu kỳ Tháng này và Tháng tới (chuẩn hóa 4 tuần không trùng lặp) ───
+    const monthPresets = useMemo(() => {
+        const curDateStr = date || todayVN();
+        const sortedDots = Array.isArray(dotList) && dotList.length > 0
+            ? [...dotList].sort((a, b) => (a.tu_ngay < b.tu_ngay ? -1 : 1))
+            : null;
 
-        if (type === 'this_week') {
-            const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
-            setExportTuNgay(toISO(mon));
-            setExportDenNgay(toISO(fri));
-        } else if (type === 'next_week') {
-            const nextMon = new Date(mon); nextMon.setDate(mon.getDate() + 7);
-            const nextFri = new Date(nextMon); nextFri.setDate(nextMon.getDate() + 4);
-            setExportTuNgay(toISO(nextMon));
-            setExportDenNgay(toISO(nextFri));
-        } else if (type === 'two_weeks') {
-            const fri = new Date(mon); fri.setDate(mon.getDate() + 11);
-            setExportTuNgay(toISO(mon));
-            setExportDenNgay(toISO(fri));
-        } else if (type === 'four_weeks') {
-            const fri = new Date(mon); fri.setDate(mon.getDate() + 25);
-            setExportTuNgay(toISO(mon));
-            setExportDenNgay(toISO(fri));
-        } else if (type === 'this_month') {
-            const y = cur.getFullYear();
-            const m = cur.getMonth() + 1;
-            const fDay = new Date(y, m - 1, 1);
-            const fDow = fDay.getDay() || 7;
-            const fMon = new Date(fDay);
-            fMon.setDate(fDay.getDate() - fDow + 1);
-            const lDay = new Date(y, m, 0);
-            const lDow = lDay.getDay() || 7;
-            const lFri = new Date(lDay);
-            if (lDow >= 5) lFri.setDate(lDay.getDate() - (lDow - 5));
-            else lFri.setDate(lDay.getDate() + (5 - lDow));
-            setExportTuNgay(toISO(fMon));
-            setExportDenNgay(toISO(lFri));
-        } else if (type === 'next_month') {
-            let y = cur.getFullYear();
-            let m = cur.getMonth() + 2;
-            if (m > 12) { m = 1; y += 1; }
-            const fDay = new Date(y, m - 1, 1);
-            const fDow = fDay.getDay() || 7;
-            const fMon = new Date(fDay);
-            fMon.setDate(fDay.getDate() - fDow + 1);
-            const lDay = new Date(y, m, 0);
-            const lDow = lDay.getDay() || 7;
-            const lFri = new Date(lDay);
-            if (lDow >= 5) lFri.setDate(lDay.getDate() - (lDow - 5));
-            else lFri.setDate(lDay.getDate() + (5 - lDow));
-            setExportTuNgay(toISO(fMon));
-            setExportDenNgay(toISO(lFri));
+        let curDot = null;
+        let nextDot = null;
+
+        if (sortedDots && sortedDots.length > 0) {
+            const matchIdx = sortedDots.findIndex(d => d.tu_ngay <= curDateStr && curDateStr <= d.den_ngay);
+            if (matchIdx !== -1) {
+                curDot = sortedDots[matchIdx];
+                nextDot = sortedDots[matchIdx + 1] || null;
+            } else {
+                if (curDateStr < sortedDots[0].tu_ngay) {
+                    curDot = sortedDots[0];
+                    nextDot = sortedDots[1] || null;
+                } else if (curDateStr > sortedDots[sortedDots.length - 1].den_ngay) {
+                    curDot = sortedDots[sortedDots.length - 1];
+                    nextDot = null;
+                } else {
+                    const nextIdx = sortedDots.findIndex(d => d.tu_ngay > curDateStr);
+                    if (nextIdx !== -1) {
+                        curDot = sortedDots[nextIdx - 1] || sortedDots[nextIdx];
+                        nextDot = sortedDots[nextIdx] || null;
+                    }
+                }
+            }
+        }
+
+        const getMonthNum = (dStr) => {
+            if (!dStr) return '';
+            const dt = new Date(dStr + 'T00:00:00');
+            return isNaN(dt.getTime()) ? '' : dt.getMonth() + 1;
+        };
+
+        let thisInfo = null;
+        let nextInfo = null;
+
+        if (curDot) {
+            const mNum = getMonthNum(curDot.tu_ngay);
+            thisInfo = {
+                tu_ngay: curDot.tu_ngay,
+                den_ngay: curDot.den_ngay,
+                monthLabel: mNum ? `Tháng ${mNum}` : `Đợt ${curDot.dot}`,
+                rangeText: `${fmtDate(curDot.tu_ngay)} – ${fmtDate(curDot.den_ngay)}`,
+                subText: `Đợt ${curDot.dot} • ${curDot.ghi_chu || '4 tuần'}`,
+            };
+        } else {
+            const curD = new Date(curDateStr + 'T00:00:00');
+            const dow = curD.getDay() || 7;
+            const mon = new Date(curD);
+            mon.setDate(curD.getDate() - dow + 1);
+            const fri = new Date(mon);
+            fri.setDate(mon.getDate() + 25);
+            const tuStr = toISO(mon);
+            const denStr = toISO(fri);
+            const mNum = mon.getMonth() + 1;
+            thisInfo = {
+                tu_ngay: tuStr,
+                den_ngay: denStr,
+                monthLabel: `Tháng ${mNum}`,
+                rangeText: `${fmtDate(tuStr)} – ${fmtDate(denStr)}`,
+                subText: 'Chu kỳ 4 tuần liên tục',
+            };
+        }
+
+        if (nextDot) {
+            const mNum = getMonthNum(nextDot.tu_ngay);
+            nextInfo = {
+                tu_ngay: nextDot.tu_ngay,
+                den_ngay: nextDot.den_ngay,
+                monthLabel: mNum ? `Tháng ${mNum}` : `Đợt ${nextDot.dot}`,
+                rangeText: `${fmtDate(nextDot.tu_ngay)} – ${fmtDate(nextDot.den_ngay)}`,
+                subText: `Đợt ${nextDot.dot} • ${nextDot.ghi_chu || '4 tuần'}`,
+            };
+        } else {
+            const endD = new Date(thisInfo.den_ngay + 'T00:00:00');
+            const nextMon = new Date(endD);
+            nextMon.setDate(endD.getDate() + 3);
+            const nextFri = new Date(nextMon);
+            nextFri.setDate(nextMon.getDate() + 25);
+            const nextTuStr = toISO(nextMon);
+            const nextDenStr = toISO(nextFri);
+            const mNum = nextMon.getMonth() + 1;
+            nextInfo = {
+                tu_ngay: nextTuStr,
+                den_ngay: nextDenStr,
+                monthLabel: `Tháng ${mNum}`,
+                rangeText: `${fmtDate(nextTuStr)} – ${fmtDate(nextDenStr)}`,
+                subText: 'Chu kỳ 4 tuần tiếp theo',
+            };
+        }
+
+        return { thisMonth: thisInfo, nextMonth: nextInfo };
+    }, [date, dotList]);
+
+    const isThisMonthActive = Boolean(monthPresets.thisMonth && exportTuNgay === monthPresets.thisMonth.tu_ngay && exportDenNgay === monthPresets.thisMonth.den_ngay);
+    const isNextMonthActive = Boolean(monthPresets.nextMonth && exportTuNgay === monthPresets.nextMonth.tu_ngay && exportDenNgay === monthPresets.nextMonth.den_ngay);
+
+    const applyThisMonth = () => {
+        if (monthPresets.thisMonth) {
+            setExportTuNgay(monthPresets.thisMonth.tu_ngay);
+            setExportDenNgay(monthPresets.thisMonth.den_ngay);
         }
     };
 
-    // Khởi tạo ngày mặc định (4 tuần) khi mở modal
+    const applyNextMonth = () => {
+        if (monthPresets.nextMonth) {
+            setExportTuNgay(monthPresets.nextMonth.tu_ngay);
+            setExportDenNgay(monthPresets.nextMonth.den_ngay);
+        }
+    };
+
+    // Khởi tạo ngày mặc định (Tháng này) khi mở modal
     useEffect(() => {
         if (!showMonthExportModal) return;
         if (!exportTuNgay || !exportDenNgay) {
-            const cur = new Date((date || todayVN()) + 'T00:00:00');
-            const dow = cur.getDay() || 7;
-            const mon = new Date(cur);
-            mon.setDate(cur.getDate() - dow + 1);
-            const fri4 = new Date(mon);
-            fri4.setDate(mon.getDate() + 25);
-            setExportTuNgay(toISO(mon));
-            setExportDenNgay(toISO(fri4));
+            if (monthPresets.thisMonth) {
+                setExportTuNgay(monthPresets.thisMonth.tu_ngay);
+                setExportDenNgay(monthPresets.thisMonth.den_ngay);
+            } else {
+                const cur = new Date((date || todayVN()) + 'T00:00:00');
+                const dow = cur.getDay() || 7;
+                const mon = new Date(cur);
+                mon.setDate(cur.getDate() - dow + 1);
+                const fri4 = new Date(mon);
+                fri4.setDate(mon.getDate() + 25);
+                setExportTuNgay(toISO(mon));
+                setExportDenNgay(toISO(fri4));
+            }
         }
-        const refD = exportTuNgay || date || todayVN();
+        const refD = exportTuNgay || monthPresets.thisMonth?.tu_ngay || date || todayVN();
         const roomsWithStudents = phongList
             .filter(p => getStudentsForRoom(p.ma_phong, refD).length > 0)
             .map(p => p.ma_phong);
         setExportRooms(roomsWithStudents.length > 0 ? roomsWithStudents : phongList.map(p => p.ma_phong));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showMonthExportModal]);
+    }, [showMonthExportModal, monthPresets.thisMonth]);
 
     // ── XUẤT EXCEL THEO KHOẢNG NGÀY ────────────────────────────────────
     const exportMonthlyExcel = async () => {
@@ -1058,7 +1136,7 @@ ${htmlPages}
             const wd = getWeekDays(wInfo.monStr, inclT6);
             const mon = wd[0];
             const fri = wd[wd.length - 1];
-            const label = `Tuần ${displayIdx + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
+            const label = `Tuần ${wInfo.schoolWeek || (displayIdx + 1)}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
             return { days: wd, label, displayIdx };
         });
 
@@ -1852,7 +1930,7 @@ ${htmlPagesStr}
 
             {showMonthExportModal && (
                 <div className="export-modal-overlay">
-                    <div className="export-modal" style={{ maxWidth: 540 }}>
+                    <div className="export-modal" style={{ maxWidth: 560 }}>
                         <div className="export-modal-header">
                             <div className="icon" style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}><i className="fas fa-file-pdf"></i></div>
                             <div>
@@ -1921,17 +1999,71 @@ ${htmlPagesStr}
                                     </div>
                                 </div>
 
-                                {/* Quick Presets */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' }}>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, marginRight: 2 }}>
-                                        <i className="fas fa-bolt" style={{ color: '#f59e0b' }}></i> Nhanh:
-                                    </span>
-                                    <button type="button" className="btn-preset" onClick={() => setPresetRange('this_week')}>Tuần này</button>
-                                    <button type="button" className="btn-preset" onClick={() => setPresetRange('next_week')}>Tuần sau</button>
-                                    <button type="button" className="btn-preset" onClick={() => setPresetRange('two_weeks')}>2 tuần</button>
-                                    <button type="button" className="btn-preset" onClick={() => setPresetRange('four_weeks')}>4 tuần</button>
-                                    <button type="button" className="btn-preset" onClick={() => setPresetRange('this_month')}>Tháng này</button>
-                                    <button type="button" className="btn-preset" onClick={() => setPresetRange('next_month')}>Tháng tới</button>
+                                {/* Chu kỳ tháng: Tháng này & Tháng tới */}
+                                <div className="month-presets-container">
+                                    <div className="month-presets-header">
+                                        <span className="month-presets-title">
+                                            <i className="fas fa-calendar-check" style={{ color: '#4f46e5' }}></i>
+                                            Chọn nhanh chu kỳ tháng:
+                                        </span>
+                                        <span className="month-presets-hint">
+                                            (Chu kỳ chuẩn 4 tuần không trùng lặp)
+                                        </span>
+                                    </div>
+
+                                    <div className="month-presets-grid">
+                                        {/* Nút Tháng này */}
+                                        <button
+                                            type="button"
+                                            className={`btn-month-card ${isThisMonthActive ? 'active' : ''}`}
+                                            onClick={applyThisMonth}
+                                            title={`Chọn khoảng ngày: ${monthPresets.thisMonth?.rangeText || ''}`}
+                                        >
+                                            <div className="btn-month-card-head">
+                                                <span className="btn-month-card-title">
+                                                    <i className="fas fa-calendar-day" style={{ color: isThisMonthActive ? '#4f46e5' : '#64748b' }}></i>
+                                                    Tháng này {monthPresets.thisMonth?.monthLabel ? `(${monthPresets.thisMonth.monthLabel})` : ''}
+                                                </span>
+                                                {isThisMonthActive && (
+                                                    <span className="btn-month-badge-active">
+                                                        <i className="fas fa-check"></i> Đang chọn
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="btn-month-card-range">
+                                                {monthPresets.thisMonth?.rangeText || 'Đang cập nhật...'}
+                                            </div>
+                                            <div className="btn-month-card-sub">
+                                                {monthPresets.thisMonth?.subText || '4 tuần liên tục'}
+                                            </div>
+                                        </button>
+
+                                        {/* Nút Tháng tới */}
+                                        <button
+                                            type="button"
+                                            className={`btn-month-card ${isNextMonthActive ? 'active' : ''}`}
+                                            onClick={applyNextMonth}
+                                            title={`Chọn khoảng ngày: ${monthPresets.nextMonth?.rangeText || ''}`}
+                                        >
+                                            <div className="btn-month-card-head">
+                                                <span className="btn-month-card-title">
+                                                    <i className="fas fa-calendar-plus" style={{ color: isNextMonthActive ? '#4f46e5' : '#64748b' }}></i>
+                                                    Tháng tới {monthPresets.nextMonth?.monthLabel ? `(${monthPresets.nextMonth.monthLabel})` : ''}
+                                                </span>
+                                                {isNextMonthActive && (
+                                                    <span className="btn-month-badge-active">
+                                                        <i className="fas fa-check"></i> Đang chọn
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="btn-month-card-range">
+                                                {monthPresets.nextMonth?.rangeText || 'Đang cập nhật...'}
+                                            </div>
+                                            <div className="btn-month-card-sub">
+                                                {monthPresets.nextMonth?.subText || '4 tuần tiếp theo'}
+                                            </div>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1991,7 +2123,7 @@ ${htmlPagesStr}
                                                         />
                                                         <div>
                                                             <span style={{ fontWeight: 700, fontSize: '0.86rem', color: active ? '#1e293b' : '#94a3b8' }}>
-                                                                Tuần {wIndex + 1}:
+                                                                Tuần {w.schoolWeek || (wIndex + 1)}:
                                                             </span>
                                                             <span style={{ marginLeft: 6, fontSize: '0.82rem', color: active ? '#4338ca' : '#94a3b8', fontWeight: 600 }}>
                                                                 {p2(w.monDate.getDate())}/{p2(w.monDate.getMonth() + 1)} – {p2(endDay.getDate())}/{p2(endDay.getMonth() + 1)}
