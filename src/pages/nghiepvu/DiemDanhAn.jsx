@@ -697,10 +697,11 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
 .room-block:first-of-type { page-break-before: auto; }
 .hdr-inner { width:100%; border-collapse:collapse; margin-bottom:4px; }
 .hdr-inner td { border:none; padding:2px 4px; vertical-align:middle; }
-.hdr-school { width:28%; text-align:center; font-size:10pt; line-height:1.4; }
+.hdr-school { width:22%; text-align:center; font-size:10pt; line-height:1.4; }
 .hdr-title { text-align:center; }
-.hdr-title h1 { font-size:14pt; font-weight:bold; text-transform:uppercase; }
+.hdr-title h1 { font-size:14pt; font-weight:bold; text-transform:uppercase; margin:0; }
 .hdr-title h2 { font-size:11pt; font-weight:bold; margin-top:2px; }
+.hdr-dummy { width:22%; }
 .dt { width:100%; border-collapse:collapse; }
 .dt th { border:0.8px solid #333; padding:4px 2px; text-align:center; background:#ececec; font-weight:bold; font-size:9pt; }
 .dt td { border:0.8px solid #555; padding:4px 2px; vertical-align:middle; font-size:11pt; }
@@ -763,12 +764,14 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
 
                 return `<div class="room-block">
 <table class="hdr-inner"><tr>
-  <td class="hdr-school" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
-  <td class="hdr-title"><h1>ĐIỂM DANH ĂN TRƯA</h1></td>
-</tr><tr><td class="hdr-title">
-  <h2>NĂM HỌC ${namHocCauHinh} &nbsp;|&nbsp; ĐẶC BIỆT${pageLabel}</h2>
-  <div style="font-size:10pt;margin-top:2px;">Ngày: <strong>${fmtDate(date)}</strong> &nbsp;|&nbsp; Lớp: <strong>${roomLopList}</strong> &nbsp;|&nbsp; Phòng ăn: <strong>${ma_phong}</strong></div>
-</td></tr></table>
+  <td class="hdr-school">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
+  <td class="hdr-title">
+    <h1>ĐIỂM DANH ĂN TRƯA</h1>
+    <h2>NĂM HỌC ${namHocCauHinh} &nbsp;|&nbsp; ĐẶC BIỆT${pageLabel}</h2>
+    <div style="font-size:10pt;margin-top:2px;">Ngày: <strong>${fmtDate(date)}</strong> &nbsp;|&nbsp; Lớp: <strong>${roomLopList}</strong> &nbsp;|&nbsp; Phòng ăn: <strong>${ma_phong}</strong></div>
+  </td>
+  <td class="hdr-dummy"></td>
+</tr></table>
 <div class="stat-box">Phòng ${ma_phong}: <strong>${roomTotal} HS</strong> &nbsp;|&nbsp; Có mặt: <strong style="color:#16a34a">${roomComat}</strong> &nbsp;|&nbsp; Vắng: <strong style="color:#dc2626">${roomVang}</strong> &nbsp;|&nbsp; Phép: <strong style="color:#d97706">${roomPhep}</strong></div>
 <table class="dt"><thead>
   <tr>
@@ -1187,13 +1190,13 @@ ${htmlPages}
 
                 return `<div class="room-block">
 <table class="hdr-inner-an"><tr>
-  <td class="hdr-school-an" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
-  <td class="hdr-title-an"><h1>ĐIỂM DANH ĂN TRƯA</h1></td>
-</tr><tr>
+  <td class="hdr-school-an">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
   <td class="hdr-title-an">
+    <h1>ĐIỂM DANH ĂN TRƯA</h1>
     <h2>NĂM HỌC ${namHocCauHinh}${pageLabel}</h2>
     <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; Từ ngày ${startDateStr} đến ngày ${endDateStr} &nbsp;|&nbsp; Phòng ăn: ${ma_phong}</div>
   </td>
+  <td class="hdr-dummy-an"></td>
 </tr></table>
 <div class="ly-row-an-div">${luuY}</div>
 <table class="dt-an">
@@ -1251,12 +1254,14 @@ body { font-family:'Times New Roman',Times,serif; font-size:10pt; color:#000; ba
 .room-block:first-of-type { page-break-before: auto; }
 .ly-row-an-div { padding:2px 4px; font-size:9.5pt; line-height:1.2; margin-bottom:2px; }
 .dt-an { width:100%; border-collapse:collapse; }
-.hdr-inner-an { width:100%; border-collapse:collapse; margin-bottom:2px; }
+.hdr-inner-an { width:100%; border-collapse:collapse; margin-bottom:4px; }
 .hdr-inner-an td { border:none; padding:2px 4px; vertical-align:middle; }
-.hdr-school-an { width:20%; text-align:center; font-size:9.5pt; line-height:1.3; }
-.hdr-title-an h1 { font-size:15pt; font-weight:bold; text-transform:uppercase; }
-.hdr-title-an h2 { font-size:11pt; font-weight:bold; margin-top:1px; }
-.hdr-title-an .nh-an { font-size:10pt; margin-top:2px; }
+.hdr-school-an { width:22%; text-align:center; font-size:10pt; line-height:1.35; }
+.hdr-title-an { text-align:center; }
+.hdr-title-an h1 { font-size:15pt; font-weight:bold; text-transform:uppercase; margin:0; line-height:1.2; text-align:center; }
+.hdr-title-an h2 { font-size:11pt; font-weight:bold; margin-top:2px; line-height:1.2; text-align:center; }
+.hdr-title-an .nh-an { font-size:10pt; margin-top:3px; text-align:center; }
+.hdr-dummy-an { width:22%; }
 .dt-an th { border:0.8px solid #333; padding:2px 1px; text-align:center;
             background:#ececec; font-weight:bold; vertical-align:middle;
             font-size:8.5pt; line-height:1.1; color:#000; word-break:keep-all; }

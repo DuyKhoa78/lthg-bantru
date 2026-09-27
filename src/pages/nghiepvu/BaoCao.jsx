@@ -580,11 +580,14 @@ export default function BaoCao() {
                 }).join('');
                 return `<div class="room-block">
 <table class="hdr-inner-an"><tr>
-  <td class="hdr-school-an" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
-  <td class="hdr-title-an"><h1>ĐIỂM DANH ĂN TRƯA</h1></td></tr><tr>
-  <td class="hdr-title-an"><h2>NĂM HỌC ${nam_hoc}</h2>
+  <td class="hdr-school-an">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
+  <td class="hdr-title-an">
+    <h1>ĐIỂM DANH ĂN TRƯA</h1>
+    <h2>NĂM HỌC ${nam_hoc}</h2>
     <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; ${dateSpanStr} &nbsp;|&nbsp; Phòng ăn: ${ma_phong} &nbsp;|&nbsp; Tổng: ${numDays} buổi ăn</div>
-  </td></tr></table>
+  </td>
+  <td class="hdr-dummy-an"></td>
+</tr></table>
 <div class="ly-row-an-div">${luuY}</div>
 <table class="dt-an"><thead>
   <tr>
@@ -637,9 +640,10 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 .hdr-inner-an td { border:none; padding:3px 6px; vertical-align:middle; }
 .hdr-school-an { width:20%; text-align:center; font-size:8.5pt; line-height:1.6; }
 .hdr-title-an { text-align:center; }
-.hdr-title-an h1 { font-size:13pt; font-weight:bold; text-transform:uppercase; }
-.hdr-title-an h2 { font-size:10pt; font-weight:bold; margin-top:1px; }
-.hdr-title-an .nh-an { font-size:9pt; margin-top:2px; }
+.hdr-title-an h1 { font-size:13pt; font-weight:bold; text-transform:uppercase; margin:0; line-height:1.2; text-align:center; }
+.hdr-title-an h2 { font-size:10pt; font-weight:bold; margin-top:2px; line-height:1.2; text-align:center; }
+.hdr-title-an .nh-an { font-size:9pt; margin-top:2px; text-align:center; }
+.hdr-dummy-an { width:20%; }
 .dt-an th { border:0.8px solid #333; padding:2px; text-align:center; background:#ececec; font-weight:bold; font-size:8pt; line-height:1.2; color:#000; }
 .dt-an td { border:0.8px solid #555; padding:2px; vertical-align:middle; color:#000; font-size:8pt; }
 .col-stt-an{width:4mm;text-align:center} .col-msbt-an{width:8mm;text-align:center;font-weight:bold}
