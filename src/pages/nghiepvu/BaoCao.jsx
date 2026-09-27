@@ -499,6 +499,10 @@ export default function BaoCao() {
             const numDays = ngay_ban_tru.length;
             const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
             const luuY = 'Lưu ý: HS di chuyển đến đúng vị trí/phòng ăn đã phân công; giữ gìn vệ sinh khu vực ăn và chấp hành điều động của thầy cô.';
+            const fmtD = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+            const tuStrBaoCao = ngay_ban_tru.length ? fmtD(ngay_ban_tru[0]) : '';
+            const denStrBaoCao = ngay_ban_tru.length ? fmtD(ngay_ban_tru[ngay_ban_tru.length - 1]) : '';
+            const dateSpanStr = tuStrBaoCao && denStrBaoCao ? `Từ ngày ${tuStrBaoCao} đến ngày ${denStrBaoCao}` : `Tháng ${so_thang}/${so_nam}`;
 
             const weekGroups = [];
             let curWeek = null;
@@ -579,7 +583,7 @@ export default function BaoCao() {
   <td class="hdr-school-an" rowspan="2">Phân hiệu THPT<br><strong>Lê Thị Hồng Gấm</strong></td>
   <td class="hdr-title-an"><h1>ĐIỂM DANH ĂN TRƯA</h1></td></tr><tr>
   <td class="hdr-title-an"><h2>NĂM HỌC ${nam_hoc}</h2>
-    <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; Tháng ${so_thang}/${so_nam} &nbsp;|&nbsp; Phòng ăn: ${ma_phong} &nbsp;|&nbsp; Tổng: ${numDays} buổi ăn</div>
+    <div class="nh-an">Thời gian: 11g00–11g45 &nbsp;|&nbsp; ${dateSpanStr} &nbsp;|&nbsp; Phòng ăn: ${ma_phong} &nbsp;|&nbsp; Tổng: ${numDays} buổi ăn</div>
   </td></tr></table>
 <div class="ly-row-an-div">${luuY}</div>
 <table class="dt-an"><thead>
@@ -699,8 +703,12 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 });
                 h1.push('TS\nBuổi ăn', 'SB\nVắng', 'Vắng\ncó P', 'Buổi ăn\nthực tế', 'Ghi chú');
                 h2.push('', '', '', '', '');
+                const fmtD2 = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+                const tuStrXls = ngay_ban_tru.length ? fmtD2(ngay_ban_tru[0]) : '';
+                const denStrXls = ngay_ban_tru.length ? fmtD2(ngay_ban_tru[ngay_ban_tru.length - 1]) : '';
+                const dateSpanXls = tuStrXls && denStrXls ? `TỪ NGÀY ${tuStrXls} ĐẾN NGÀY ${denStrXls}` : `THÁNG ${so_thang}/${so_nam}`;
                 const aoa = [
-                    [`ĐIỂM DANH ĂN TRƯA – THÁNG ${so_thang}/${so_nam} – PHÒNG ${ma_phong}`, ...Array(5 + numDays + 5).fill('')],
+                    [`ĐIỂM DANH ĂN TRƯA – ${dateSpanXls} – PHÒNG ${ma_phong}`, ...Array(5 + numDays + 5).fill('')],
                     Array(6 + numDays + 5).fill(''), h1, h2,
                 ];
                 roomStudents.forEach((s, i) => {

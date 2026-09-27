@@ -541,7 +541,7 @@
   z-index: 9500; backdrop-filter: blur(4px);
 }
 .export-modal {
-  background: #fff; width: 100%; max-width: 480px;
+  background: #fff; width: 100%; max-width: 540px;
   border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
   display: flex; flex-direction: column; overflow: hidden;
   max-height: 90vh;
@@ -572,6 +572,25 @@
 }
 .export-modal-row { display: flex; gap: 16px; align-items: center; }
 .export-modal-group { flex: 1; }
+
+.export-modal-date-input {
+  width: 100%; height: 38px; padding: 0 10px;
+  border: 1.5px solid #cbd5e1; border-radius: 8px;
+  font-size: 0.9rem; font-family: inherit;
+  color: #1e293b; outline: none; font-weight: 600;
+  background: #fff; transition: 0.2s;
+}
+.export-modal-date-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,156,255,0.1); }
+
+.btn-preset {
+  font-size: 0.75rem; font-weight: 600; padding: 3px 8px;
+  border-radius: 6px; border: 1px solid #cbd5e1;
+  background: #f8fafc; color: #475569; cursor: pointer;
+  transition: all 0.15s; user-select: none;
+}
+.btn-preset:hover {
+  background: #eef2ff; border-color: #6366f1; color: #4f46e5;
+}
 
 .export-modal-select {
   width: 100%; height: 40px; padding: 0 12px;
