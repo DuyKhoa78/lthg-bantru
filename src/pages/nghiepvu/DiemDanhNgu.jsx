@@ -653,6 +653,7 @@ export default function DiemDanhNgu() {
 
     // ── Hàm chia danh sách HS theo số GV điểm danh: sort theo thứ tự mã bán trú từ trên xuống, chia đều ra khi đủ số lượng ──
     const splitByTeachers = (students, numTeachers) => {
+        if (!students || students.length === 0) return [];
         if (!numTeachers || numTeachers <= 1) return [students];
         const sorted = [...students].sort((a, b) => Number(a.id) - Number(b.id));
         const total = sorted.length;
@@ -739,7 +740,8 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
 
         const phongCodes = Object.keys(byPhong).sort();
         const htmlPages = phongCodes.flatMap(ma_phong => {
-            const roomStudents = byPhong[ma_phong].sort((a, b) => a.id - b.id);
+            const roomStudents = (byPhong[ma_phong] || []).sort((a, b) => a.id - b.id);
+            if (!roomStudents || roomStudents.length === 0) return [];
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const roomTotal = roomStudents.length;
@@ -884,9 +886,11 @@ ${htmlPages}
         const idx = allMons.indexOf(monStr);
         setExportSelectedWeek(idx >= 0 ? idx : 0);
         setExportT6(false);
-        if (exportRooms.length === 0 && phongList.length > 0) {
-            setExportRooms(phongList.map(p => p.ma_phong));
-        }
+        const targetMon = (idx >= 0 ? allMons[idx] : allMons[0]) || monStr;
+        const roomsWithStudents = phongList
+            .filter(p => getStudentsForRoom(p.ma_phong, targetMon).length > 0)
+            .map(p => p.ma_phong);
+        setExportRooms(roomsWithStudents.length > 0 ? roomsWithStudents : phongList.map(p => p.ma_phong));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showMonthExportModal, date, phongList]);
 
@@ -912,6 +916,7 @@ ${htmlPages}
         const monISO = toISO(mon);
         exportRooms.forEach(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong, monISO).sort((a, b) => Number(a.id) - Number(b.id));
+            if (!roomStudents || roomStudents.length === 0) return;
             const markedDays = new Set(
                 weekDays.map(d => toISO(d)).filter(dateStr =>
                     roomStudents.length > 0 && roomStudents.every(s => ddMap[s.id]?.[dateStr]?.ngu != null)
@@ -1013,6 +1018,7 @@ ${htmlPages}
         const monStr = toISO(weekDays[0]);
         const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong, monStr).sort((a, b) => Number(a.id) - Number(b.id));
+            if (!roomStudents || roomStudents.length === 0) return [];
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
@@ -1144,8 +1150,12 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
 .dt thead{display:table-row-group}
 @page{size:A4 portrait;margin:0.8cm 0.7cm 1cm 0.8cm}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.dt thead{display:table-row-group!important}}`;
+        const htmlPagesStr = htmlPages.join('');
+        if (!htmlPagesStr || htmlPagesStr.trim() === '') {
+            return showAlert('Không có học sinh nào trong các phòng đã chọn để in!', 'warning');
+        }
         const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title></title><style>${css}</style></head><body>
-${htmlPages}
+${htmlPagesStr}
 <script>window.onload=function(){setTimeout(window.print,400);}</script>
 </body></html>`;
         const w = window.open('', '_blank');
@@ -1786,20 +1796,38 @@ ${htmlPages}
                                 <div className="export-room-header">
                                     <div className="export-modal-section-title" style={{ margin: 0 }}>CHỌN PHÒNG NGỦ</div>
                                     <div className="export-room-actions">
-                                        <button onClick={() => setExportRooms(phongList.map(p => p.ma_phong))}>Chọn tất cả</button>
+                                        <button onClick={() => {
+                                            const allMons = computeWeekMondayStrs(exportMonth, exportYear);
+                                            const curMon = allMons[exportSelectedWeek] || allMons[0];
+                                            const withHs = phongList.filter(p => getStudentsForRoom(p.ma_phong, curMon).length > 0).map(p => p.ma_phong);
+                                            setExportRooms(withHs.length > 0 ? withHs : phongList.map(p => p.ma_phong));
+                                        }}>Chọn phòng có HS</button>
                                         <div className="divider"></div>
                                         <button className="deselect" onClick={() => setExportRooms([])}>Bỏ chọn</button>
                                     </div>
                                 </div>
                                 <div className="export-room-grid">
-                                    {phongList.map(p => (
-                                        <div key={p.ma_phong}
-                                            className={`export-room-pill ${exportRooms.includes(p.ma_phong) ? 'selected' : ''}`}
-                                            style={exportRooms.includes(p.ma_phong) ? { background: '#6c5ce7', borderColor: '#6c5ce7', color: '#fff' } : {}}
-                                            onClick={() => setExportRooms(prev => prev.includes(p.ma_phong) ? prev.filter(r => r !== p.ma_phong) : [...prev, p.ma_phong])}>
-                                            {p.ma_phong}
-                                        </div>
-                                    ))}
+                                    {phongList.map(p => {
+                                        const allMons = computeWeekMondayStrs(exportMonth, exportYear);
+                                        const curMon = allMons[exportSelectedWeek] || allMons[0];
+                                        const count = getStudentsForRoom(p.ma_phong, curMon).length;
+                                        const isSelected = exportRooms.includes(p.ma_phong);
+                                        const isEmpty = count === 0;
+                                        return (
+                                            <div key={p.ma_phong}
+                                                className={`export-room-pill ${isSelected ? 'selected' : ''}`}
+                                                style={isSelected
+                                                    ? { background: '#6c5ce7', borderColor: '#6c5ce7', color: '#fff' }
+                                                    : isEmpty
+                                                        ? { opacity: 0.45, borderColor: '#e2e8f0', color: '#94a3b8' }
+                                                        : {}}
+                                                title={isEmpty ? `Phòng ${p.ma_phong}: 0 HS` : `Phòng ${p.ma_phong}: ${count} HS`}
+                                                onClick={() => setExportRooms(prev => prev.includes(p.ma_phong) ? prev.filter(r => r !== p.ma_phong) : [...prev, p.ma_phong])}>
+                                                {p.ma_phong}
+                                                <span style={{ fontSize: '0.75rem', marginLeft: 4, opacity: 0.85 }}>({count})</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

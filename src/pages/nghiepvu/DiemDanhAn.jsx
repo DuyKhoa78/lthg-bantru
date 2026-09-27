@@ -864,9 +864,11 @@ ${htmlPages}
         const idx = allMons.indexOf(monStr);
         setExportWeeksActive(idx >= 0 ? [idx] : [0]);
         setExportWeeksT6([]);
-        if (exportRooms.length === 0 && phongList.length > 0) {
-            setExportRooms(phongList.map(p => p.ma_phong));
-        }
+        const targetMon = (idx >= 0 ? allMons[idx] : allMons[0]) || monStr;
+        const roomsWithStudents = phongList
+            .filter(p => getStudentsForRoom(p.ma_phong, targetMon).length > 0)
+            .map(p => p.ma_phong);
+        setExportRooms(roomsWithStudents.length > 0 ? roomsWithStudents : phongList.map(p => p.ma_phong));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showMonthExportModal, date, phongList]);
 
@@ -915,6 +917,7 @@ ${htmlPages}
 
         exportRooms.forEach(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong, tuStr);
+            if (!roomStudents || roomStudents.length === 0) return;
             let aoa = [];
             let merges = [];
 
@@ -1027,6 +1030,7 @@ ${htmlPages}
         const tuStr = allDaysList.length ? toISO(allDaysList[0]) : null;
         const htmlPages = exportRooms.flatMap(ma_phong => {
             const roomStudents = getStudentsForRoom(ma_phong, tuStr);
+            if (!roomStudents || roomStudents.length === 0) return [];
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
             const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
@@ -1206,8 +1210,12 @@ body { font-family:'Times New Roman',Times,serif; font-size:10pt; color:#000; ba
     .dt-an thead { display: table-row-group !important; }
 }`;
 
+        const htmlPagesStr = htmlPages.join('');
+        if (!htmlPagesStr || htmlPagesStr.trim() === '') {
+            return showAlert('Không có học sinh nào trong các phòng đã chọn để in!', 'warning');
+        }
         const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title></title><style>${css}</style></head><body>
-${htmlPages}
+${htmlPagesStr}
 <script>window.onload=function(){setTimeout(window.print,400);}</script>
 </body></html>`;
 
@@ -1883,20 +1891,31 @@ ${htmlPages}
                                 <div className="export-room-header">
                                     <div className="export-modal-section-title" style={{ margin: 0 }}>CHỌN PHÒNG</div>
                                     <div className="export-room-actions">
-                                        <button onClick={() => setExportRooms(phongList.map(p => p.ma_phong))}>Chọn tất cả</button>
+                                        <button onClick={() => {
+                                            const withHs = phongList.filter(p => getStudentsForRoom(p.ma_phong).length > 0).map(p => p.ma_phong);
+                                            setExportRooms(withHs.length > 0 ? withHs : phongList.map(p => p.ma_phong));
+                                        }}>Chọn phòng có HS</button>
                                         <div className="divider"></div>
                                         <button className="deselect" onClick={() => setExportRooms([])}>Bỏ chọn</button>
                                     </div>
                                 </div>
                                 <div className="export-room-grid">
-                                    {phongList.map(p => (
-                                        <div key={p.ma_phong}
-                                            className={`export-room-pill ${exportRooms.includes(p.ma_phong) ? 'selected' : ''}`}
-                                            onClick={() => setExportRooms(prev => prev.includes(p.ma_phong) ? prev.filter(r => r !== p.ma_phong) : [...prev, p.ma_phong])}
-                                        >
-                                            {p.ma_phong}
-                                        </div>
-                                    ))}
+                                    {phongList.map(p => {
+                                        const count = getStudentsForRoom(p.ma_phong).length;
+                                        const isSelected = exportRooms.includes(p.ma_phong);
+                                        const isEmpty = count === 0;
+                                        return (
+                                            <div key={p.ma_phong}
+                                                className={`export-room-pill ${isSelected ? 'selected' : ''}`}
+                                                style={isEmpty && !isSelected ? { opacity: 0.45, borderColor: '#e2e8f0', color: '#94a3b8' } : {}}
+                                                title={isEmpty ? `Phòng ${p.ma_phong}: 0 HS` : `Phòng ${p.ma_phong}: ${count} HS`}
+                                                onClick={() => setExportRooms(prev => prev.includes(p.ma_phong) ? prev.filter(r => r !== p.ma_phong) : [...prev, p.ma_phong])}
+                                            >
+                                                {p.ma_phong}
+                                                <span style={{ fontSize: '0.75rem', marginLeft: 4, opacity: 0.85 }}>({count})</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

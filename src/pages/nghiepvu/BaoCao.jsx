@@ -527,6 +527,7 @@ export default function BaoCao() {
                     }),
                     ma_phong
                 );
+                if (!roomStudents || roomStudents.length === 0) return null;
                 const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
                 const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
                 const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -650,7 +651,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f0fff0!important}.cell-inactive{background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important}.mk-slash{color:#64748b!important}}`;
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
-            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh ăn tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            const htmlPagesStr = htmlPages.filter(Boolean).join('');
+            if (htmlPagesStr.trim() === '') return alert('Không có dữ liệu để xuất!');
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh ăn tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPagesStr}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
             setShowExportAnModal(false);
         } catch (err) { alert('Lỗi: ' + err.message); }
@@ -687,6 +690,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                     }),
                     ma_phong
                 );
+                if (!roomStudents || roomStudents.length === 0) return;
                 const h1 = ['STT', 'STT\nDS BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'Phòng\nĂn'];
                 const h2 = ['', '', '', '', '', ''];
                 ngay_ban_tru.forEach(ngay => {
@@ -793,6 +797,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                         return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
                     })
                     .sort((a, b) => a.id - b.id);
+                if (!roomStudents || roomStudents.length === 0) return null;
                 const total10 = roomStudents.filter(s => s.lop?.startsWith('10')).length;
                 const total11 = roomStudents.filter(s => s.lop?.startsWith('11')).length;
                 const total12 = roomStudents.filter(s => s.lop?.startsWith('12')).length;
@@ -898,7 +903,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
   </div>
 </div>
 </div>`;
-            }).join('');
+            }).filter(Boolean).join('');
             if (htmlPages.trim() === '') return alert('Không có dữ liệu để xuất!');
             const css = `* { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; background:#fff; }
@@ -965,6 +970,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                         return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
                     })
                     .sort((a, b) => a.id - b.id);
+                if (!roomStudents || roomStudents.length === 0) return;
                 const h1 = ['STT', 'STT\nDS BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'Phòng\nNgủ'];
                 const h2 = ['', '', '', '', '', ''];
                 ngay_ban_tru.forEach(ngay => {
