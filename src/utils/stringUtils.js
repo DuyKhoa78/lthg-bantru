@@ -40,21 +40,21 @@ export const formatLopList = (lopList) => {
   return parts.join(' | ');
 };
 
-// ── Cấu hình & Helper sắp xếp học sinh phòng ăn HT.A ───────────────
+// ── Cấu hình & Helper sắp xếp học sinh phòng ăn Sảnh / HT.A ───────────────
 export const isHTARoom = (roomCode) => {
   if (!roomCode) return false;
   const clean = String(roomCode).replace(/[.\s_-]/g, '').toUpperCase();
-  return clean === 'HTA';
+  return clean === 'HTA' || clean === 'SANH' || clean === 'SANHAN' || clean.includes('SANH') || clean.includes('HTA');
 };
 
 // Nhóm danh sách lớp theo yêu cầu:
-// DS1: 11A9, 12A1, 12A3, 12A6, 12A8
-// DS2: 10A9, 12A2, 12A5, 12A7
-// DS3: 10A10, 12A4, 12A9, 12A10
+// Danh sách 1: 10A10, 12A2, 12A5, 12A7
+// Danh sách 2: 10A9, 12A4, 12A9, 12A10
+// Danh sách 3: 11A9, 12A1, 12A3, 12A6, 12A8
 export const HTA_DS_CONFIG = [
-  { ds: 1, classes: ['11A9', '12A1', '12A3', '12A6', '12A8'] },
-  { ds: 2, classes: ['10A9', '12A2', '12A5', '12A7'] },
-  { ds: 3, classes: ['10A10', '12A4', '12A9', '12A10'] },
+  { ds: 1, classes: ['10A10', '12A2', '12A5', '12A7'] },
+  { ds: 2, classes: ['10A9', '12A4', '12A9', '12A10'] },
+  { ds: 3, classes: ['11A9', '12A1', '12A3', '12A6', '12A8'] },
 ];
 
 export const normalizeClassName = (cls) => {
@@ -85,25 +85,29 @@ export const getHTAGroupNumber = (cls) => {
       return group.ds;
     }
   }
-  // 2. Học sinh lẻ/lớp mới được add linh hoạt vào phòng HT.A:
-  // - Khối 11: Xếp vào DS1 (vì DS1 là tờ có khối 11)
-  if (key.startsWith('11')) return 1;
-  // - Khối 10: Xếp vào DS2 hoặc DS3 (tương ứng với 10A9 ở DS2, 10A10 ở DS3)
+  // 2. Học sinh lẻ/lớp mới được add linh hoạt vào phòng Sảnh / HT.A:
+  // - Khối 11: Xếp vào DS3 (vì DS3 có 11A9)
+  if (key.startsWith('11')) return 3;
+  // - Khối 10: 10A10 ở DS1, 10A9 ở DS2
   if (key.startsWith('10')) {
     const numMatch = key.match(/\d+A?(\d+)/i);
     const num = numMatch ? parseInt(numMatch[1], 10) : 0;
-    return (num >= 10 || num % 2 === 0) ? 3 : 2;
+    return (num >= 10 || num % 2 === 0) ? 1 : 2;
   }
-  // - Khối 12: Xếp theo nhóm lớp tương tự hoặc vào DS3
+  // - Khối 12:
+  // DS1: 12A2, 12A5, 12A7
+  // DS2: 12A4, 12A9, 12A10
+  // DS3: 12A1, 12A3, 12A6, 12A8
   if (key.startsWith('12')) {
     const numMatch = key.match(/\d+A?(\d+)/i);
     const num = numMatch ? parseInt(numMatch[1], 10) : 0;
-    if ([1, 3, 6, 8].includes(num)) return 1;
-    if ([2, 5, 7].includes(num)) return 2;
-    return 3;
+    if ([2, 5, 7].includes(num)) return 1;
+    if ([4, 9, 10].includes(num)) return 2;
+    if ([1, 3, 6, 8].includes(num)) return 3;
+    return 1;
   }
-  // Mặc định các trường hợp khác vào DS3
-  return 3;
+  // Mặc định các trường hợp khác vào DS1
+  return 1;
 };
 
 // Sắp xếp danh sách học sinh: Nếu là phòng HT.A thì sắp xếp theo 3 nhóm (DS1 -> DS2 -> DS3), trong mỗi nhóm sort thuần theo Mã số bán trú (MSBT)

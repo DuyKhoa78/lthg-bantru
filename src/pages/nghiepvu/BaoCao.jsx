@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Chart, ArcElement, BarElement, LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler } from 'chart.js';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
-import { formatLopList, getSortNames, sortStudentsForRoom, splitStudentsByTeachers } from '../../utils/stringUtils';
+import { formatLopList, getSortNames, sortStudentsForRoom, splitStudentsByTeachers, isHTARoom } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './BaoCao.css';
 
