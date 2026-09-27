@@ -620,8 +620,7 @@ export default function BaoCao() {
   </div>
 </div>
 </div>`;
-            }).join('');
-            if (htmlPages.trim() === '') return alert('Không có dữ liệu để xuất!');
+            });
             const css = `* { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; background:#fff; }
 .mk-c { color:#16a34a; font-weight:bold; } .mk-v { color:#dc2626; font-weight:bold; } .mk-p { color:#d97706; font-weight:bold; }
@@ -651,7 +650,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f0fff0!important}.cell-inactive{background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important}.mk-slash{color:#64748b!important}}`;
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
-            const htmlPagesStr = htmlPages.filter(Boolean).join('');
+            const htmlPagesStr = Array.isArray(htmlPages) ? htmlPages.filter(Boolean).join('') : String(htmlPages || '');
             if (htmlPagesStr.trim() === '') return alert('Không có dữ liệu để xuất!');
             w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh ăn tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPagesStr}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
@@ -903,8 +902,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
   </div>
 </div>
 </div>`;
-            }).filter(Boolean).join('');
-            if (htmlPages.trim() === '') return alert('Không có dữ liệu để xuất!');
+            });
+            const htmlPagesStr = Array.isArray(htmlPages) ? htmlPages.filter(Boolean).join('') : String(htmlPages || '');
+            if (htmlPagesStr.trim() === '') return alert('Không có dữ liệu để xuất!');
             const css = `* { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; background:#fff; }
 .mk-c { color:#16a34a; font-weight:bold; } .mk-v { color:#dc2626; font-weight:bold; } .mk-p { color:#d97706; font-weight:bold; }
@@ -934,7 +934,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt-an th{background:#ececec!important}.col-sum-an{background:#f8f4ff!important}.cell-inactive{background:#f1f5f9 linear-gradient(to top right, transparent calc(50% - 0.75px), #94a3b8 calc(50% - 0.75px), #94a3b8 calc(50% + 0.75px), transparent calc(50% + 0.75px))!important}.mk-slash{color:#64748b!important}}`;
             const win = window.open('', '_blank');
             if (!win) return alert('Trình duyệt chặn popup!');
-            win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh Ngủ tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo điểm danh Ngủ tháng ${so_thang}/${so_nam}</title><style>${css}</style></head><body>${htmlPagesStr}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             win.document.close();
             setShowExportNguModal(false);
         } catch (err) { alert('Lỗi: ' + err.message); }

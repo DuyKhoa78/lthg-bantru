@@ -1120,7 +1120,7 @@ ${htmlPages}
 </div>
 </div>`;
             });
-        }).join('');
+        });
         const css = `
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
@@ -1150,7 +1150,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
 .dt thead{display:table-row-group}
 @page{size:A4 portrait;margin:0.8cm 0.7cm 1cm 0.8cm}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}.dt thead{display:table-row-group!important}}`;
-        const htmlPagesStr = htmlPages.join('');
+        const htmlPagesStr = Array.isArray(htmlPages) ? htmlPages.filter(Boolean).join('') : String(htmlPages || '');
         if (!htmlPagesStr || htmlPagesStr.trim() === '') {
             return showAlert('Không có học sinh nào trong các phòng đã chọn để in!', 'warning');
         }

@@ -1166,7 +1166,7 @@ ${htmlPages}
 </div>
 </div>`;
             });
-        }).join('');
+        });
 
         const css = `
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -1210,7 +1210,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:10pt; color:#000; ba
     .dt-an thead { display: table-row-group !important; }
 }`;
 
-        const htmlPagesStr = htmlPages.join('');
+        const htmlPagesStr = Array.isArray(htmlPages) ? htmlPages.filter(Boolean).join('') : String(htmlPages || '');
         if (!htmlPagesStr || htmlPagesStr.trim() === '') {
             return showAlert('Không có học sinh nào trong các phòng đã chọn để in!', 'warning');
         }
