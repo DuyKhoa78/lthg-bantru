@@ -116,10 +116,10 @@ export default function DiemDanhAn() {
         const end = 690;
         let state = 'sap_den';
         let remainingMins = 0;
-        if (mins >= start && mins <= end) {
+        if (mins >= start && mins < end) {
             state = 'dang_dien_ra';
             remainingMins = end - mins;
-        } else if (mins > end) {
+        } else if (mins >= end) {
             state = 'da_qua_gio';
         }
         return { state, remainingMins, startLabel: '10:55', endLabel: '11:30' };
@@ -359,7 +359,7 @@ export default function DiemDanhAn() {
         if (user?.is_admin || user?.is_superuser) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         if (isGiaoVien) {
-            return isDateToday && mins >= 655 && mins <= 690; // 10:55 - 11:30
+            return isDateToday && mins >= 655 && mins < 690; // 10:55 - 11:30
         }
         return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
     }, [user, isGiaoVien, currentTime, isDateToday]);

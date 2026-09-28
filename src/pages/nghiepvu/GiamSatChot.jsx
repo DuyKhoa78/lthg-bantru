@@ -36,25 +36,25 @@ export default function GiamSatChot() {
             const end = 690;   // 11h30
             let status = 'sap_den';
             let remaining = 0;
-            if (mins >= start && mins <= end) {
+            if (mins >= start && mins < end) {
                 status = 'dang_dien_ra';
                 remaining = end - mins;
-            } else if (mins > end) {
+            } else if (mins >= end) {
                 status = 'da_qua_gio';
             }
             return { status, remaining, startLabel: '10:55', endLabel: '11:30', name: 'Ca Ăn' };
         } else {
             const start = 690; // 11h30
-            const end = 720;   // 12h00
+            const end = 725;   // 12h05
             let status = 'sap_den';
             let remaining = 0;
-            if (mins >= start && mins <= end) {
+            if (mins >= start && mins < end) {
                 status = 'dang_dien_ra';
                 remaining = end - mins;
-            } else if (mins > end) {
+            } else if (mins >= end) {
                 status = 'da_qua_gio';
             }
-            return { status, remaining, startLabel: '11:30', endLabel: '12:00', name: 'Ca Ngủ' };
+            return { status, remaining, startLabel: '11:30', endLabel: '12:05', name: 'Ca Ngủ' };
         }
     }, [currentTime, chotLoai]);
 

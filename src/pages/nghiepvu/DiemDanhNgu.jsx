@@ -118,7 +118,7 @@ export default function DiemDanhNgu() {
         let remainingMins = 0;
         if (mins < start) {
             state = 'sap_den';
-        } else if (mins <= end) {
+        } else if (mins < end) {
             state = 'dang_dien_ra';
             remainingMins = end - mins;
         } else {
@@ -435,7 +435,7 @@ export default function DiemDanhNgu() {
         if (user?.is_admin || user?.is_superuser) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         if (isGiaoVien) {
-            return isDateToday && mins >= 690 && mins <= 725; // 11:30 - 12:05
+            return isDateToday && mins >= 690 && mins < 725; // 11:30 - 12:05
         }
         return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
     }, [user, isGiaoVien, currentTime, isDateToday]);

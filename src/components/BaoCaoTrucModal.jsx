@@ -241,8 +241,8 @@ export default function BaoCaoTrucModal({
                                     <small>
                                         Lúc {new Date(thoiGianBaoCao).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ngày {new Date(thoiGianBaoCao).toLocaleDateString('vi-VN')}
                                         {isQuaGio && !isAdminOverride
-                                            ? ` • Đã hết thời hạn cập nhật (sau ${khungGio?.gio_dong || (isCaNgu ? '13:00' : '12:00')})`
-                                            : ` • Thầy/Cô có thể chỉnh sửa và cập nhật lại trước ${khungGio?.gio_dong || (isCaNgu ? '13:00' : '12:00')}`}
+                                            ? ` • Đã hết thời hạn cập nhật (sau ${khungGio?.gio_dong || (isCaNgu ? '12:45' : '11:45')})`
+                                            : ` • Thầy/Cô có thể chỉnh sửa và cập nhật lại trước ${khungGio?.gio_dong || (isCaNgu ? '12:45' : '11:45')}`}
                                     </small>
                                 )}
                             </div>
