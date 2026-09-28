@@ -5,6 +5,21 @@ import { useAuth } from '../../hooks/useAuth';
 import BaoCaoTrucModal from '../../components/BaoCaoTrucModal';
 import './GvDashboard.css';
 
+const formatVNTime = (d) => {
+    return d.toLocaleTimeString('vi-VN', { hour12: false });
+};
+
+function GvLiveClock() {
+    const [timeStr, setTimeStr] = useState(() => formatVNTime(new Date()));
+    useEffect(() => {
+        const t = setInterval(() => {
+            setTimeStr(formatVNTime(new Date()));
+        }, 1000);
+        return () => clearInterval(t);
+    }, []);
+    return <>{timeStr}</>;
+}
+
 export default function GvDashboard() {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -147,7 +162,7 @@ export default function GvDashboard() {
         fetchDuty();
         const timer = setInterval(() => {
             setCurrentTime(new Date());
-        }, 1000);
+        }, 15000);
         return () => clearInterval(timer);
     }, [fetchDuty]);
 
@@ -158,10 +173,6 @@ export default function GvDashboard() {
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const year = d.getFullYear();
         return `${dow}, ${day}/${month}/${year}`;
-    };
-
-    const formatVNTime = (d) => {
-        return d.toLocaleTimeString('vi-VN', { hour12: false });
     };
 
     // Kiểm tra giai đoạn thời gian trong ngày để highlight nhịp sinh hoạt bán trú
@@ -521,7 +532,7 @@ export default function GvDashboard() {
                         </div>
                         <div className="gv-capsule-item gv-capsule-time">
                             <span className="gv-pulse-live-dot"></span>
-                            <span className="gv-clock-digits">{formatVNTime(currentTime)}</span>
+                            <span className="gv-clock-digits"><GvLiveClock /></span>
                         </div>
                         {shiftSummary.count > 0 && (
                             <div className="gv-capsule-item gv-capsule-duty-count" title={`${dutyData?.assignments?.length || 0} phòng phụ trách`}>
@@ -884,38 +895,38 @@ export default function GvDashboard() {
 
                                         <div className="gv-consolidated-body">
                                             <div className="gv-consolidated-stats-grid">
-                                                <div className="gv-cstat-item">
+                                                <div className="gv-cstat-item stat-siso">
                                                     <span className="label">Tổng sĩ số</span>
                                                     <span className="val font-bold">{totalStudents} HS</span>
                                                 </div>
-                                                <div className="gv-cstat-item">
+                                                <div className="gv-cstat-item stat-diemdanh">
                                                     <span className="label">Đã điểm danh</span>
-                                                    <span className="val font-bold text-primary">
+                                                    <span className="val font-bold">
                                                         {allChot ? `${totalCoMat} em` : `${totalDiemDanh > 0 ? totalDiemDanh : totalDraft}/${totalStudents} em`}
                                                     </span>
                                                 </div>
                                                 {allChot ? (
-                                                    <div className="gv-cstat-item">
+                                                    <div className={`gv-cstat-item ${totalVang > 0 ? 'stat-vang' : 'stat-vang-zero'}`}>
                                                         <span className="label">HS vắng</span>
-                                                        <span className={`val font-bold ${totalVang > 0 ? 'text-danger' : 'text-success'}`}>
+                                                        <span className="val font-bold">
                                                             {totalVang} em
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <div className="gv-cstat-item">
+                                                    <div className="gv-cstat-item stat-nhap">
                                                         <span className="label">Đang lưu nháp</span>
-                                                        <span className="val text-amber-600 font-bold">{totalDraft} em</span>
+                                                        <span className="val font-bold">{totalDraft} em</span>
                                                     </div>
                                                 )}
-                                                <div className="gv-cstat-item">
+                                                <div className={`gv-cstat-item ${allChot ? 'stat-chot-done' : chotCount > 0 ? 'stat-chot-partial' : 'stat-chot-pending'}`}>
                                                     <span className="label">Tiến độ chốt sổ</span>
-                                                    <span className={`val font-bold ${allChot ? 'text-success' : chotCount > 0 ? 'text-warning' : ''}`}>
+                                                    <span className="val font-bold">
                                                         {allChot ? '✓ Đã chốt' : `${chotCount}/${shift.items.length} phòng chốt`}
                                                     </span>
                                                 </div>
-                                                <div className="gv-cstat-item" title={shiftReportDone ? 'Đã hoàn thành gửi báo cáo ca trực' : 'Chưa gửi báo cáo ca trực'}>
+                                                <div className={`gv-cstat-item ${shiftReportDone ? 'stat-baocao-done' : 'stat-baocao-pending'}`} title={shiftReportDone ? 'Đã hoàn thành gửi báo cáo ca trực' : 'Chưa gửi báo cáo ca trực'}>
                                                     <span className="label">Báo cáo ca trực</span>
-                                                    <span className={`val font-bold ${shiftReportDone ? 'text-success' : 'text-amber-600'}`}>
+                                                    <span className="val font-bold">
                                                         {shiftReportDone ? '✓ Đã gửi' : '⏳ Chưa gửi'}
                                                     </span>
                                                 </div>
@@ -1091,44 +1102,76 @@ export default function GvDashboard() {
 
                                                                         {/* Trạng thái chốt & hiển thị sĩ số, HS vắng sau khi chốt */}
                                                                         <div className="gv-chot-status-box">
-                                                                            {isChot ? (
-                                                                                <div className="status-badge success">
-                                                                                    <i className="fas fa-check-circle"></i>
-                                                                                    <div style={{ flex: 1 }}>
-                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                                            <strong>ĐÃ CHỐT SỔ LÊN TỔNG</strong>
-                                                                                            <span style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>Sĩ số: {item.total_students} HS</span>
-                                                                                        </div>
-                                                                                        <div style={{ fontSize: '0.8rem', marginTop: 3, display: 'flex', gap: 8, color: '#065f46' }}>
-                                                                                            <span>Có mặt: <strong>{item.so_co_mat}</strong> em</span>
-                                                                                            <span>•</span>
-                                                                                            <span>Vắng: <strong className={item.tong_vang > 0 ? 'text-danger' : 'text-success'}>{item.tong_vang || 0} em</strong></span>
-                                                                                        </div>
-                                                                                        {item.danh_sach_vang && item.danh_sach_vang.length > 0 && (
-                                                                                            <div style={{ marginTop: 4, fontSize: '0.76rem', color: '#b91c1c', background: '#fef2f2', padding: '3px 6px', borderRadius: 4, border: '1px solid #fecaca' }}>
-                                                                                                <strong>Vắng: </strong>
-                                                                                                {item.danh_sach_vang.map(v => `${v.ho_ten} (${v.lop || ''})`).join(', ')}
+                                                                            {(() => {
+                                                                                const isAutoChot = Boolean(isChot && (item.is_auto_chot || item.ma_gv_chot_id === null || item.ghi_chu_chot?.includes('Hệ thống')));
+                                                                                const isGvChot = Boolean(isChot && !isAutoChot);
+                                                                                if (isGvChot) {
+                                                                                    return (
+                                                                                        <div className="status-badge success">
+                                                                                            <i className="fas fa-check-circle"></i>
+                                                                                            <div style={{ flex: 1 }}>
+                                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                                    <strong>ĐÃ CHỐT SỔ LÊN TỔNG</strong>
+                                                                                                    <span style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>Sĩ số: {item.total_students} HS</span>
+                                                                                                </div>
+                                                                                                <div style={{ fontSize: '0.8rem', marginTop: 3, display: 'flex', gap: 8, color: '#065f46' }}>
+                                                                                                    <span>Có mặt: <strong>{item.so_co_mat}</strong> em</span>
+                                                                                                    <span>•</span>
+                                                                                                    <span>Vắng: <strong className={item.tong_vang > 0 ? 'text-danger' : 'text-success'}>{item.tong_vang || 0} em</strong></span>
+                                                                                                </div>
+                                                                                                {item.danh_sach_vang && item.danh_sach_vang.length > 0 && (
+                                                                                                    <div style={{ marginTop: 4, fontSize: '0.76rem', color: '#b91c1c', background: '#fef2f2', padding: '3px 6px', borderRadius: 4, border: '1px solid #fecaca' }}>
+                                                                                                        <strong>Vắng: </strong>
+                                                                                                        {item.danh_sach_vang.map(v => `${v.ho_ten} (${v.lop || ''})`).join(', ')}
+                                                                                                    </div>
+                                                                                                )}
                                                                                             </div>
-                                                                                        )}
+                                                                                        </div>
+                                                                                    );
+                                                                                }
+                                                                                if (isAutoChot) {
+                                                                                    return (
+                                                                                        <div className="status-badge warning" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b' }}>
+                                                                                            <i className="fas fa-exclamation-circle" style={{ color: '#ef4444' }}></i>
+                                                                                            <div style={{ flex: 1 }}>
+                                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                                    <strong>HỆ THỐNG TỰ ĐỘNG CHỐT</strong>
+                                                                                                    <span style={{ fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700 }}>Sĩ số: {item.total_students} HS</span>
+                                                                                                </div>
+                                                                                                <div style={{ fontSize: '0.8rem', marginTop: 3, display: 'flex', gap: 8, color: '#7f1d1d' }}>
+                                                                                                    <span>Có mặt: <strong>{item.so_co_mat}</strong> em</span>
+                                                                                                    <span>•</span>
+                                                                                                    <span>Vắng: <strong>{item.tong_vang || 0} em</strong></span>
+                                                                                                </div>
+                                                                                                <div style={{ fontSize: '0.72rem', marginTop: 3, color: '#b91c1c' }}>
+                                                                                                    (Hệ thống tự động gom sổ do chưa đồng bộ / GV chưa chốt thủ công)
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                }
+                                                                                if (item.draft_count > 0) {
+                                                                                    return (
+                                                                                        <div className="status-badge info">
+                                                                                            <i className="fas fa-edit"></i>
+                                                                                            <div>
+                                                                                                <strong>ĐANG LƯU BẢN NHÁP</strong>
+                                                                                                <small>Đã ghi nhận {item.draft_count}/{item.total_students} học sinh</small>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                }
+                                                                                return (
+                                                                                    <div className="status-badge pending">
+                                                                                        <i className="fas fa-clock"></i>
+                                                                                        <div>
+                                                                                            <strong>CHƯA ĐIỂM DANH</strong>
+                                                                                            <small>Vui lòng điểm danh và chốt sổ</small>
+                                                                                        </div>
                                                                                     </div>
-                                                                                </div>
-                                                                            ) : item.draft_count > 0 ? (
-                                                                                <div className="status-badge info">
-                                                                                    <i className="fas fa-edit"></i>
-                                                                                    <div>
-                                                                                        <strong>ĐANG LƯU BẢN NHÁP</strong>
-                                                                                        <small>Đã ghi nhận {item.draft_count}/{item.total_students} học sinh</small>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <div className="status-badge neutral">
-                                                                                    <i className="fas fa-clock"></i>
-                                                                                    <div>
-                                                                                        <strong>CHƯA ĐIỂM DANH</strong>
-                                                                                        <small>Chưa ghi nhận dữ liệu</small>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
+                                                                                );
+                                                                            })()}
+
                                                                         </div>
 
                                                                         {!item.can_diem_danh && (

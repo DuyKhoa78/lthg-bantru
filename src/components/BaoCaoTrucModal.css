@@ -1007,3 +1007,18 @@
     pointer-events: none;
 }
 
+.bct-loading-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    animation: fadeIn 0.2s ease-in-out;
+}
+

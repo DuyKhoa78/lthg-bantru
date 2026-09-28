@@ -1130,48 +1130,161 @@
 .gv-consolidated-stats-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
+    gap: 8px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 6px;
-    margin-bottom: 9px;
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 12px;
 }
 
 .gv-cstat-item {
     background: #ffffff;
-    border: 1px solid #f1f5f9;
-    border-radius: 7px;
-    padding: 5px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    padding: 7px 10px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    transition: all 0.15s ease;
+    gap: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     min-width: 0;
 }
 
 .gv-cstat-item:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
 }
 
 .gv-cstat-item .label {
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     color: #64748b;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: 0.01em;
 }
 
 .gv-cstat-item .val {
-    font-size: 0.86rem;
+    font-size: 0.95rem;
     color: #0f172a;
     font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+}
+
+/* 1. Tổng sĩ số: Xanh dương hoàng gia - rõ ràng, chuyên nghiệp */
+.gv-cstat-item.stat-siso {
+    background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+    border-color: #bfdbfe;
+}
+.gv-cstat-item.stat-siso .label {
+    color: #3b82f6;
+}
+.gv-cstat-item.stat-siso .val {
+    color: #1d4ed8;
+}
+
+/* 2. Đã điểm danh: Xanh lục ngọc (Emerald) - tươi sáng, hoàn thành */
+.gv-cstat-item.stat-diemdanh {
+    background: linear-gradient(180deg, #ffffff 0%, #ecfdf5 100%);
+    border-color: #a7f3d0;
+}
+.gv-cstat-item.stat-diemdanh .label {
+    color: #059669;
+}
+.gv-cstat-item.stat-diemdanh .val {
+    color: #047857;
+}
+
+/* 3a. HS vắng (nếu có học sinh vắng): Đỏ tươi cảnh báo sắc sảo */
+.gv-cstat-item.stat-vang {
+    background: linear-gradient(180deg, #ffffff 0%, #fef2f2 100%);
+    border-color: #fecaca;
+}
+.gv-cstat-item.stat-vang .label {
+    color: #e11d48;
+}
+.gv-cstat-item.stat-vang .val {
+    color: #dc2626;
+}
+
+/* 3b. HS vắng (khi vắng = 0): Xanh lá an tâm */
+.gv-cstat-item.stat-vang-zero {
+    background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+    border-color: #bbf7d0;
+}
+.gv-cstat-item.stat-vang-zero .label {
+    color: #16a34a;
+}
+.gv-cstat-item.stat-vang-zero .val {
+    color: #15803d;
+}
+
+/* 3c. Đang lưu nháp: Vàng hổ phách */
+.gv-cstat-item.stat-nhap {
+    background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+    border-color: #fde68a;
+}
+.gv-cstat-item.stat-nhap .label {
+    color: #d97706;
+}
+.gv-cstat-item.stat-nhap .val {
+    color: #b45309;
+}
+
+/* 4. Tiến độ chốt sổ: Đã chốt (Xanh mòng két Teal uy tín) */
+.gv-cstat-item.stat-chot-done {
+    background: linear-gradient(180deg, #ffffff 0%, #f0fdfa 100%);
+    border-color: #99f6e4;
+}
+.gv-cstat-item.stat-chot-done .label {
+    color: #0d9488;
+}
+.gv-cstat-item.stat-chot-done .val {
+    color: #0f766e;
+}
+
+/* 4b. Tiến độ chốt sổ: Đang chốt 1 phần / Chưa chốt */
+.gv-cstat-item.stat-chot-partial,
+.gv-cstat-item.stat-chot-pending {
+    background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+    border-color: #fed7aa;
+}
+.gv-cstat-item.stat-chot-partial .label,
+.gv-cstat-item.stat-chot-pending .label {
+    color: #ea580c;
+}
+.gv-cstat-item.stat-chot-partial .val,
+.gv-cstat-item.stat-chot-pending .val {
+    color: #c2410c;
+}
+
+/* 5. Báo cáo ca trực: Đã gửi (Tím violet sang trọng, phân biệt tuyệt đối với Chốt sổ) */
+.gv-cstat-item.stat-baocao-done {
+    background: linear-gradient(180deg, #ffffff 0%, #f5f3ff 100%);
+    border-color: #ddd6fe;
+}
+.gv-cstat-item.stat-baocao-done .label {
+    color: #7c3aed;
+}
+.gv-cstat-item.stat-baocao-done .val {
+    color: #6d28d9;
+}
+
+/* 5b. Báo cáo ca trực: Chưa gửi (Hồng đỏ / Cảnh báo cần làm) */
+.gv-cstat-item.stat-baocao-pending {
+    background: linear-gradient(180deg, #ffffff 0%, #fff1f2 100%);
+    border-color: #fecdd3;
+}
+.gv-cstat-item.stat-baocao-pending .label {
+    color: #e11d48;
+}
+.gv-cstat-item.stat-baocao-pending .val {
+    color: #be123c;
 }
 
 .gv-consolidated-action-row {

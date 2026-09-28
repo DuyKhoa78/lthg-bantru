@@ -1,9 +1,18 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import '../../styles/admin.css';
 import './DiemDanh.css';
+
+function LiveClock() {
+    const [timeStr, setTimeStr] = useState(() => new Date().toLocaleTimeString('vi-VN'));
+    useEffect(() => {
+        const t = setInterval(() => setTimeStr(new Date().toLocaleTimeString('vi-VN')), 1000);
+        return () => clearInterval(t);
+    }, []);
+    return <>{timeStr}</>;
+}
 
 export default function GiamSatChot() {
     const { user } = useAuth();
@@ -22,9 +31,9 @@ export default function GiamSatChot() {
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    // Live clock
+    // Live clock cho shiftInfo (cập nhật 15s/lần)
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        const timer = setInterval(() => setCurrentTime(new Date()), 15000);
         return () => clearInterval(timer);
     }, []);
 
@@ -58,36 +67,37 @@ export default function GiamSatChot() {
         }
     }, [currentTime, chotLoai]);
 
+    const abortRef = useRef(null);
+
     // Fetch dữ liệu từ API
     const fetchChotData = useCallback(async (d, l, showLoading = true) => {
+        if (abortRef.current) abortRef.current.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         if (showLoading) setLoading(true);
         try {
-            const res = await api.get(`/api/baocao/tinh-hinh-chot-phong/?ngay=${d}&loai=${l}`);
+            const res = await api.get(`/api/baocao/tinh-hinh-chot-phong/?ngay=${d}&loai=${l}`, {
+                signal: controller.signal
+            });
             if (res.data?.ok) {
                 setChotData(res.data.rooms || []);
             }
         } catch (err) {
-            console.error('Lỗi lấy dữ liệu chốt phòng:', err);
+            if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+                console.error('Lỗi lấy dữ liệu chốt phòng:', err);
+            }
         } finally {
-            setLoading(false);
+            if (abortRef.current === controller) {
+                setLoading(false);
+            }
         }
     }, []);
 
     // Load khi thay đổi ngày hoặc ca
     useEffect(() => {
-        let active = true;
-        api.get(`/api/baocao/tinh-hinh-chot-phong/?ngay=${chotDate}&loai=${chotLoai}`)
-            .then(res => {
-                if (active && res.data?.ok) setChotData(res.data.rooms || []);
-            })
-            .catch(err => {
-                if (active) console.error('Lỗi lấy dữ liệu chốt phòng:', err);
-            })
-            .finally(() => {
-                if (active) setLoading(false);
-            });
-        return () => { active = false; };
-    }, [chotDate, chotLoai]);
+        fetchChotData(chotDate, chotLoai, true);
+    }, [chotDate, chotLoai, fetchChotData]);
 
     // Tự động làm mới mỗi 20 giây nếu đang bật auto-refresh
     useEffect(() => {
@@ -227,7 +237,7 @@ export default function GiamSatChot() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Đồng hồ hệ thống:</span>
                     <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontFamily: 'monospace' }}>
-                        {currentTime.toLocaleTimeString('vi-VN')}
+                        <LiveClock />
                     </strong>
                 </div>
             </div>
@@ -401,15 +411,21 @@ export default function GiamSatChot() {
                                         <td>
                                             {isCompleted ? (
                                                 <div>
-                                                    <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                        <i className="fas fa-check-circle"></i> ĐÃ HOÀN THÀNH
-                                                    </span>
+                                                    {r.is_gv_chot || r.ten_gv_chot ? (
+                                                        <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            <i className="fas fa-check-circle"></i> ĐÃ HOÀN THÀNH (GV CHỐT)
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            <i className="fas fa-exclamation-circle" style={{ color: '#ef4444' }}></i> HỆ THỐNG TỰ CHỐT
+                                                        </span>
+                                                    )}
                                                     {r.thoi_gian_chot && (
                                                         <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: 3 }}>
                                                             {r.ten_gv_chot ? (
                                                                 <span><i className="fas fa-user-check" style={{ color: '#16a34a', marginRight: 3 }}></i> GV <strong>{r.ten_gv_chot}</strong> chốt lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
                                                             ) : (
-                                                                <span><i className="fas fa-robot" style={{ color: '#0284c7', marginRight: 3 }}></i> Hệ thống tự gom lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                <span style={{ color: '#b91c1c' }}><i className="fas fa-robot" style={{ color: '#ef4444', marginRight: 3 }}></i> Hệ thống tự gom lúc {new Date(r.thoi_gian_chot).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
                                                             )}
                                                         </div>
                                                     )}

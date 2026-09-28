@@ -355,6 +355,7 @@
 }
 .dd-room-status-icon.marked { background: #10b981; }
 .dd-room-status-icon.unmarked { background: #ef4444; }
+.dd-room-status-icon.auto-chot { background: #ef4444; }
 
 /* Main Panel */
 .dd-main-panel {
@@ -1370,6 +1371,17 @@
 }
 .dd-chot-header-badge.success i {
   color: #10b981 !important;
+}
+.dd-chot-header-badge.danger,
+.dd-chot-header-badge.auto-chot {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.15) !important;
+}
+.dd-chot-header-badge.danger i,
+.dd-chot-header-badge.auto-chot i {
+  color: #ef4444 !important;
 }
 
 /* ── BỘ LỌC SUB-ROOM CHIPS MƯỢT MÀ ── */

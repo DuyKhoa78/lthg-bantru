@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../services/api';
 import './BaoCaoTrucModal.css';
 
@@ -7,8 +7,31 @@ import './BaoCaoTrucModal.css';
  * Quy chuẩn theo đúng nghiệp vụ trường:
  * - Điểm danh Ăn: Ra thẳng Báo Cáo Ăn (chỉ GV Giám Sát mới chọn Giám sát ATTP).
  * - Điểm danh Ngủ: Ra thẳng Báo Cáo Ngủ (bất kỳ GV nào phụ trách phòng đó đều báo cáo được).
- * - Không hiển thị tab lẫn lộn gây nhầm lẫn.
+/**
+ * Chuẩn hóa Sĩ số: loại bỏ tiền tố tên phòng (ví dụ "D31 35/35" -> "35/35", "D.33 28/35" -> "28/35")
  */
+const cleanSiSoText = (raw, roomCode) => {
+    if (!raw) return '';
+    let str = String(raw).trim();
+    const fractionMatch = str.match(/\b\d+\s*\/\s*\d+\b/);
+    if (fractionMatch) {
+        return fractionMatch[0].replace(/\s+/g, '');
+    }
+    str = str.replace(/^(phòng|phong|p\.?)\s*[a-z0-9.]+\s*[:\s-]*/i, '');
+    str = str.replace(/^[a-z]+[._-]?[0-9]+\s*[:\s-]*/i, '');
+    if (roomCode) {
+        const rooms = String(roomCode).split(new RegExp('[,;\\-/]+')).map(r => r.trim()).filter(Boolean);
+        for (const r of rooms) {
+            if (/[a-zA-Z]/.test(r)) {
+                const escaped = r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const reg = new RegExp('(^|\\s)' + escaped + '[:\\s-]*', 'gi');
+                str = str.replace(reg, '$1').trim();
+            }
+        }
+    }
+    return str.trim();
+};
+
 export default function BaoCaoTrucModal({
     isOpen,
     onClose,
@@ -20,6 +43,7 @@ export default function BaoCaoTrucModal({
     onSuccess
 }) {
     const [submitting, setSubmitting] = useState(false);
+    const [loadingAuto, setLoadingAuto] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
@@ -51,34 +75,47 @@ export default function BaoCaoTrucModal({
     const [choPhepBaoCao, setChoPhepBaoCao] = useState(true);
     const [lyDoKhoa, setLyDoKhoa] = useState(null);
     const [isAdminOverride, setIsAdminOverride] = useState(false);
+    const abortRef = useRef(null);
+    const [liveData, setLiveData] = useState(null);
 
-    // Đồng bộ khi mở modal
-    useEffect(() => {
-        if (isOpen) {
-            const currentCa = initialCaTruc !== undefined ? initialCaTruc : 0;
-            setCaTruc(currentCa);
-            setNgay(initialNgay || new Date().toISOString().split('T')[0]);
-            setMaPhong(initialMaPhong || (roomList[0]?.ma_phong || roomList[0]?.ma_phong_id || ''));
-            setUserIsGiamSat(Boolean(isGiamSat));
-            setErrorMessage('');
-            setSuccessMessage('');
-        }
-    }, [isOpen, initialNgay, initialCaTruc, initialMaPhong, roomList, isGiamSat]);
+    const handleSyncLatestLive = () => {
+        if (!liveData) return;
+        setSiSo(cleanSiSoText(liveData.si_so || '', maPhong));
+        setSoHsPhep(liveData.so_hs_phep || 0);
+        setDanhSachVang(liveData.danh_sach_vang || '');
+    };
 
     // Tự động tải sĩ số, HS vắng không phép và thông tin báo cáo
-    const fetchAutoInfo = useCallback(async () => {
-        if (!maPhong && caTruc !== 2) return;
+    const loadAutoInfo = useCallback(async (targetNgay, targetCa, targetPhong) => {
+        if (!targetPhong && targetCa !== 2) return;
+        
+        // Hủy request trước đó nếu đang chạy để tránh dội kết quả cũ đè dữ liệu mới
+        if (abortRef.current) {
+            abortRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        setLoadingAuto(true);
         setErrorMessage('');
         try {
             const res = await api.get('/api/baocaotruc/lay-thong-tin-tu-dong', {
                 params: {
-                    ngay,
-                    ca_truc: caTruc,
-                    ma_phong: maPhong,
-                }
+                    ngay: targetNgay,
+                    ca_truc: targetCa,
+                    ma_phong: targetPhong,
+                },
+                signal: controller.signal
             });
             if (res.data?.ok) {
                 const data = res.data;
+                const live = data.live_diem_danh || {
+                    si_so: data.si_so || '',
+                    danh_sach_vang: data.danh_sach_vang || '',
+                    so_hs_phep: data.so_hs_phep || 0
+                };
+                setLiveData(live);
+
                 setHoTenGV(data.ho_ten_gv || '');
                 setLinkGoogleForm(data.link_google_form || 'https://forms.gle/6B4GC5aG1KyEuQTaA');
                 setDaBaoCao(Boolean(data.da_bao_cao));
@@ -94,7 +131,7 @@ export default function BaoCaoTrucModal({
 
                 if (data.bao_cao_cu) {
                     const bc = data.bao_cao_cu;
-                    setSiSo(bc.si_so || data.si_so || '');
+                    setSiSo(cleanSiSoText(bc.si_so || data.si_so || '', targetPhong));
                     setSoHsPhep(bc.so_hs_phep !== undefined ? bc.so_hs_phep : (data.so_hs_phep || 0));
                     setDanhSachVang(bc.danh_sach_vang || '');
                     setTinhHinh(bc.tinh_hinh || 'Tốt');
@@ -103,28 +140,66 @@ export default function BaoCaoTrucModal({
                     setVsatThucPham(bc.vsat_thuc_pham || '');
                     setThoiGianBaoCao(bc.created_at);
                 } else {
-                    setSiSo(data.si_so || '');
-                    setSoHsPhep(data.so_hs_phep || 0);
+                    setSiSo(cleanSiSoText(live.si_so || data.si_so || '', targetPhong));
+                    setSoHsPhep(live.so_hs_phep || 0);
                     // danh_sach_vang đã tự động loại bỏ HS phép
-                    setDanhSachVang(data.danh_sach_vang || '');
+                    setDanhSachVang(live.danh_sach_vang || '');
                     setTinhHinh('Tốt');
                     setHsViPham('');
                     setGhiChu('');
-                    setVsatThucPham(caTruc === 2 ? 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ' : '');
+                    setVsatThucPham(targetCa === 2 ? 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ' : '');
                     setThoiGianBaoCao(null);
                 }
             }
         } catch (err) {
-            console.error('Lỗi lấy thông tin tự động:', err);
-            setErrorMessage(err.response?.data?.error || 'Không thể đồng bộ tự động số liệu sĩ số.');
+            if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+                console.error('Lỗi lấy thông tin tự động:', err);
+                setErrorMessage(err.response?.data?.error || 'Không thể đồng bộ tự động số liệu sĩ số.');
+            }
+        } finally {
+            if (abortRef.current === controller) {
+                setLoadingAuto(false);
+            }
         }
-    }, [ngay, caTruc, maPhong, isGiamSat]);
+    }, [isGiamSat]);
 
+    // Đồng bộ và tải số liệu khi mở modal hoặc thay đổi phòng/ca trực từ props
     useEffect(() => {
         if (isOpen) {
-            fetchAutoInfo();
+            const currentCa = initialCaTruc !== undefined ? initialCaTruc : 0;
+            const currentNgay = initialNgay || new Date().toISOString().split('T')[0];
+            const currentPhong = initialMaPhong || (roomList[0]?.ma_phong || roomList[0]?.ma_phong_id || '');
+
+            setCaTruc(currentCa);
+            setNgay(currentNgay);
+            setMaPhong(currentPhong);
+            setUserIsGiamSat(Boolean(isGiamSat));
+            setErrorMessage('');
+            setSuccessMessage('');
+
+            // Reset dữ liệu về trống trong khi đang tải để không hiển thị nhầm dữ liệu phòng cũ
+            setSiSo('');
+            setSoHsPhep(0);
+            setDanhSachVang('');
+            setHsViPham('');
+            setGhiChu('');
+            setVsatThucPham('');
+            setDaBaoCao(false);
+            setDaBaoCaoBoiAi('');
+
+            loadAutoInfo(currentNgay, currentCa, currentPhong);
+        } else {
+            if (abortRef.current) {
+                abortRef.current.abort();
+            }
         }
-    }, [isOpen, ngay, caTruc, maPhong, fetchAutoInfo]);
+    }, [isOpen, initialNgay, initialCaTruc, initialMaPhong, roomList, isGiamSat, loadAutoInfo]);
+
+    // Chuyển ca trực trong modal
+    const handleSwitchCaTruc = (newCa) => {
+        setCaTruc(newCa);
+        loadAutoInfo(ngay, newCa, maPhong);
+    };
 
     // Đếm số lượng HS vắng từ danh sách
     const calculatedAbsentCount = useMemo(() => {
@@ -263,6 +338,13 @@ export default function BaoCaoTrucModal({
                         </div>
                     )}
 
+                    {loadingAuto && (
+                        <div className="bct-loading-strip">
+                            <i className="fas fa-spinner fa-spin"></i>
+                            <span>Đang tự động đồng bộ sĩ số và danh sách vắng...</span>
+                        </div>
+                    )}
+
                     {/* ĐỐI VỚI CA ĂN: NẾU VÀ CHỈ NẾU LÀ GV GIÁM SÁT THÌ MỚI CÓ NÚT CHUYỂN GIÁM SÁT.
                         NẾU LÀ GV TRỰC ĂN BÌNH THƯỜNG -> RA THẲNG BÁO CÁO ĂN, KHÔNG HIỆN NÚT NÀY.
                         CÒN LẠI CA NGỦ -> RA THẲNG BÁO DANH NGỦ, KHÔNG CÓ TAB ĂN/NGỦ GÌ LẪN LỘN */}
@@ -273,14 +355,14 @@ export default function BaoCaoTrucModal({
                                 <button
                                     type="button"
                                     className={`bct-role-btn ${caTruc === 0 ? 'active' : ''}`}
-                                    onClick={() => setCaTruc(0)}
+                                    onClick={() => handleSwitchCaTruc(0)}
                                 >
                                     <i className="fas fa-utensils"></i> Báo Cáo Trực Ăn
                                 </button>
                                 <button
                                     type="button"
                                     className={`bct-role-btn ${caTruc === 2 ? 'active' : ''}`}
-                                    onClick={() => setCaTruc(2)}
+                                    onClick={() => handleSwitchCaTruc(2)}
                                 >
                                     <i className="fas fa-user-shield"></i> Giáo Viên Giám Sát (ATTP)
                                 </button>
@@ -326,11 +408,47 @@ export default function BaoCaoTrucModal({
                                 </div>
                             </div>
 
+                            {daBaoCao && liveData && (cleanSiSoText(liveData.si_so, maPhong) !== cleanSiSoText(siSo, maPhong) || liveData.danh_sach_vang !== danhSachVang) && (
+                                <div style={{
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: 8,
+                                    padding: '6px 12px',
+                                    marginBottom: 10,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    fontSize: '0.82rem',
+                                    color: '#1e40af'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <i className="fas fa-info-circle text-primary"></i>
+                                        <span>Điểm danh mới nhất: <strong>{cleanSiSoText(liveData.si_so, maPhong)}</strong> (Hiện tại trong form: {cleanSiSoText(siSo, maPhong) || '—'})</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        style={{
+                                            border: '1px solid #3b82f6',
+                                            borderRadius: 6,
+                                            padding: '2px 8px',
+                                            background: '#fff',
+                                            color: '#1d4ed8',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                        onClick={handleSyncLatestLive}
+                                    >
+                                        <i className="fas fa-sync-alt" style={{ marginRight: 4 }}></i> Đồng bộ mới
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Dải Sĩ số, Phép & HS vắng tự động từ Điểm danh (1 dòng siêu gọn) */}
                             <div className="bct-auto-summary-strip">
                                 <div className="bct-summary-item" title="Sĩ số có mặt / Tổng số HS phòng">
                                     <span className="lbl"><i className="fas fa-users"></i> Sĩ số:</span>
-                                    <span className="val font-bold text-success">{siSo || '—'}</span>
+                                    <span className="val font-bold text-success">{cleanSiSoText(siSo, maPhong) || '—'}</span>
                                 </div>
                                 <span className="bct-summary-divider">•</span>
                                 <div className={`bct-summary-item ${soHsPhep > 0 ? 'text-amber-700' : ''}`} title="Học sinh có phép (không tính vào vắng)">
@@ -424,11 +542,47 @@ export default function BaoCaoTrucModal({
                                 </div>
                             </div>
 
+                            {daBaoCao && liveData && (cleanSiSoText(liveData.si_so, maPhong) !== cleanSiSoText(siSo, maPhong) || liveData.danh_sach_vang !== danhSachVang) && (
+                                <div style={{
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: 8,
+                                    padding: '6px 12px',
+                                    marginBottom: 10,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    fontSize: '0.82rem',
+                                    color: '#1e40af'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <i className="fas fa-info-circle text-primary"></i>
+                                        <span>Điểm danh mới nhất: <strong>{cleanSiSoText(liveData.si_so, maPhong)}</strong> (Hiện tại trong form: {cleanSiSoText(siSo, maPhong) || '—'})</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        style={{
+                                            border: '1px solid #3b82f6',
+                                            borderRadius: 6,
+                                            padding: '2px 8px',
+                                            background: '#fff',
+                                            color: '#1d4ed8',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                        onClick={handleSyncLatestLive}
+                                    >
+                                        <i className="fas fa-sync-alt" style={{ marginRight: 4 }}></i> Đồng bộ mới
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Dải Sĩ số, Phép & HS vắng tự động từ Điểm danh (1 dòng siêu gọn) */}
                             <div className="bct-auto-summary-strip">
                                 <div className="bct-summary-item" title="Sĩ số có mặt / Tổng số HS phòng">
                                     <span className="lbl"><i className="fas fa-users"></i> Sĩ số:</span>
-                                    <span className="val font-bold text-success">{siSo || '—'}</span>
+                                    <span className="val font-bold text-success">{cleanSiSoText(siSo, maPhong) || '—'}</span>
                                 </div>
                                 <span className="bct-summary-divider">•</span>
                                 <div className={`bct-summary-item ${soHsPhep > 0 ? 'text-amber-700' : ''}`} title="Học sinh có phép (không tính vào vắng)">

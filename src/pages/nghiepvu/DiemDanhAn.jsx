@@ -22,6 +22,16 @@ const STATUS = {
     chua_diem_danh: { label: 'Chưa quét', bg: '#f8fafc', border: '#e2e8f0', dot: '#94a3b8' },
 };
 
+// Đồng hồ hiển thị thời gian thực biệt lập, không kích hoạt re-render toàn trang
+function LiveClock() {
+    const [timeStr, setTimeStr] = useState(() => new Date().toLocaleTimeString('vi-VN'));
+    useEffect(() => {
+        const t = setInterval(() => setTimeStr(new Date().toLocaleTimeString('vi-VN')), 1000);
+        return () => clearInterval(t);
+    }, []);
+    return <>{timeStr}</>;
+}
+
 // ── Helpers export ────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
 const addDL = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
@@ -71,6 +81,7 @@ export default function DiemDanhAn() {
         setSelectedPhong(null);
         setFilterSubPhong('ALL');
         setSaved(false);
+        setOverrides({}); // Xóa overrides phòng cũ để tránh lẫn lộn dữ liệu
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('gop', '1');
@@ -84,6 +95,7 @@ export default function DiemDanhAn() {
         setSelectedPhong(p);
         setIsGopMode(false);
         setSaved(false);
+        setOverrides({}); // Xóa overrides phòng cũ để tránh lẫn lộn dữ liệu
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('phong', p.ma_phong);
@@ -102,10 +114,10 @@ export default function DiemDanhAn() {
         }, { replace: true });
     };
 
-    // Live clock cho ca trực
+    // Live clock cho ca trực (cập nhật 15s/lần cho shiftTiming để tránh giật lag UI)
     const [currentTime, setCurrentTime] = useState(new Date());
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        const timer = setInterval(() => setCurrentTime(new Date()), 15000);
         return () => clearInterval(timer);
     }, []);
 
@@ -154,6 +166,8 @@ export default function DiemDanhAn() {
     const [assignedRoomCodes, setAssignedRoomCodes] = useState(null);
     const [myAssignments, setMyAssignments] = useState(null);
     const [phongStatuses, setPhongStatuses] = useState([]);
+    const [baoCaoRecords, setBaoCaoRecords] = useState([]);
+    const [khungGioBaoCao, setKhungGioBaoCao] = useState(null);
 
     const [showActions, setShowActions] = useState(false);
     const [showBaoPhepModal, setShowBaoPhepModal] = useState(false);
@@ -181,6 +195,9 @@ export default function DiemDanhAn() {
 
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
     const [namHocCauHinh, setNamHocCauHinh] = useState('2026-2027');
+    const initialTodayHsRef = useRef([]);
+    const dateRef = useRef(date);
+    useEffect(() => { dateRef.current = date; }, [date]);
 
     // Load phòng & học sinh
     useEffect(() => {
@@ -190,7 +207,13 @@ export default function DiemDanhAn() {
             cachedFetch('cache_cauhinh', () => api.get('/api/cauhinh/').then(r => r.data?.he_thong || null), 60 * 60 * 1000),
         ]).then(([phong, { data: hs }, { data: cauhinh }]) => {
             if (phong) setPhongList(phong);
-            if (hs) setHsList(hs);
+            if (hs) {
+                initialTodayHsRef.current = hs;
+                // Chỉ set hsList nếu ngày người dùng đang xem là ngày hôm nay
+                if (dateRef.current === todayVN()) {
+                    setHsList(hs);
+                }
+            }
             if (cauhinh) {
                 setNguoiPhuTrach(cauhinh.nguoi_phu_trach || 'Người phụ trách');
                 setNamHocCauHinh(cauhinh.nam_hoc || '2026-2027');
@@ -236,12 +259,20 @@ export default function DiemDanhAn() {
                 if (res.data.phong_statuses) setPhongStatuses(res.data.phong_statuses);
                 if (res.data.assigned_rooms !== undefined) setAssignedRoomCodes(res.data.assigned_rooms);
                 if (res.data.my_assignments !== undefined) setMyAssignments(res.data.my_assignments);
+                if (res.data.bao_cao_records) setBaoCaoRecords(res.data.bao_cao_records);
+                if (res.data.khung_gio_bao_cao) setKhungGioBaoCao(res.data.khung_gio_bao_cao);
 
                 // Nếu xem ngày trong quá khứ hoặc tương lai, nạp danh sách HS theo lịch sử phân phòng của ngày đó
                 if (d !== todayVN()) {
                     api.get(`/api/hocsinh/an?ngay=${d}`, { signal: controller.signal })
-                        .then(r => { if (r.data?.hocsinh) setHsList(r.data.hocsinh); })
+                        .then(r => {
+                            if (r.data?.hocsinh && dateRef.current === d) {
+                                setHsList(r.data.hocsinh);
+                            }
+                        })
                         .catch(() => {});
+                } else if (initialTodayHsRef.current.length > 0) {
+                    setHsList(initialTodayHsRef.current);
                 }
             }
         } catch (err) {
@@ -263,15 +294,70 @@ export default function DiemDanhAn() {
         return true;
     }, [cauhinhNgay]);
 
+    // Pre-group và sort học sinh theo phòng 1 lần duy nhất cho ngày đang xem để tránh filter & sort 30-50 lần mỗi render
+    const studentsByRoomMap = useMemo(() => {
+        const map = {};
+        const overridedElsewhere = new Set(
+            extraHsList.filter(x => x.phong_an).map(x => x.id)
+        );
+
+        hsList.forEach(hs => {
+            if (hs.ngay_vao && date < hs.ngay_vao) return;
+            if (hs.ngay_rut && date > hs.ngay_rut) return;
+            if (!hs.dang_hoc && (!hs.ngay_rut || date > hs.ngay_rut)) return;
+            if (!isHsAllowed(hs)) return;
+            if (overridedElsewhere.has(hs.id)) return;
+
+            const effectivePhong = cauhinhNgay?.lop_phong_an?.[hs.lop]
+                || phongTamAn
+                || roomSnapshotDb[hs.id]
+                || hs.phong_an;
+
+            if (effectivePhong) {
+                if (!map[effectivePhong]) map[effectivePhong] = [];
+                map[effectivePhong].push(hs);
+            }
+        });
+
+        extraHsList.forEach(x => {
+            const baseHs = hsList.find(h => h.id === x.id);
+            if (!baseHs) return;
+            if (baseHs.ngay_vao && date < baseHs.ngay_vao) return;
+            if (baseHs.ngay_rut && date > baseHs.ngay_rut) return;
+            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || date > baseHs.ngay_rut)) return;
+
+            const effectivePhong = x.phong_an
+                || cauhinhNgay?.lop_phong_an?.[baseHs.lop]
+                || phongTamAn
+                || roomSnapshotDb[baseHs.id]
+                || baseHs.phong_an;
+
+            if (effectivePhong) {
+                if (!map[effectivePhong]) map[effectivePhong] = [];
+                if (!map[effectivePhong].some(s => s.id === x.id)) {
+                    map[effectivePhong].push({ ...baseHs, ...x, phong_an: effectivePhong });
+                }
+            }
+        });
+
+        const sortedMap = {};
+        phongList.forEach(p => { sortedMap[p.ma_phong] = []; });
+        Object.keys(map).forEach(r => {
+            sortedMap[r] = sortStudentsForRoom(map[r], r);
+        });
+        return sortedMap;
+    }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb, phongList]);
+
     const getStudentsForRoom = useCallback((ma_phong, targetDate = date) => {
+        if (targetDate === date && studentsByRoomMap[ma_phong] !== undefined) {
+            return studentsByRoomMap[ma_phong];
+        }
         const overridedElsewhere = new Set(
             extraHsList.filter(x => x.phong_an && x.phong_an !== ma_phong).map(x => x.id)
         );
         const base = hsList.filter(hs => {
-            // Lọc theo ngày đang xem / ngày xuất file:
             if (hs.ngay_vao && targetDate < hs.ngay_vao) return false;
             if (hs.ngay_rut && targetDate > hs.ngay_rut) return false;
-            // Học sinh đã rút (dang_hoc === false): nếu ngày xem/xuất > ngày rút hoặc không có ngày rút thì loại bỏ hoàn toàn
             if (!hs.dang_hoc && (!hs.ngay_rut || targetDate > hs.ngay_rut)) return false;
             if (!isHsAllowed(hs)) return false;
             if (overridedElsewhere.has(hs.id)) return false;
@@ -297,7 +383,7 @@ export default function DiemDanhAn() {
                 return { ...(baseHs || {}), ...x, phong_an: ma_phong };
             });
         return sortStudentsForRoom([...base, ...extraFiltered], ma_phong);
-    }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb]);
+    }, [studentsByRoomMap, hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb]);
 
     const visiblePhongList = useMemo(() => {
         let list = phongList;
@@ -425,7 +511,16 @@ export default function DiemDanhAn() {
     useEffect(() => {
         if (!isGopMode) {
             if (!selectedPhong) return;
+            const pStat = phongStatuses.find(ps => ps.ma_phong_id === selectedPhong.ma_phong);
+            const isRoomAlreadyChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
             const localKey = `bantru_draft_${date}_an_${selectedPhong.ma_phong}`;
+
+            // Nếu phòng đã chốt hoàn tất, xóa bỏ nháp cũ nếu còn sót và không đè dữ liệu thật
+            if (isRoomAlreadyChot) {
+                try { localStorage.removeItem(localKey); } catch { /* ignore */ }
+                return;
+            }
+
             let localItems = [];
             try {
                 const cached = localStorage.getItem(localKey);
@@ -436,6 +531,10 @@ export default function DiemDanhAn() {
 
             api.get(`/api/diemdanh/draft/?ngay=${date}&loai_truc=0&ma_phong_id=${selectedPhong.ma_phong}`)
                 .then(r => {
+                    if (r.data?.phong_status?.trang_thai_chot === 'da_chot' || r.data?.draft?.is_chot) {
+                        try { localStorage.removeItem(localKey); } catch { /* ignore */ }
+                        return;
+                    }
                     const serverItems = r.data?.draft?.danh_sach_hs || [];
                     const merged = {};
                     serverItems.forEach(s => { merged[s.id] = s; });
@@ -458,12 +557,23 @@ export default function DiemDanhAn() {
             return;
         }
 
-        // Chế độ gộp: Nạp nháp từ tất cả các phòng phụ trách
+        // Chế độ gộp: Nạp nháp từ các phòng phụ trách CHƯA CHỐT
         if (!myDutyRooms || myDutyRooms.length === 0) return;
+        const unchotRooms = myDutyRooms.filter(code => {
+            const pStat = phongStatuses.find(ps => ps.ma_phong_id === code);
+            const isChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+            if (isChot) {
+                try { localStorage.removeItem(`bantru_draft_${date}_an_${code}`); } catch { /* ignore */ }
+                return false;
+            }
+            return true;
+        });
+        if (unchotRooms.length === 0) return;
+
         let totalRestored = 0;
         const allDraftOverrides = {};
 
-        Promise.all(myDutyRooms.map(async (code) => {
+        Promise.all(unchotRooms.map(async (code) => {
             let localItems = [];
             try {
                 const cached = localStorage.getItem(`bantru_draft_${date}_an_${code}`);
@@ -472,6 +582,10 @@ export default function DiemDanhAn() {
 
             try {
                 const r = await api.get(`/api/diemdanh/draft/?ngay=${date}&loai_truc=0&ma_phong_id=${code}`);
+                if (r.data?.phong_status?.trang_thai_chot === 'da_chot' || r.data?.draft?.is_chot) {
+                    try { localStorage.removeItem(`bantru_draft_${date}_an_${code}`); } catch { /* ignore */ }
+                    return;
+                }
                 const serverItems = r.data?.draft?.danh_sach_hs || [];
                 const merged = {};
                 serverItems.forEach(s => { merged[s.id] = s; });
@@ -487,10 +601,11 @@ export default function DiemDanhAn() {
         })).then(() => {
             if (Object.keys(allDraftOverrides).length > 0) {
                 setOverrides(prev => ({ ...prev, ...allDraftOverrides }));
-                setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp của tất cả các phòng (${totalRestored} học sinh đã ghi nhận)`);
+                setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp của các phòng (${totalRestored} học sinh đã ghi nhận)`);
                 setTimeout(() => setDraftRestoredMsg(null), 3500);
             }
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isGopMode, selectedPhong, date, myDutyRooms]);
 
     // Phòng đơn lẻ đang được chọn (từ thanh lọc phòng gộp hoặc từ sidebar)
@@ -499,6 +614,15 @@ export default function DiemDanhAn() {
         if (isGopMode && filterSubPhong && filterSubPhong !== 'ALL') return filterSubPhong;
         return null;
     }, [isGopMode, selectedPhong, filterSubPhong]);
+
+    // Bảng tra nhanh trạng thái chốt O(1) theo mã phòng
+    const roomChotMap = useMemo(() => {
+        const map = {};
+        phongStatuses.forEach(ps => {
+            map[ps.ma_phong_id] = ps.trang_thai_chot === 'da_chot' || Boolean(ps.da_diem_danh);
+        });
+        return map;
+    }, [phongStatuses]);
 
     // Trạng thái chốt phòng hiện tại (cho phòng đang chọn, hoặc phòng đơn trong chế độ gộp)
     const currentPhongStatus = useMemo(() => {
@@ -523,9 +647,8 @@ export default function DiemDanhAn() {
                     if (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null) {
                         st = STATUS_MAP[diemDanhDb[s.id]];
                     } else {
-                        const pStat = phongStatuses.find(ps => ps.ma_phong_id === effectivePhong);
-                        const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
-                        st = isRoomChot ? 'comat' : 'chua_diem_danh';
+                        const isRoomChot = Boolean(roomChotMap[effectivePhong]);
+                        st = isRoomChot ? 'vang' : 'chua_diem_danh';
                     }
                 }
                 return {
@@ -537,14 +660,14 @@ export default function DiemDanhAn() {
         }
 
         if (!selectedPhong) return [];
-        return sortStudentsForRoom(getStudentsForRoom(selectedPhong.ma_phong), selectedPhong.ma_phong)
+        return getStudentsForRoom(selectedPhong.ma_phong)
             .map(s => {
                 let st = overrides[s.id];
                 if (st === undefined) {
                     if (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null) {
                         st = STATUS_MAP[diemDanhDb[s.id]];
                     } else {
-                        st = isDaChot ? 'comat' : 'chua_diem_danh';
+                        st = isDaChot ? 'vang' : 'chua_diem_danh';
                     }
                 }
                 return {
@@ -553,7 +676,7 @@ export default function DiemDanhAn() {
                     trang_thai: st,
                 };
             });
-    }, [isGopMode, filterSubPhong, allAssignedStudents, selectedPhong, overrides, diemDanhDb, phongStatuses, isDaChot, getStudentsForRoom]);
+    }, [isGopMode, filterSubPhong, allAssignedStudents, selectedPhong, overrides, diemDanhDb, roomChotMap, isDaChot, getStudentsForRoom]);
 
     const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
@@ -617,53 +740,48 @@ export default function DiemDanhAn() {
     const handleConfirmStudent = (student) => {
         const studentRoom = student.phong_hien_thi || student.phong_an || student.ma_phong_target || selectedPhong?.ma_phong;
 
-        setOverrides(prev => {
-            const next = { ...prev, [student.id]: 'comat' };
+        setOverrides(prev => ({ ...prev, [student.id]: 'comat' }));
 
-            // Lưu tức thì vào LocalStorage của đúng phòng đó
-            if (studentRoom) {
-                const localKey = `bantru_draft_${date}_an_${studentRoom}`;
-                const allSource = allAssignedStudents.length > 0 ? allAssignedStudents : students;
-                const targetRoomStudents = allSource.filter(s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === studentRoom);
+        // Lưu tức thì vào LocalStorage & Đồng bộ nền lên server draft của đúng phòng đó
+        if (studentRoom) {
+            const localKey = `bantru_draft_${date}_an_${studentRoom}`;
+            const allSource = allAssignedStudents.length > 0 ? allAssignedStudents : students;
+            const targetRoomStudents = allSource.filter(s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === studentRoom);
 
-                const draftList = targetRoomStudents.map(s => {
-                    const st = (s.id === student.id)
-                        ? 'comat'
-                        : (next[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh'));
-                    if (st === 'comat') {
-                        return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'qr' };
-                    }
-                    if (st === 'vang') {
-                        return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'manual' };
-                    }
-                    if (st === 'phep') {
-                        return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'manual' };
-                    }
-                    return null;
-                }).filter(Boolean);
-
-                try {
-                    localStorage.setItem(localKey, JSON.stringify(draftList));
-                    setLastLocalSaveTime(new Date());
-                } catch (err) {
-                    console.warn('LocalStorage save error:', err);
+            const draftList = targetRoomStudents.map(s => {
+                const st = (s.id === student.id)
+                    ? 'comat'
+                    : (overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh'));
+                if (st === 'comat') {
+                    return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'qr' };
                 }
+                if (st === 'vang') {
+                    return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'manual' };
+                }
+                if (st === 'phep') {
+                    return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'manual' };
+                }
+                return null;
+            }).filter(Boolean);
 
-                // Đồng bộ nền lên server draft của phòng đó
-                api.post('/api/diemdanh/draft-sync/', {
-                    ngay: date,
-                    loai_truc: 0,
-                    ma_phong_id: studentRoom,
-                    danh_sach_hs: draftList
-                }).then(r => {
-                    if (r.data?.ok) setLastSyncedTime(new Date());
-                }).catch(err => {
-                    console.warn('Draft sync to server error:', err);
-                });
+            try {
+                localStorage.setItem(localKey, JSON.stringify(draftList));
+                setLastLocalSaveTime(new Date());
+            } catch (err) {
+                console.warn('LocalStorage save error:', err);
             }
 
-            return next;
-        });
+            api.post('/api/diemdanh/draft-sync/', {
+                ngay: date,
+                loai_truc: 0,
+                ma_phong_id: studentRoom,
+                danh_sach_hs: draftList
+            }).then(r => {
+                if (r.data?.ok) setLastSyncedTime(new Date());
+            }).catch(err => {
+                console.warn('Draft sync to server error:', err);
+            });
+        }
     };
 
     // Chốt dữ liệu phòng đơn lẻ lên Tổng
@@ -714,6 +832,9 @@ export default function DiemDanhAn() {
             if (res.data?.ok) {
                 showAlert(res.data.message || `Đã chốt danh sách phòng ${targetRoom} thành công!`, 'success');
                 setShowChotConfirmModal(false);
+                try {
+                    localStorage.removeItem(`bantru_draft_${date}_an_${targetRoom}`);
+                } catch { /* ignore */ }
                 setOverrides(prev => {
                     const next = { ...prev };
                     targetStudents.forEach(s => { delete next[s.id]; });
@@ -767,7 +888,12 @@ export default function DiemDanhAn() {
                     danh_sach_hs: danhSachHs,
                     ghi_chu: isRoomChot ? 'Cập nhật bổ sung' : 'Chốt điểm danh liên phòng thành công'
                 });
-                if (res.data?.ok) successCount++;
+                if (res.data?.ok) {
+                    successCount++;
+                    try {
+                        localStorage.removeItem(`bantru_draft_${date}_an_${maPhong}`);
+                    } catch { /* ignore */ }
+                }
             }
 
             if (Object.keys(updatedOverrides).length > 0) {
@@ -861,11 +987,21 @@ export default function DiemDanhAn() {
         visiblePhongList.forEach(p => {
             const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
             const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
+            const isAutoChot = Boolean(
+                isChot && (
+                    pStatus?.is_auto_chot ||
+                    pStatus?.ma_gv_chot_id == null ||
+                    pStatus?.ten_nguoi_chot === 'Hệ thống' ||
+                    pStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                )
+            );
+            const isGvChot = Boolean(isChot && !isAutoChot);
 
             const hsTrongPhong = getStudentsForRoom(p.ma_phong);
             const isAllStudentsMarked = hsTrongPhong.length > 0 && hsTrongPhong.every(hs => (overrides[hs.id] !== undefined || diemDanhDb[hs.id] != null));
 
-            if (isChot || isAllStudentsMarked) {
+            // Chỉ tính là đã điểm/chốt hoàn tất nếu do GV chốt sổ hoặc GV đã tích điểm danh đầy đủ các em trong phiên trực
+            if (isGvChot || (!isAutoChot && isAllStudentsMarked)) {
                 markedCount++;
                 markedRooms.add(p.ma_phong);
             }
@@ -1733,15 +1869,30 @@ ${htmlPagesStr}
                                     const count = getStudentsForRoom(p.ma_phong).length;
                                     const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
                                     const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
-                                    const isMarked = isChot || roomStats.markedRooms.has(p.ma_phong);
+                                    const isAutoChot = Boolean(
+                                        isChot && (
+                                            pStatus?.is_auto_chot ||
+                                            pStatus?.ma_gv_chot_id == null ||
+                                            pStatus?.ten_nguoi_chot === 'Hệ thống' ||
+                                            pStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                        )
+                                    );
+                                    const isGvChot = Boolean(isChot && !isAutoChot);
                                     return (
                                         <li
                                             key={p.ma_phong}
                                             className={`dd-room-item${cauhinhNgay ? ' is-special' : ''}${(!isGopMode && selectedPhong?.ma_phong === p.ma_phong) ? ' active' : ''}`}
                                             onClick={() => handleSelectRoom(p)}
                                         >
-                                            <div className={`dd-room-status-icon ${isMarked ? 'marked' : 'unmarked'}`} title={isMarked ? (isChot ? 'Đã chốt danh sách lên tổng' : 'Đã điểm danh') : 'Chưa điểm danh'}>
-                                                <i className={isMarked ? 'fas fa-check' : 'fas fa-exclamation'}></i>
+                                            <div
+                                                className={`dd-room-status-icon ${isGvChot ? 'marked' : isAutoChot ? 'auto-chot' : 'unmarked'}`}
+                                                title={isGvChot
+                                                    ? `Đã chốt bởi GV${pStatus?.ten_nguoi_chot ? `: ${pStatus.ten_nguoi_chot}` : ''}`
+                                                    : isAutoChot
+                                                        ? 'Hệ thống tự động chốt (GV chưa chốt)'
+                                                        : 'Chưa điểm danh / Chưa chốt'}
+                                            >
+                                                <i className={isGvChot ? 'fas fa-check' : 'fas fa-exclamation'}></i>
                                             </div>
                                             <div className="dd-room-item-name">
                                                 <i className="fas fa-door-open"></i>
@@ -1803,6 +1954,12 @@ ${htmlPagesStr}
                                             const timeStr = currentPhongStatus?.thoi_gian
                                                 ? new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                                                 : '';
+                                            const isAuto = Boolean(
+                                                currentPhongStatus?.is_auto_chot ||
+                                                currentPhongStatus?.ma_gv_chot_id == null ||
+                                                currentPhongStatus?.ten_nguoi_chot === 'Hệ thống' ||
+                                                currentPhongStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                            );
                                             const nguoiChotName = currentPhongStatus?.nguoi_chot?.fullname
                                                 || currentPhongStatus?.ten_nguoi_chot
                                                 || currentPhongStatus?.nguoi_chot?.username
@@ -1810,15 +1967,17 @@ ${htmlPagesStr}
                                             const userRole = currentPhongStatus?.nguoi_chot?.role;
                                             const roleText = userRole === 'giao_vien' ? 'GV' : (userRole === 'admin' ? 'Admin' : (userRole === 'hoc_vu' ? 'Học vụ' : ''));
                                             const username = currentPhongStatus?.nguoi_chot?.username || '';
-                                            const tooltipText = `Đã chốt${timeStr ? ` lúc ${timeStr}` : ''}${nguoiChotName ? ` bởi ${roleText ? `${roleText} ` : ''}${nguoiChotName}${username ? ` (tài khoản: ${username})` : ''}` : ''}`;
+                                            const tooltipText = isAuto
+                                                ? `Hệ thống tự động chốt sổ (chưa đồng bộ / GV chưa chốt)${timeStr ? ` lúc ${timeStr}` : ''}`
+                                                : `Đã chốt${timeStr ? ` lúc ${timeStr}` : ''}${nguoiChotName ? ` bởi ${roleText ? `${roleText} ` : ''}${nguoiChotName}${username ? ` (tài khoản: ${username})` : ''}` : ''}`;
 
                                             return (
                                                 <span
-                                                    className="dd-chot-header-badge"
+                                                    className={`dd-chot-header-badge ${isAuto ? 'danger auto-chot' : 'success'}`}
                                                     title={tooltipText}
                                                 >
-                                                    <i className="fas fa-check-circle"></i>
-                                                    ĐÃ CHỐT {timeStr ? `(${timeStr})` : ''} {nguoiChotName ? `• ${nguoiChotName}` : ''}
+                                                    <i className={isAuto ? "fas fa-exclamation-circle" : "fas fa-check-circle"}></i>
+                                                    {isAuto ? 'HỆ THỐNG TỰ CHỐT' : 'ĐÃ CHỐT'} {timeStr ? `(${timeStr})` : ''} {nguoiChotName ? `• ${nguoiChotName}` : ''}
                                                 </span>
                                             );
                                         })()}
@@ -1874,6 +2033,15 @@ ${htmlPagesStr}
                                         const count = allAssignedStudents.filter(s => (s.phong_hien_thi || s.phong_an) === code).length;
                                         const pStat = phongStatuses.find(ps => ps.ma_phong_id === code);
                                         const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+                                        const isRoomAutoChot = Boolean(
+                                            isRoomChot && (
+                                                pStat?.is_auto_chot ||
+                                                pStat?.ma_gv_chot_id == null ||
+                                                pStat?.ten_nguoi_chot === 'Hệ thống' ||
+                                                pStat?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                            )
+                                        );
+                                        const isRoomGvChot = Boolean(isRoomChot && !isRoomAutoChot);
                                         return (
                                             <button
                                                 key={code}
@@ -1886,7 +2054,8 @@ ${htmlPagesStr}
                                                 }}
                                             >
                                                 Phòng {code} ({count})
-                                                {isRoomChot && <i className="fas fa-check-circle" style={{ marginLeft: 4, color: '#16a34a' }}></i>}
+                                                {isRoomGvChot && <i className="fas fa-check-circle" style={{ marginLeft: 4, color: '#16a34a' }} title="GV đã chốt"></i>}
+                                                {isRoomAutoChot && <i className="fas fa-exclamation-circle" style={{ marginLeft: 4, color: '#ef4444' }} title="Hệ thống tự động chốt (GV chưa chốt)"></i>}
                                             </button>
                                         );
                                     })}
@@ -1914,7 +2083,7 @@ ${htmlPagesStr}
                                         <div className="dd-shift-notice-banner pending">
                                             <i className="fas fa-hourglass-half"></i>
                                             <div>
-                                                <strong>Chưa đến giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống mở quét QR lúc 10h55. Hiện tại: <b>{currentTime.toLocaleTimeString('vi-VN')}</b>.
+                                                <strong>Chưa đến giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống mở quét QR lúc 10h55. Hiện tại: <b><LiveClock /></b>.
                                             </div>
                                         </div>
                                     ) : shiftTiming.state === 'da_qua_gio' ? (
@@ -1931,7 +2100,7 @@ ${htmlPagesStr}
                                                     <span>🟢 CA TRỰC ĂN ĐANG DIỄN RA ({shiftTiming.startLabel} – {shiftTiming.endLabel})</span>
                                                 </div>
                                                 <div className="dd-shift-banner-time">
-                                                    <span>Đồng hồ: <strong>{currentTime.toLocaleTimeString('vi-VN')}</strong> • Còn lại: <strong>{shiftTiming.remainingMins} phút</strong></span>
+                                                    <span>Đồng hồ: <strong><LiveClock /></strong> • Còn lại: <strong>{shiftTiming.remainingMins} phút</strong></span>
                                                 </div>
                                             </div>
 
@@ -2097,49 +2266,130 @@ ${htmlPagesStr}
                                                 ? Boolean(phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom)?.trang_thai_chot === 'da_chot' || phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom)?.da_diem_danh)
                                                 : (isGopMode ? (multiRoomSummary.length > 0 && multiRoomSummary.every(r => r.isChot)) : isDaChot);
                                             const canReport = !isGiaoVien || isChotDone;
-                                            return (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        className="btn"
-                                                        onClick={() => {
-                                                            if (!canReport) {
-                                                                showAlert('Thầy/Cô phải hoàn thành điểm danh và CHỐT SỔ các phòng phụ trách trước khi gửi Báo cáo ca trực!', 'warning');
-                                                                return;
-                                                            }
-                                                            setShowBaoCaoModal(true);
-                                                        }}
-                                                        style={{
-                                                            fontWeight: 700,
-                                                            padding: '5px 10px',
-                                                            borderRadius: 8,
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: 5,
-                                                            background: canReport ? 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' : '#94a3b8',
-                                                            borderColor: 'transparent',
-                                                            color: '#fff',
-                                                            boxShadow: canReport ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none',
-                                                            cursor: canReport ? 'pointer' : 'not-allowed',
-                                                            opacity: canReport ? 1 : 0.48,
-                                                            height: 32,
-                                                            fontSize: '0.82rem',
-                                                            whiteSpace: 'nowrap',
-                                                            transition: 'all 0.2s ease'
-                                                        }}
-                                                        title={!canReport ? 'Thầy/Cô phải hoàn thành điểm danh và Chốt sổ trước khi gửi Báo cáo' : 'Gửi Báo Cáo lên Ban Quản Lý'}
-                                                    >
-                                                        <i className="fas fa-file-signature"></i>
-                                                        <span>Báo cáo</span>
-                                                    </button>
 
-                                                    {isChotDone && (
-                                                        <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
-                                                            <i className="fas fa-check-circle"></i>
-                                                            {activeSingleRoom ? `ĐÃ CHỐT ${activeSingleRoom}` : (currentPhongStatus?.ma_gv_chot_id ? 'ĐÃ CHỐT' : 'ĐÃ CHỐT CẢ PHÒNG')}
-                                                        </span>
-                                                    )}
-                                                </>
+                                            // 1. Kiểm tra đã hết giờ báo cáo ca trực chưa (Ca ăn: 11h45 = 705 phút)
+                                            const checkIsHetGio = () => {
+                                                if (khungGioBaoCao?.is_het_gio !== undefined) return Boolean(khungGioBaoCao.is_het_gio);
+                                                const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+                                                const todayStr = vnNow.toISOString().split('T')[0];
+                                                if (date < todayStr) return true;
+                                                if (date > todayStr) return false;
+                                                const curMinutes = vnNow.getUTCHours() * 60 + vnNow.getUTCMinutes();
+                                                return curMinutes >= 705;
+                                            };
+                                            const isHetGio = checkIsHetGio();
+
+                                            // 2. Kiểm tra đã có báo cáo ca trực cho phòng/cụm phòng này chưa
+                                            const targetReportPhong = isGopMode ? myDutyRooms.join(', ') : (activeSingleRoom || selectedPhong?.ma_phong || '');
+                                            const targetRoomCodes = isGopMode
+                                                ? myDutyRooms.map(s => String(s).toUpperCase().trim())
+                                                : [String(activeSingleRoom || selectedPhong?.ma_phong || '').toUpperCase().trim()].filter(Boolean);
+
+                                            const isRoomReported = (roomCode) => {
+                                                const code = String(roomCode).toUpperCase().trim();
+                                                if (!code) return false;
+                                                return Boolean(
+                                                    baoCaoRecords && baoCaoRecords.length > 0 &&
+                                                    baoCaoRecords.some(bc => {
+                                                        const bcPhong = String(bc.ma_phong || '').toUpperCase().trim();
+                                                        if (bcPhong === code) return true;
+                                                        const parts = bcPhong.split(',').map(s => s.trim());
+                                                        return parts.includes(code);
+                                                    })
+                                                );
+                                            };
+
+                                            const isDaBaoCao = Boolean(
+                                                baoCaoRecords && baoCaoRecords.length > 0 && targetRoomCodes.length > 0 && (
+                                                    targetRoomCodes.length <= 1
+                                                        ? isRoomReported(targetRoomCodes[0])
+                                                        : (
+                                                            // Chế độ gộp: Hoặc có 1 báo cáo chung chứa đủ các phòng, HOẶC từng phòng trong cụm đều đã được gửi báo cáo
+                                                            baoCaoRecords.some(bc => {
+                                                                const bcPhong = String(bc.ma_phong || '').toUpperCase().trim();
+                                                                if (targetReportPhong && bcPhong === targetReportPhong.toUpperCase().trim()) return true;
+                                                                return targetRoomCodes.every(c => bcPhong.includes(c));
+                                                            }) ||
+                                                            targetRoomCodes.every(roomCode => isRoomReported(roomCode))
+                                                        )
+                                                )
+                                            );
+
+                                            // 3. Quy tắc nhãn & trạng thái nút theo yêu cầu:
+                                            // - Chưa báo cáo: Hiện "Báo cáo"
+                                            // - Báo cáo rồi: Hiện "Cập nhật"
+                                            // - Hết giờ mà đã báo cáo: Hiện "Đã báo cáo" (mờ, không click)
+                                            // - Hết giờ mà chưa báo cáo: Vẫn hiện "Báo cáo" (mờ, không click)
+                                            let btnLabel, btnIcon, btnTitle, btnBackground, btnOpacity, btnCursor;
+
+                                            if (isHetGio) {
+                                                btnCursor = 'not-allowed';
+                                                btnOpacity = 0.45;
+                                                if (isDaBaoCao) {
+                                                    btnLabel = 'Đã báo cáo';
+                                                    btnIcon = 'fas fa-check-double';
+                                                    btnTitle = 'Đã hết thời gian quy định báo cáo ca trực (Đã báo cáo)';
+                                                    btnBackground = '#059669';
+                                                } else {
+                                                    btnLabel = 'Báo cáo';
+                                                    btnIcon = 'fas fa-file-signature';
+                                                    btnTitle = 'Đã hết thời gian quy định gửi báo cáo ca trực (Chưa báo cáo)';
+                                                    btnBackground = '#64748b';
+                                                }
+                                            } else {
+                                                if (isDaBaoCao) {
+                                                    btnLabel = 'Cập nhật';
+                                                    btnIcon = 'fas fa-edit';
+                                                    btnTitle = 'Cập nhật lại thông tin Báo Cáo ca trực';
+                                                    btnBackground = 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+                                                } else {
+                                                    btnLabel = 'Báo cáo';
+                                                    btnIcon = 'fas fa-file-signature';
+                                                    btnTitle = !canReport
+                                                        ? 'Thầy/Cô phải hoàn thành điểm danh và Chốt sổ trước khi gửi Báo cáo'
+                                                        : 'Gửi Báo Cáo lên Ban Quản Lý';
+                                                    btnBackground = canReport ? 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' : '#94a3b8';
+                                                    btnOpacity = canReport ? 1 : 0.48;
+                                                    btnCursor = canReport ? 'pointer' : 'not-allowed';
+                                                }
+                                            }
+
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    className="btn"
+                                                    disabled={isHetGio}
+                                                    onClick={() => {
+                                                        if (isHetGio) return;
+                                                        if (!canReport) {
+                                                            showAlert('Thầy/Cô phải hoàn thành điểm danh và CHỐT SỔ các phòng phụ trách trước khi gửi Báo cáo ca trực!', 'warning');
+                                                            return;
+                                                        }
+                                                        setShowBaoCaoModal(true);
+                                                    }}
+                                                    style={{
+                                                        fontWeight: 700,
+                                                        padding: '5px 10px',
+                                                        borderRadius: 8,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 5,
+                                                        background: btnBackground,
+                                                        borderColor: 'transparent',
+                                                        color: '#fff',
+                                                        boxShadow: (!isHetGio && (canReport || isDaBaoCao)) ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none',
+                                                        cursor: btnCursor,
+                                                        opacity: btnOpacity,
+                                                        height: 32,
+                                                        fontSize: '0.82rem',
+                                                        whiteSpace: 'nowrap',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                    title={btnTitle}
+                                                >
+                                                    <i className={btnIcon}></i>
+                                                    <span>{btnLabel}</span>
+                                                </button>
                                             );
                                         })()}
                                     </div>
@@ -2663,6 +2913,7 @@ ${htmlPagesStr}
             <BaoCaoTrucModal
                 isOpen={showBaoCaoModal}
                 onClose={() => setShowBaoCaoModal(false)}
+                onSuccess={() => fetchDiemDanh(date, true)}
                 initialNgay={date}
                 initialCaTruc={0}
                 initialMaPhong={isGopMode ? myDutyRooms.join(', ') : (selectedPhong?.ma_phong || '')}

@@ -19,7 +19,18 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/api/public/system-status/');
       if (res.data?.ok) {
-        setSystemStatus(res.data);
+        setSystemStatus(prev => {
+          if (
+            prev.bao_tri === res.data.bao_tri &&
+            prev.thong_bao === res.data.thong_bao &&
+            prev.thoi_gian === res.data.thoi_gian &&
+            prev.nam_hoc === res.data.nam_hoc &&
+            prev.ten_truong === res.data.ten_truong
+          ) {
+            return prev;
+          }
+          return res.data;
+        });
         return res.data;
       }
     } catch {
