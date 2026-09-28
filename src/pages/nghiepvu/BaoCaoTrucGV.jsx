@@ -275,6 +275,10 @@ export default function BaoCaoTrucGV() {
     const handleSaveEdit = async (e) => {
         if (e) e.preventDefault();
         if (!editRecord || !editForm.id) return;
+        if (editForm.ngay > todayStr) {
+            showAlert('Không thể cập nhật báo cáo sang ngày chưa đến trong tương lai. Chỉ thao tác với ngày hiện tại và ngày quá khứ.', 'warning');
+            return;
+        }
         try {
             setSavingEdit(true);
             const res = await api.post('/api/baocaotruc/update/', editForm);
@@ -515,10 +519,15 @@ export default function BaoCaoTrucGV() {
 
     // Điều hướng Ngày
     const changeDateBy = (offsetDays) => {
-        setLoading(true);
         const d = parseYMD(selectedDate);
         d.setDate(d.getDate() + offsetDays);
-        setSelectedDate(formatYMD(d));
+        const nextDate = formatYMD(d);
+        if (offsetDays > 0 && nextDate > todayStr) {
+            showAlert('Chỉ thao tác với ngày hiện tại và ngày quá khứ. Không thể chọn ngày chưa đến trong tương lai.', 'warning');
+            return;
+        }
+        setLoading(true);
+        setSelectedDate(nextDate);
     };
 
     // Điều hướng Tuần
@@ -1849,9 +1858,22 @@ function testSendLatestSheetRow() {
                                 className="bctruc-date-input"
                                 style={{ width: 145 }}
                                 value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
+                                max={todayStr}
+                                onChange={(e) => {
+                                    if (e.target.value > todayStr) {
+                                        showAlert('Chỉ thao tác với ngày hiện tại và ngày quá khứ. Không thể chọn ngày chưa đến.', 'warning');
+                                        return;
+                                    }
+                                    setSelectedDate(e.target.value);
+                                }}
                             />
-                            <button className="bctruc-nav-arrow" onClick={() => changeDateBy(1)} title="Ngày sau">
+                            <button
+                                className="bctruc-nav-arrow"
+                                onClick={() => changeDateBy(1)}
+                                title={selectedDate >= todayStr ? 'Không thể thao tác với ngày chưa đến' : 'Ngày sau'}
+                                disabled={selectedDate >= todayStr}
+                                style={selectedDate >= todayStr ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                            >
                                 <i className="fas fa-chevron-right"></i>
                             </button>
                             <button

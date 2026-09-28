@@ -213,6 +213,15 @@ export default function BaoCaoTrucModal({
     // Gửi báo cáo lên hệ thống
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const todayStr = (() => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        })();
+        if (ngay > todayStr) {
+            setErrorMessage('Không thể gửi báo cáo cho ngày chưa đến trong tương lai. Hệ thống chỉ cho phép thao tác với ngày hiện tại và ngày quá khứ.');
+            return;
+        }
+
         const targetPhong = caTruc === 2 ? (maPhong || 'GIÁM SÁT') : maPhong;
         if (!targetPhong) {
             setErrorMessage('Vui lòng chọn phòng trực để báo cáo');
@@ -256,6 +265,12 @@ export default function BaoCaoTrucModal({
 
     if (!isOpen) return null;
 
+    const todayStr = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
+    const isFutureDate = ngay > todayStr;
+
     // Tiêu đề & Icon theo đúng ca trực (Rút gọn tối ưu cho mobile)
     const isCaNgu = (initialCaTruc === 1) || (caTruc === 1);
     const isCaGiamSat = !isCaNgu && caTruc === 2;
@@ -263,8 +278,8 @@ export default function BaoCaoTrucModal({
     // Ràng buộc thời gian & điểm danh
     const isQuaGio = khungGio?.state === 'qua_gio';
     const isChuaDen = khungGio?.state === 'chua_den';
-    const canReportNow = isAdminOverride || (choPhepBaoCao && !isQuaGio && !isChuaDen && daDiemDanh);
-    const isInputsDisabled = !isAdminOverride && isQuaGio;
+    const canReportNow = !isFutureDate && (isAdminOverride || (choPhepBaoCao && !isQuaGio && !isChuaDen && daDiemDanh));
+    const isInputsDisabled = isFutureDate || (!isAdminOverride && isQuaGio);
 
     const modalTitle = isCaNgu
         ? 'Báo Cáo Phòng Ngủ'
@@ -302,6 +317,17 @@ export default function BaoCaoTrucModal({
 
                 {/* Body Form */}
                 <form onSubmit={handleSubmit} className="bct-modal-body">
+                    {/* Cảnh báo ngày chưa đến trong tương lai */}
+                    {isFutureDate && (
+                        <div className="bct-alert-badge danger">
+                            <i className="fas fa-calendar-times"></i>
+                            <div>
+                                <strong>Ngày chưa đến ({ngay})</strong>
+                                <small>Hệ thống không cho phép gửi hoặc cập nhật báo cáo cho những ngày trong tương lai.</small>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Trạng thái nếu phòng đã được gửi báo cáo */}
                     {daBaoCao && (
                         <div className={`bct-alert-badge ${isQuaGio && !isAdminOverride ? 'neutral' : 'success'}`}>

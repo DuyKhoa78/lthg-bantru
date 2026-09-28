@@ -104,8 +104,13 @@ export default function DiemDanhNgu() {
         }, { replace: true });
     };
 
-    // Đổi ngày có đồng bộ URL
+    // Đổi ngày có đồng bộ URL (chặn ngày chưa đến)
     const handleDateChange = (newDate) => {
+        if (!newDate) return;
+        if (newDate > todayVN()) {
+            showAlert('Chỉ thao tác với ngày hiện tại và ngày quá khứ. Không thể chọn ngày chưa đến trong tương lai.', 'warning');
+            return;
+        }
         setDate(newDate);
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
@@ -141,6 +146,10 @@ export default function DiemDanhNgu() {
 
     const isDateToday = useMemo(() => {
         return date === todayVN();
+    }, [date]);
+
+    const isFutureDate = useMemo(() => {
+        return date > todayVN();
     }, [date]);
 
 
@@ -517,14 +526,15 @@ export default function DiemDanhNgu() {
         return false;
     }, [isGiaoVien, isGopMode, myDutyRooms, selectedPhong]);
 
-    // Quyền thao tác của Giáo viên:
-    // Admin/Học vụ: luôn được phép thao tác.
+    // Quyền thao tác:
+    // Admin/Học vụ: chỉ được thao tác với ngày hiện tại và ngày quá khứ (không thao tác với ngày chưa đến).
     // Giáo viên: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ đúng khung giờ ca ngủ (11h30 - 12h05).
     const canTeacherOperate = useMemo(() => {
+        if (date > todayVN()) return false;
         if (!isGiaoVien) return true;
         if (!hasTeacherDuty) return false;
         return isDateToday && shiftTiming.state === 'dang_dien_ra';
-    }, [isGiaoVien, hasTeacherDuty, isDateToday, shiftTiming.state]);
+    }, [isGiaoVien, hasTeacherDuty, isDateToday, shiftTiming.state, date]);
 
     // Kiểm tra khung giờ điểm danh
     const isAllowedTime = useCallback(() => {
@@ -766,6 +776,10 @@ export default function DiemDanhNgu() {
 
     // Xác nhận học sinh từ camera quét mã QR (Zero data loss, hỗ trợ liên phòng)
     const handleConfirmStudent = (student) => {
+        if (!canTeacherOperate) {
+            if (date > todayVN()) showAlert('Không thể điểm danh cho ngày chưa đến trong tương lai.', 'warning');
+            return;
+        }
         const studentRoom = student.phong_hien_thi || student.phong_ngu || student.ma_phong_target || selectedPhong?.ma_phong;
 
         setOverrides(prev => ({ ...prev, [student.id]: 'comat' }));
@@ -814,6 +828,10 @@ export default function DiemDanhNgu() {
 
     // Chốt dữ liệu phòng đơn lẻ lên Tổng
     const handleChotPhong = async () => {
+        if (date > todayVN()) {
+            showAlert('Không thể chốt sổ điểm danh cho ngày chưa đến trong tương lai.', 'warning');
+            return;
+        }
         const targetRoom = activeSingleRoom || selectedPhong?.ma_phong;
         if (!targetRoom) return;
 
@@ -880,6 +898,10 @@ export default function DiemDanhNgu() {
 
     // Chốt tất cả các phòng phụ trách của GV lên Tổng (cả 3 phòng)
     const handleChotAllRooms = async () => {
+        if (date > todayVN()) {
+            showAlert('Không thể chốt sổ điểm danh cho ngày chưa đến trong tương lai.', 'warning');
+            return;
+        }
         const roomsToChot = (isGiaoVien && myDutyRooms.length > 0) ? myDutyRooms : (isGopMode ? myDutyRooms : (selectedPhong ? [selectedPhong.ma_phong] : []));
         if (roomsToChot.length === 0) return;
         setChotting(true);
@@ -1040,6 +1062,10 @@ export default function DiemDanhNgu() {
 
     const changeStatus = (id, status) => {
         if (!canTeacherOperate) {
+            if (date > todayVN()) {
+                showAlert('Không thể điểm danh cho ngày chưa đến trong tương lai. Hệ thống chỉ cho phép thao tác với ngày hiện tại và ngày quá khứ.', 'warning');
+                return;
+            }
             if (isGiaoVien) {
                 if (!hasTeacherDuty) showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
                 else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h30 đến 12h05 ngày ${fmtDate(date)}.`, 'warning');
@@ -1052,7 +1078,12 @@ export default function DiemDanhNgu() {
         setSaved(false);
     };
     const setAll = (status) => {
-        if (!canTeacherOperate) return;
+        if (!canTeacherOperate) {
+            if (date > todayVN()) {
+                showAlert('Không thể điểm danh cho ngày chưa đến trong tương lai.', 'warning');
+            }
+            return;
+        }
         const o = {};
         // Khi chọn gộp: áp dụng cho tất cả HS trong cả 3 phòng
         // Khi chọn từng phòng: CHỈ áp dụng cho học sinh của phòng đang chọn
@@ -1072,12 +1103,16 @@ export default function DiemDanhNgu() {
 
     const handleSave = async () => {
         if (!canTeacherOperate) {
+            if (date > todayVN()) {
+                return showAlert('Không thể lưu điểm danh cho ngày chưa đến trong tương lai. Hệ thống chỉ cho phép thao tác với ngày hiện tại và ngày quá khứ.', 'warning');
+            }
             if (isGiaoVien) {
                 if (!hasTeacherDuty) return showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
                 if (!isDateToday) return showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h30 đến 12h05 ngày ${fmtDate(date)}.`, 'warning');
                 if (shiftTiming.state === 'sap_den') return showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h30.`, 'warning');
                 if (shiftTiming.state === 'da_qua_gio') return showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
             }
+            return;
         }
         if (!isAllowedTime()) {
             return showAlert('Ngoài khung giờ điểm danh quy định (11h30 – 12h05)!', 'warning');
@@ -1750,6 +1785,7 @@ ${htmlPagesStr}
                             <input
                                 type="date"
                                 value={date}
+                                max={todayVN()}
                                 onChange={e => handleDateChange(e.target.value)}
                                 className="dd-date-native-input"
                             />
@@ -1785,10 +1821,13 @@ ${htmlPagesStr}
                                 style={{
                                     flex: '0 0 32px', height: 28, borderRadius: 6,
                                     border: '1px solid #cbd5e1', background: '#fff',
-                                    color: '#475569', cursor: 'pointer', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem'
+                                    color: date >= todayVN() ? '#cbd5e1' : '#475569',
+                                    cursor: date >= todayVN() ? 'not-allowed' : 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem',
+                                    opacity: date >= todayVN() ? 0.35 : 1
                                 }}
-                                title="Ngày sau"
+                                title={date >= todayVN() ? 'Không thể thao tác với ngày chưa đến' : 'Ngày sau'}
+                                disabled={date >= todayVN()}
                                 onClick={() => handleDateChange(shiftDate(date, 1))}
                             >
                                 <i className="fas fa-chevron-right"></i>
@@ -2285,8 +2324,16 @@ ${htmlPagesStr}
                                             // - Hết giờ mà đã báo cáo: Hiện "Đã báo cáo" (mờ, không click)
                                             // - Hết giờ mà chưa báo cáo: Vẫn hiện "Báo cáo" (mờ, không click)
                                             let btnLabel, btnIcon, btnTitle, btnBackground, btnOpacity, btnCursor;
+                                            const isFuture = date > todayVN();
 
-                                            if (isHetGio) {
+                                            if (isFuture) {
+                                                btnCursor = 'not-allowed';
+                                                btnOpacity = 0.45;
+                                                btnLabel = 'Báo cáo';
+                                                btnIcon = 'fas fa-calendar-times';
+                                                btnTitle = 'Không thể báo cáo cho ngày chưa đến trong tương lai';
+                                                btnBackground = '#64748b';
+                                            } else if (isHetGio) {
                                                 btnCursor = 'not-allowed';
                                                 btnOpacity = 0.45;
                                                 if (isDaBaoCao) {
@@ -2322,8 +2369,12 @@ ${htmlPagesStr}
                                                 <button
                                                     type="button"
                                                     className="btn"
-                                                    disabled={isHetGio}
+                                                    disabled={isHetGio || isFuture}
                                                     onClick={() => {
+                                                        if (isFuture) {
+                                                            showAlert('Không thể báo cáo cho ngày chưa đến trong tương lai.', 'warning');
+                                                            return;
+                                                        }
                                                         if (isHetGio) return;
                                                         if (!canReport) {
                                                             showAlert('Thầy/Cô phải hoàn thành điểm danh và CHỐT SỔ các phòng phụ trách trước khi gửi Báo cáo ca trực!', 'warning');
@@ -2375,8 +2426,9 @@ ${htmlPagesStr}
                                             type="button"
                                             className="btn btn-success"
                                             onClick={() => setAll('comat')}
+                                            disabled={!canTeacherOperate}
                                             style={{
-                                                background: 'linear-gradient(135deg, #16a34a, #15803d)',
+                                                background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #16a34a, #15803d)',
                                                 color: '#fff',
                                                 fontWeight: 700,
                                                 padding: '7px 14px',
@@ -2385,12 +2437,13 @@ ${htmlPagesStr}
                                                 alignItems: 'center',
                                                 gap: 6,
                                                 border: 'none',
-                                                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
-                                                cursor: 'pointer',
+                                                boxShadow: !canTeacherOperate ? 'none' : '0 2px 8px rgba(22, 163, 74, 0.25)',
+                                                cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                opacity: !canTeacherOperate ? 0.6 : 1,
                                                 fontSize: '0.85rem',
                                                 whiteSpace: 'nowrap'
                                             }}
-                                            title={`Đánh dấu tất cả ${students.length} học sinh có mặt (vẫn giữ nguyên học sinh có phép)`}
+                                            title={!canTeacherOperate ? 'Không thể thao tác với ngày chưa đến' : `Đánh dấu tất cả ${students.length} học sinh có mặt (vẫn giữ nguyên học sinh có phép)`}
                                         >
                                             <i className="fas fa-check-double"></i>
                                             Tất cả đều có mặt
@@ -2400,10 +2453,10 @@ ${htmlPagesStr}
                                             type="button"
                                             className="btn btn-primary"
                                             onClick={handleChotPhong}
-                                            disabled={chotting}
+                                            disabled={chotting || !canTeacherOperate}
                                             style={{
-                                                background: isDaChot ? '#059669' : 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                                                borderColor: isDaChot ? '#047857' : '#1d4ed8',
+                                                background: !canTeacherOperate ? '#94a3b8' : (isDaChot ? '#059669' : 'linear-gradient(135deg, #2563eb, #3b82f6)'),
+                                                borderColor: !canTeacherOperate ? '#94a3b8' : (isDaChot ? '#047857' : '#1d4ed8'),
                                                 color: '#fff',
                                                 fontWeight: 700,
                                                 padding: '7px 14px',
@@ -2411,16 +2464,30 @@ ${htmlPagesStr}
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
                                                 gap: 6,
-                                                boxShadow: isDaChot ? '0 2px 6px rgba(5, 150, 105, 0.25)' : '0 2px 6px rgba(37, 99, 235, 0.25)',
+                                                boxShadow: !canTeacherOperate ? 'none' : (isDaChot ? '0 2px 6px rgba(5, 150, 105, 0.25)' : '0 2px 6px rgba(37, 99, 235, 0.25)'),
+                                                cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                opacity: !canTeacherOperate ? 0.6 : 1,
                                                 fontSize: '0.85rem',
                                                 whiteSpace: 'nowrap'
                                             }}
-                                            title="Chốt danh sách phòng này lên hệ thống"
+                                            title={!canTeacherOperate ? 'Không thể thao tác với ngày chưa đến' : 'Chốt danh sách phòng này lên hệ thống'}
                                         >
                                             {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${isDaChot ? 'fa-check-double' : 'fa-paper-plane'}`}></i>}
                                             {chotting ? ' Đang chốt...' : isDaChot ? ' Cập nhật chốt danh sách' : ' Chốt danh sách'}
                                         </button>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Cảnh báo ngày chưa đến trong tương lai */}
+                            {date > todayVN() && (
+                                <div style={{
+                                    background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+                                    padding: '10px 14px', margin: '0 10px 12px 10px', display: 'flex', alignItems: 'center', gap: 10,
+                                    color: '#b45309', fontWeight: 600, fontSize: '0.85rem'
+                                }}>
+                                    <i className="fas fa-exclamation-triangle" style={{ fontSize: '1.1rem', color: '#d97706' }}></i>
+                                    <span>Ngày chưa đến ({fmtDate(date)}). Hệ thống chỉ cho phép thao tác với ngày hiện tại và ngày quá khứ. Toàn bộ thao tác điểm danh và chốt sổ đã bị khóa.</span>
                                 </div>
                             )}
 

@@ -80,13 +80,26 @@ export default function DiemDanhGV() {
     }
   }, [date]);
 
+  const isFutureDate = date > todayVN();
+
   // Navigation handlers
   const handlePrevDay = () => setDate(d => shiftDate(d, -1));
-  const handleNextDay = () => setDate(d => shiftDate(d, 1));
+  const handleNextDay = () => {
+    const next = shiftDate(date, 1);
+    if (next > todayVN()) {
+      showAlert('Không thể chuyển sang ngày chưa đến trong tương lai!', 'warning');
+      return;
+    }
+    setDate(next);
+  };
   const handleToday = () => setDate(todayVN());
 
   // Quick attendance toggle for one record
   const handleToggleStatus = async (record, newStatus) => {
+    if (date > todayVN()) {
+      showAlert('Không thể điểm danh cho ngày chưa đến trong tương lai!', 'warning');
+      return;
+    }
     try {
       // Optimistic update
       setRecords(prev => prev.map(r => r.id === record.id ? { ...r, xac_nhan_truc: newStatus } : r));
@@ -108,6 +121,10 @@ export default function DiemDanhGV() {
 
   // Quick attendance: All present
   const handleMarkAllPresent = async () => {
+    if (date > todayVN()) {
+      showAlert('Không thể điểm danh cho ngày chưa đến trong tương lai!', 'warning');
+      return;
+    }
     setConfirmAllSaving(true);
     try {
       const payload = {
@@ -214,8 +231,18 @@ export default function DiemDanhGV() {
           <button
             className="btn btn-primary"
             onClick={() => setConfirmAllOpen(true)}
-            disabled={loading || records.length === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #0284c7, #0ea5e9)', border: 'none', boxShadow: '0 2px 6px rgba(14,165,233,0.3)' }}
+            disabled={loading || records.length === 0 || isFutureDate}
+            title={isFutureDate ? "Không thể điểm danh ngày chưa đến" : ""}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: isFutureDate ? '#94a3b8' : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+              border: 'none',
+              boxShadow: isFutureDate ? 'none' : '0 2px 6px rgba(14,165,233,0.3)',
+              cursor: isFutureDate ? 'not-allowed' : 'pointer',
+              opacity: isFutureDate ? 0.6 : 1
+            }}
           >
             <i className="fas fa-check-double"></i>
             <span>Điểm danh tất cả có mặt</span>
@@ -256,7 +283,15 @@ export default function DiemDanhGV() {
               type="date"
               className="form-control"
               value={date}
-              onChange={e => e.target.value && setDate(e.target.value)}
+              max={todayVN()}
+              onChange={e => {
+                if (!e.target.value) return;
+                if (e.target.value > todayVN()) {
+                  showAlert('Không thể chọn ngày trong tương lai! Chỉ thao tác với ngày hiện tại và quá khứ.', 'warning');
+                  return;
+                }
+                setDate(e.target.value);
+              }}
               style={{ paddingLeft: 34, fontWeight: 600, fontSize: '0.95rem', height: 38, width: 160 }}
             />
           </div>
@@ -264,8 +299,9 @@ export default function DiemDanhGV() {
           <button
             className="btn btn-ghost btn-sm"
             onClick={handleNextDay}
-            title="Ngày sau"
-            style={{ width: 36, height: 36, padding: 0, borderRadius: 8, display: 'grid', placeItems: 'center' }}
+            disabled={date >= todayVN()}
+            title={date >= todayVN() ? "Không thể chuyển sang ngày tương lai" : "Ngày sau"}
+            style={{ width: 36, height: 36, padding: 0, borderRadius: 8, display: 'grid', placeItems: 'center', opacity: date >= todayVN() ? 0.4 : 1, cursor: date >= todayVN() ? 'not-allowed' : 'pointer' }}
           >
             <i className="fas fa-chevron-right"></i>
           </button>
@@ -298,6 +334,26 @@ export default function DiemDanhGV() {
           </div>
         </div>
       </div>
+
+      {/* Warning banner when isFutureDate */}
+      {isFutureDate && (
+        <div style={{
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          color: '#92400e',
+          padding: '12px 18px',
+          borderRadius: 10,
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          fontSize: '0.9rem',
+          fontWeight: 600
+        }}>
+          <i className="fas fa-lock" style={{ fontSize: '1.2rem', color: '#d97706' }}></i>
+          <span>Bạn đang xem ngày trong tương lai ({fmtDate(date)}). Không được phép thao tác điểm danh cho những ngày chưa đến.</span>
+        </div>
+      )}
 
       {/* ─── KPI SUMMARY CARDS ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 20 }}>
@@ -638,14 +694,16 @@ export default function DiemDanhGV() {
                           {/* Nút Có mặt */}
                           <button
                             onClick={() => handleToggleStatus(item, true)}
-                            title="Xác nhận Có mặt"
+                            disabled={isFutureDate}
+                            title={isFutureDate ? "Không thể điểm danh ngày chưa đến" : "Xác nhận Có mặt"}
                             style={{
                               border: 'none',
                               padding: '6px 14px',
                               borderRadius: 6,
                               fontSize: '0.8rem',
                               fontWeight: 700,
-                              cursor: 'pointer',
+                              cursor: isFutureDate ? 'not-allowed' : 'pointer',
+                              opacity: isFutureDate ? 0.5 : 1,
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 6,
@@ -662,14 +720,16 @@ export default function DiemDanhGV() {
                           {/* Nút Vắng */}
                           <button
                             onClick={() => handleToggleStatus(item, false)}
-                            title="Đánh dấu Vắng trực"
+                            disabled={isFutureDate}
+                            title={isFutureDate ? "Không thể điểm danh ngày chưa đến" : "Đánh dấu Vắng trực"}
                             style={{
                               border: 'none',
                               padding: '6px 14px',
                               borderRadius: 6,
                               fontSize: '0.8rem',
                               fontWeight: 700,
-                              cursor: 'pointer',
+                              cursor: isFutureDate ? 'not-allowed' : 'pointer',
+                              opacity: isFutureDate ? 0.5 : 1,
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 6,

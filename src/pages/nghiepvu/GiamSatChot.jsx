@@ -116,6 +116,10 @@ export default function GiamSatChot() {
 
     // Hàm mở chốt phòng (cho phép GV điểm danh hoặc kiểm thử lại)
     const handleMoChot = async (maPhong) => {
+        if (chotDate > today()) {
+            alert('Không thể thao tác mở chốt cho ngày chưa đến trong tương lai.');
+            return;
+        }
         const confirmMsg = maPhong
             ? `Thầy/Cô có chắc chắn muốn mở lại chốt phòng ${maPhong} để cho phép điểm danh / kiểm thử lại?`
             : `Thầy/Cô có chắc chắn muốn mở lại chốt toàn bộ các phòng đã chốt ngày ${chotDate}?`;
@@ -255,7 +259,14 @@ export default function GiamSatChot() {
                     <input
                         type="date"
                         value={chotDate}
-                        onChange={e => setChotDate(e.target.value)}
+                        max={today()}
+                        onChange={e => {
+                            if (e.target.value > today()) {
+                                alert('Chỉ thao tác với ngày hiện tại và ngày quá khứ. Không thể chọn ngày chưa đến trong tương lai.');
+                                return;
+                            }
+                            setChotDate(e.target.value);
+                        }}
                         style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', fontWeight: 600, outline: 'none' }}
                     />
                     <button
