@@ -87,7 +87,7 @@ export default function BaoCao() {
     // Tab Giáo viên (linh hoạt theo đợt 4 tuần / tháng / học kỳ 4 tháng / tùy chọn ngày)
     const initialDot = DEFAULT_DOT_THANH_TOAN_CONFIG.find(d => today >= d.start && today <= d.end) || DEFAULT_DOT_THANH_TOAN_CONFIG[0];
     const [tuNgayGV, setTuNgayGV] = useState(initialDot.start);
-    const [denNgayGV, setDenNgayGV] = useState(initialDot.end);
+    const [denNgayGV, setDenNgayGV] = useState(today < initialDot.end ? today : initialDot.end);
     const [gvData, setGvData] = useState([]);
     const [giaAn, setGiaAn] = useState(0);
     const [giaNgu, setGiaNgu] = useState(0);
@@ -3176,6 +3176,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     type="date" 
                                     value={denNgayGV} 
                                     min={tuNgayGV || undefined}
+                                    max={today}
                                     onChange={e => handleDenNgayGVChange(e.target.value)} 
                                     style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem', fontFamily: 'inherit' }} 
                                 />
