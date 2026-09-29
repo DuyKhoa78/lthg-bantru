@@ -17,11 +17,19 @@ const DOW_NAMES_VN = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Th�
 
 const formatDateDMY = (dateStr) => {
     if (!dateStr) return '';
-    const parts = dateStr.split('-');
+    const clean = String(dateStr).split('T')[0];
+    const parts = clean.split('-');
     if (parts.length === 3) {
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
     return dateStr;
+};
+
+const addDaysFrontend = (dateStr, days) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 const getDefaultSuatAnRange = (month, year) => {
@@ -78,13 +86,21 @@ export default function BaoCao() {
 
     // Tab Học Sinh
     const [monthHS, setMonthHS] = useState(today.slice(0, 7));
+    const [tuNgayHS, setTuNgayHS] = useState(`${today.slice(0, 7)}-01`);
+    const [denNgayHS, setDenNgayHS] = useState(today);
     const [lopFilter, setLopFilter] = useState('');
     const [hsData, setHsData] = useState([]);
     const [loadingHS, setLoadingHS] = useState(true);
     const [hsPage, setHsPage] = useState(0);
     const HS_PER_PAGE = 50;
 
-    // Tab Giáo viên (linh hoạt theo đợt 4 tuần / tháng / học kỳ 4 tháng / tùy chọn ngày)
+    // Tab Giáo viên (Kỳ trực & Thanh toán & Thống kê theo khoảng ngày)
+    const [subTabGV, setSubTabGV] = useState('ky_truc'); // 'ky_truc' | 'thong_ke'
+    const [kyList, setKyList] = useState([]);
+    const [selectedKyId, setSelectedKyId] = useState('');
+    const [selectedKy, setSelectedKy] = useState(null);
+    const [loadingKyList, setLoadingKyList] = useState(false);
+
     const initialDot = DEFAULT_DOT_THANH_TOAN_CONFIG.find(d => today >= d.start && today <= d.end) || DEFAULT_DOT_THANH_TOAN_CONFIG[0];
     const [tuNgayGV, setTuNgayGV] = useState(initialDot.start);
     const [denNgayGV, setDenNgayGV] = useState(today < initialDot.end ? today : initialDot.end);
@@ -94,6 +110,21 @@ export default function BaoCao() {
     const [quanLyName, setQuanLyName] = useState('');
     const [keToanName, setKeToanName] = useState('');
     const [loadingGV, setLoadingGV] = useState(true);
+
+    // Modal Chốt kỳ
+    const [showChotKyModal, setShowChotKyModal] = useState(false);
+    const [chotDenNgay, setChotDenNgay] = useState(today);
+    const [chotGhiChu, setChotGhiChu] = useState('');
+    const [previewChotData, setPreviewChotData] = useState(null);
+    const [loadingPreviewChot, setLoadingPreviewChot] = useState(false);
+    const [submittingChotKy, setSubmittingChotKy] = useState(false);
+
+    // Sub-tab Thống kê tùy chọn
+    const [tkTuNgay, setTkTuNgay] = useState('2026-09-07');
+    const [tkDenNgay, setTkDenNgay] = useState(today);
+    const [thongKeData, setThongKeData] = useState(null);
+    const [loadingThongKe, setLoadingThongKe] = useState(false);
+    const [exportingTkPdf, setExportingTkPdf] = useState(false);
 
     // Xuất báo cáo điểm danh ăn chính thức
     const [showExportAnModal, setShowExportAnModal] = useState(false);
@@ -318,26 +349,62 @@ export default function BaoCao() {
         }
     };
 
-    // Lấy dữ liệu Báo cáo HS
+    // Lấy dữ liệu Báo cáo HS theo khoảng ngày linh hoạt
     useEffect(() => {
-        const [y, m] = monthHS.split('-');
+        if (!tuNgayHS || !denNgayHS) return;
+        if (tuNgayHS > denNgayHS) return;
         setLoadingHS(true);
         const ctrl = new AbortController();
-        api.get(`/api/baocao/diemdanh/?thang=${m}&nam=${y}&lop=${lopFilter}`, { signal: ctrl.signal })
+        api.get(`/api/baocao/diemdanh/?tu_ngay=${tuNgayHS}&den_ngay=${denNgayHS}&lop=${lopFilter}`, { signal: ctrl.signal })
             .then(res => {
                 if (res.data?.ok) { setHsData(res.data.data || []); setHsPage(0); }
             })
             .catch(err => { if (err?.name !== 'CanceledError') console.error(err); })
             .finally(() => setLoadingHS(false));
         return () => ctrl.abort();
-    }, [monthHS, lopFilter]);
+    }, [tuNgayHS, denNgayHS, lopFilter]);
 
-    // Handlers chọn thời gian tính tiền trực GV linh hoạt
-    const handleTuNgayGVChange = (val) => setTuNgayGV(val);
-    const handleDenNgayGVChange = (val) => setDenNgayGV(val);
+    const handleQuickSetHS = (type) => {
+        const cur = new Date();
+        const toYMD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (type === 'hom_nay') {
+            setTuNgayHS(today);
+            setDenNgayHS(today);
+        } else if (type === 'tuan_nay') {
+            const day = cur.getDay();
+            const diffToMon = cur.getDate() - (day === 0 ? 6 : day - 1);
+            const mon = new Date(new Date().setDate(diffToMon));
+            const fri = new Date(mon);
+            fri.setDate(mon.getDate() + 4);
+            setTuNgayHS(toYMD(mon));
+            setDenNgayHS(toYMD(fri));
+        } else if (type === 'thang_nay') {
+            const [y, m] = today.slice(0, 7).split('-');
+            const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+            setTuNgayHS(`${today.slice(0, 7)}-01`);
+            setDenNgayHS(`${today.slice(0, 7)}-${String(lastDay).padStart(2, '0')}`);
+            setMonthHS(today.slice(0, 7));
+        } else if (type === 'khai_giang_den_nay') {
+            setTuNgayHS('2026-09-07');
+            setDenNgayHS(today);
+        }
+    };
+
+    const handleMonthHSChange = (monthStr) => {
+        setMonthHS(monthStr);
+        if (monthStr) {
+            const [y, m] = monthStr.split('-');
+            const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+            setTuNgayHS(`${monthStr}-01`);
+            setDenNgayHS(`${monthStr}-${String(lastDay).padStart(2, '0')}`);
+        }
+    };
 
     const getTimeRangeLabel = (start, end) => {
         if (!start || !end) return '';
+        if (selectedKy && selectedKy.ten_ky) {
+            return selectedKy.ten_ky;
+        }
         const matchedDot = dotThanhToanConfig.find(d => d.start === start && d.end === end);
         if (matchedDot) return `Đợt ${matchedDot.dot} (${matchedDot.weeks || ''})`;
 
@@ -353,36 +420,307 @@ export default function BaoCao() {
         return '';
     };
 
-
-
-    // Lấy dữ liệu Báo cáo GV
-    useEffect(() => {
-        if (!tuNgayGV || !denNgayGV || tuNgayGV > denNgayGV) return;
-        setLoadingGV(true);
-        const ctrl = new AbortController();
-        api.get(`/api/baocao/luong-gv/?tu_ngay=${tuNgayGV}&den_ngay=${denNgayGV}`, { signal: ctrl.signal })
-            .then(res => {
-                if (res.data?.ok) {
-                    const sortedGv = (res.data.data || []).sort((a, b) => {
-                        const nameA = getSortNames(a.ho_ten);
-                        const nameB = getSortNames(b.ho_ten);
-                        let cmp = nameA.first.localeCompare(nameB.first, 'vi');
-                        if (cmp !== 0) return cmp;
-                        cmp = nameA.last.localeCompare(nameB.last, 'vi');
-                        if (cmp !== 0) return cmp;
-                        return nameA.middle.localeCompare(nameB.middle, 'vi');
-                    });
-                    setGvData(sortedGv);
-                    setGiaAn(res.data.don_gia_an || 0);
-                    setGiaNgu(res.data.don_gia_ngu || 0);
-                    setQuanLyName(res.data.quan_ly_name || '');
-                    setKeToanName(res.data.ke_toan_name || '');
+    // ── Lấy danh sách kỳ trực GV ──
+    const fetchKyList = async (preferredKyId = null) => {
+        setLoadingKyList(true);
+        try {
+            const res = await api.get('/api/baocao/ky-truc/');
+            if (res.data?.ok) {
+                const list = res.data.data || [];
+                setKyList(list);
+                if (list.length > 0) {
+                    let targetId = preferredKyId;
+                    if (!targetId || !list.some(k => String(k.id) === String(targetId))) {
+                        const activeKy = list.find(k => k.trang_thai === 'dang_dien_ra');
+                        targetId = activeKy ? activeKy.id : list[0].id;
+                    }
+                    setSelectedKyId(targetId);
                 }
-            })
-            .catch(err => { if (err?.name !== 'CanceledError') console.error(err); })
-            .finally(() => setLoadingGV(false));
-        return () => ctrl.abort();
-    }, [tuNgayGV, denNgayGV]);
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải danh sách kỳ trực:', err);
+        } finally {
+            setLoadingKyList(false);
+        }
+    };
+
+    // ── Lấy chi tiết kỳ trực được chọn ──
+    const fetchKyDetail = async (kyId) => {
+        if (!kyId) return;
+        setLoadingGV(true);
+        try {
+            const res = await api.get(`/api/baocao/ky-truc/${kyId}/chi-tiet`);
+            if (res.data?.ok) {
+                const ky = res.data.ky;
+                setSelectedKy(ky);
+                setTuNgayGV(ky.tu_ngay);
+                setDenNgayGV(ky.den_ngay || res.data.effectiveEnd || today);
+                const sortedGv = (res.data.gv_list || res.data.data || []).sort((a, b) => {
+                    const nameA = getSortNames(a.ho_ten);
+                    const nameB = getSortNames(b.ho_ten);
+                    let cmp = nameA.first.localeCompare(nameB.first, 'vi');
+                    if (cmp !== 0) return cmp;
+                    cmp = nameA.last.localeCompare(nameB.last, 'vi');
+                    if (cmp !== 0) return cmp;
+                    return nameA.middle.localeCompare(nameB.middle, 'vi');
+                });
+                setGvData(sortedGv);
+                setGiaAn(res.data.don_gia_an || 0);
+                setGiaNgu(res.data.don_gia_ngu || 0);
+                setQuanLyName(res.data.quan_ly_name || '');
+                setKeToanName(res.data.ke_toan_name || '');
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải chi tiết kỳ trực:', err);
+        } finally {
+            setLoadingGV(false);
+        }
+    };
+
+    // Effect tự động tải danh sách và chi tiết kỳ khi mở tab Giáo viên
+    useEffect(() => {
+        if (canExportGV && activeTab === 'panel-gv' && subTabGV === 'ky_truc') {
+            if (kyList.length === 0) {
+                fetchKyList();
+            } else if (selectedKyId) {
+                fetchKyDetail(selectedKyId);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, canExportGV, selectedKyId, subTabGV, kyList.length]);
+
+    // ── Xem trước chốt kỳ trực ──
+    const fetchPreviewChot = async (denNgay) => {
+        if (!selectedKyId || !denNgay) return;
+        setLoadingPreviewChot(true);
+        try {
+            const res = await api.get(`/api/baocao/ky-truc/${selectedKyId}/preview-chot?den_ngay=${denNgay}`);
+            if (res.data?.ok) {
+                setPreviewChotData(res.data.preview);
+            } else {
+                setPreviewChotData(null);
+            }
+        } catch (err) {
+            console.error('Lỗi xem trước chốt kỳ:', err);
+            setPreviewChotData(null);
+        } finally {
+            setLoadingPreviewChot(false);
+        }
+    };
+
+    // ── Thực hiện chốt kỳ trực ──
+    const submitChotKy = async () => {
+        if (!selectedKyId || !chotDenNgay) return;
+        setSubmittingChotKy(true);
+        try {
+            const res = await api.post(`/api/baocao/ky-truc/${selectedKyId}/chot`, {
+                den_ngay: chotDenNgay,
+                ghi_chu: chotGhiChu
+            });
+            if (res.data?.ok) {
+                alert(res.data.message || 'Đã chốt kỳ thành công!');
+                setShowChotKyModal(false);
+                setChotGhiChu('');
+                await fetchKyList(res.data.closed_ky?.id || res.data.new_ky?.id);
+            }
+        } catch (err) {
+            console.error('Lỗi chốt kỳ:', err);
+            alert(err.response?.data?.error || 'Có lỗi xảy ra khi chốt kỳ');
+        } finally {
+            setSubmittingChotKy(false);
+        }
+    };
+
+    // ── Thống kê tiền trực theo khoảng ngày tùy chọn ──
+    const fetchThongKe = async (tu = tkTuNgay, den = tkDenNgay) => {
+        if (!tu || !den || tu > den) {
+            alert('Vui lòng chọn khoảng ngày hợp lệ (Từ ngày ≤ Đến ngày)!');
+            return;
+        }
+        setLoadingThongKe(true);
+        try {
+            const res = await api.get(`/api/baocao/thong-ke-luong-gv/?tu_ngay=${tu}&den_ngay=${den}`);
+            if (res.data?.ok) {
+                const sortedGv = (res.data.data || []).sort((a, b) => {
+                    const nameA = getSortNames(a.ho_ten);
+                    const nameB = getSortNames(b.ho_ten);
+                    let cmp = nameA.first.localeCompare(nameB.first, 'vi');
+                    if (cmp !== 0) return cmp;
+                    cmp = nameA.last.localeCompare(nameB.last, 'vi');
+                    if (cmp !== 0) return cmp;
+                    return nameA.middle.localeCompare(nameB.middle, 'vi');
+                });
+                setThongKeData({
+                    ...res.data,
+                    data: sortedGv
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải thống kê:', err);
+            alert(err.response?.data?.error || 'Có lỗi xảy ra khi tải thống kê');
+        } finally {
+            setLoadingThongKe(false);
+        }
+    };
+
+    // Xuất Excel Thống kê tổng hợp
+    const exportThongKeExcel = () => {
+        if (!thongKeData || !thongKeData.data || thongKeData.data.length === 0) {
+            alert('Không có dữ liệu thống kê để xuất!');
+            return;
+        }
+        const wb = XLSX.utils.book_new();
+
+        const rows = [];
+        rows.push(['BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN']);
+        rows.push([`Khoảng thời gian: Từ ngày ${formatDateDMY(tkTuNgay)} đến ngày ${formatDateDMY(tkDenNgay)}`]);
+        rows.push([`Ngày lập: ${formatDateDMY(today)}`]);
+        rows.push([]);
+        rows.push(['TỔNG QUAN SỐ LIỆU TRONG KHOẢNG NGÀY:']);
+        rows.push(['Tổng GV tham gia:', thongKeData.summary?.tong_so_gv || 0]);
+        rows.push(['Tổng ca ăn:', thongKeData.summary?.totCaAn || 0]);
+        rows.push(['Tổng ca ngủ:', thongKeData.summary?.totCaNgu || 0]);
+        rows.push(['Tổng tiền trực phát sinh (đ):', (thongKeData.summary?.totTienPhatSinh || 0)]);
+        rows.push([]);
+        rows.push(['CHI TIẾT THEO GIÁO VIÊN:']);
+        rows.push(['STT', 'Họ tên giáo viên', 'Số ca ăn', 'Số ca ngủ', 'Thành tiền phát sinh (đ)']);
+
+        thongKeData.data.forEach((g, idx) => {
+            rows.push([
+                idx + 1,
+                g.ho_ten,
+                g.so_ca_an || 0,
+                g.so_ca_ngu || 0,
+                g.tong_tien || 0
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'ThongKeGV');
+
+        if (thongKeData.kyList && thongKeData.kyList.length > 0) {
+            const kyRows = [
+                ['CÁC KỲ TRỰC LIÊN QUAN TRONG KHOẢNG THỜI GIAN'],
+                ['STT', 'Tên kỳ', 'Từ ngày', 'Đến ngày', 'Trạng thái', 'Tổng tiền kỳ (đ)']
+            ];
+            thongKeData.kyList.forEach((k, idx) => {
+                kyRows.push([
+                    idx + 1,
+                    k.ten_ky,
+                    formatDateDMY(k.tu_ngay),
+                    k.den_ngay ? formatDateDMY(k.den_ngay) : 'Đang diễn ra',
+                    k.trang_thai === 'da_chot' ? 'Đã chốt' : 'Đang diễn ra',
+                    k.tong_tien || 0
+                ]);
+            });
+            const wsKy = XLSX.utils.aoa_to_sheet(kyRows);
+            XLSX.utils.book_append_sheet(wb, wsKy, 'KyTrucPhanBo');
+        }
+
+        XLSX.writeFile(wb, `thong-ke-tien-truc_${tkTuNgay}_den_${tkDenNgay}.xlsx`);
+    };
+
+    // Xuất PDF Thống kê tổng hợp
+    const exportThongKePDF = () => {
+        if (!thongKeData || !thongKeData.data || thongKeData.data.length === 0) {
+            alert('Không có dữ liệu thống kê để xuất!');
+            return;
+        }
+        setExportingTkPdf(true);
+        try {
+            const tuNgayDMY = formatDateDMY(tkTuNgay);
+            const denNgayDMY = formatDateDMY(tkDenNgay);
+            const dateStr = `Từ ngày ${tuNgayDMY} đến ngày ${denNgayDMY}`;
+            const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+
+            let tbody = '';
+            thongKeData.data.forEach((g, i) => {
+                tbody += `<tr>
+                    <td class="tc">${i + 1}</td>
+                    <td class="tl">${g.ho_ten}</td>
+                    <td class="tc">${g.so_ca_an || 0}</td>
+                    <td class="tc">${g.so_ca_ngu || 0}</td>
+                    <td class="tr" style="font-weight:700; color:#059669;">${(g.tong_tien || 0).toLocaleString('vi-VN')} đ</td>
+                </tr>`;
+            });
+
+            tbody += `<tr style="background:#f0fdf4; font-weight:bold;">
+                <td colspan="2" class="tc">TỔNG CỘNG</td>
+                <td class="tc">${thongKeData.summary?.totCaAn || 0}</td>
+                <td class="tc">${thongKeData.summary?.totCaNgu || 0}</td>
+                <td class="tr" style="color:#059669; font-size:10pt;">${(thongKeData.summary?.totTienPhatSinh || 0).toLocaleString('vi-VN')} đ</td>
+            </tr>`;
+
+            const htmlPage = `
+            <div class="hdr-inner-an">
+                <table style="width:100%; border:none; margin-bottom:12px;">
+                    <tr>
+                        <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+                            <div style="font-size:9.5pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>THÀNH PHỐ HỒ CHÍ MINH</div>
+                            <div style="font-size:9.5pt; font-weight:bold;">TRƯỜNG THPT LÊ THI HỒNG GẤM</div>
+                        </td>
+                        <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+                            <div style="font-size:9.5pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                            <div style="font-size:9.5pt; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</div>
+                        </td>
+                    </tr>
+                </table>
+                <div style="text-align:center; margin:14px 0 10px 0;">
+                    <div style="font-size:14pt; font-weight:bold; text-transform:uppercase;">BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN</div>
+                    <div style="font-size:10.5pt; font-style:italic; margin-top:3px;">${dateStr}</div>
+                </div>
+                <table class="report-table" style="width:100%; border-collapse:collapse; font-size:9pt;">
+                    <thead>
+                        <tr style="background:#e2e8f0; font-weight:bold;">
+                            <th style="width:40px; border:1px solid #94a3b8; padding:6px;">STT</th>
+                            <th style="border:1px solid #94a3b8; padding:6px;">Họ tên giáo viên</th>
+                            <th style="width:80px; border:1px solid #94a3b8; padding:6px;">Số ca ăn</th>
+                            <th style="width:80px; border:1px solid #94a3b8; padding:6px;">Số ca ngủ</th>
+                            <th style="width:140px; border:1px solid #94a3b8; padding:6px;">Tiền trực phát sinh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tbody}
+                    </tbody>
+                </table>
+                <table style="width:100%; border:none; margin-top:25px; page-break-inside:avoid;">
+                    <tr>
+                        <td style="width:50%; text-align:center; vertical-align:top; border:none;">
+                            <div style="font-weight:bold; font-size:9.5pt;">NGƯỜI LẬP BÁO CÁO</div>
+                            <div style="font-style:italic; font-size:8.5pt;">(Ký, ghi rõ họ tên)</div>
+                            <div style="margin-top:55px; font-weight:bold; font-size:9.5pt;">${keToanName || user?.fullname || ''}</div>
+                        </td>
+                        <td style="width:50%; text-align:center; vertical-align:top; border:none;">
+                            <div style="font-style:italic; font-size:8.5pt;">${todayStr}</div>
+                            <div style="font-weight:bold; font-size:9.5pt;">HIỆU TRƯỞNG / QUẢN LÝ BÁN TRÚ</div>
+                            <div style="font-style:italic; font-size:8.5pt;">(Ký, đóng dấu)</div>
+                            <div style="margin-top:55px; font-weight:bold; font-size:9.5pt;">${quanLyName || ''}</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>`;
+
+            const css = `@page { size: A4 portrait; margin: 12mm 10mm; }
+            body { font-family: "Times New Roman", Times, serif; font-size: 10pt; color: #000; margin: 0; padding: 0; }
+            .tc { text-align: center; } .tl { text-align: left; } .tr { text-align: right; }
+            table.report-table td { border: 1px solid #94a3b8; padding: 4px 6px; }`;
+
+            const w = window.open('', '_blank');
+            if (!w) { alert('Trình duyệt chặn popup!'); return; }
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Thống kê tiền trực ${tuNgayDMY} - ${denNgayDMY}</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.close();
+        } catch (err) {
+            console.error('Lỗi xuất PDF:', err);
+            alert('Lỗi xuất PDF: ' + err.message);
+        } finally {
+            setExportingTkPdf(false);
+        }
+    };
+
+    // ── Tính toán số liệu Giáo Viên ──
+    const totCaAn = gvData.reduce((a, g) => a + (g.so_ca_an || 0), 0);
+    const totCaNgu = gvData.reduce((a, g) => a + (g.so_ca_ngu || 0), 0);
+    const totTien = gvData.reduce((a, g) => a + (g.tong_tien || 0), 0);
 
     // ── Tính toán số liệu Học Sinh ──
     const totalHS = hsData.length;
@@ -410,10 +748,6 @@ export default function BaoCao() {
     // Lớp list (cho filter)
     const lopList = useMemo(() => [...new Set(hsData.map(h => h.lop))].sort(), [hsData]);
 
-    // ── Tính toán số liệu Giáo Viên ──
-    const totCaAn = gvData.reduce((a, g) => a + g.so_ca_an, 0);
-    const totCaNgu = gvData.reduce((a, g) => a + g.so_ca_ngu, 0);
-    const totTien = gvData.reduce((a, g) => a + g.tong_tien, 0);
 
     // ── Tính các tuần trong tháng (cho chọn tuần xuất) ──
     const computeWeekMondayStrs = (month, year) => {
@@ -2175,15 +2509,18 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
 
     // ── EXPORT ──
     const exportHsExcel = () => {
+        const tuNgayDMY = tuNgayHS ? tuNgayHS.split('-').reverse().join('/') : '';
+        const denNgayDMY = denNgayHS ? denNgayHS.split('-').reverse().join('/') : '';
         const rows = [
             ['DANH SÁCH TỔNG HỢP ĐIỂM DANH HỌC SINH'],
-            ['Tháng: ' + monthHS], [],
+            [`Thời gian: Từ ngày ${tuNgayDMY} đến ngày ${denNgayDMY}`],
+            [lopFilter ? `Lớp: ${lopFilter}` : 'Toàn trường'], [],
             ['STT', 'Họ tên', 'Lớp', 'Ngày có mặt(Ăn)', 'Vắng(Ăn)', 'Phép(Ăn)', 'Ngày có mặt(Ngủ)', 'Vắng(Ngủ)', 'Phép(Ngủ)'],
             ...hsData.map((h, i) => [i + 1, h.ho_ten, h.lop, h.so_ngay_co_mat_an, h.so_ngay_vang_an, h.so_ngay_phep_an, h.so_ngay_co_mat_ngu, h.so_ngay_vang_ngu, h.so_ngay_phep_ngu])
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'HS');
-        XLSX.writeFile(wb, `baocao-hs-${monthHS}.xlsx`);
+        XLSX.writeFile(wb, `baocao-hs-${tuNgayHS}-den-${denNgayHS}.xlsx`);
     };
 
     const exportGvExcel = () => {
@@ -2936,10 +3273,46 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             {activeTab === 'panel-hs' && (
                 <div className="bc-main-panel active">
                     {/* Filter bar */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-                        <label style={{ fontWeight: 600 }}><i className="fas fa-calendar-alt"></i> Chọn Tháng:</label>
-                        <input type="month" value={monthHS} onChange={e => setMonthHS(e.target.value)} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit' }} />
-                        <button className="btn btn-outline btn-sm" onClick={() => setMonthHS(today.slice(0, 7))}>Tháng này</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#f8fafc', padding: '6px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', flexWrap: 'wrap' }}>
+                            <label style={{ fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <i className="fas fa-calendar-alt" style={{ color: '#0ea5e9' }}></i> Từ ngày:
+                            </label>
+                            <input
+                                type="date"
+                                value={tuNgayHS}
+                                onChange={e => setTuNgayHS(e.target.value)}
+                                style={{ padding: '5px 8px', borderRadius: 6, border: '1.5px solid #cbd5e1', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}
+                            />
+                            <label style={{ fontWeight: 600, color: '#334155', marginLeft: 4 }}>
+                                Đến ngày:
+                            </label>
+                            <input
+                                type="date"
+                                value={denNgayHS}
+                                onChange={e => setDenNgayHS(e.target.value)}
+                                style={{ padding: '5px 8px', borderRadius: 6, border: '1.5px solid #cbd5e1', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}
+                            />
+                            <span style={{ fontSize: '0.8rem', color: '#0284c7', background: '#e0f2fe', padding: '3px 8px', borderRadius: 5, fontWeight: 700 }}>
+                                {tuNgayHS && denNgayHS ? `${tuNgayHS.split('-').reverse().join('/')} – ${denNgayHS.split('-').reverse().join('/')}` : ''}
+                            </span>
+                            <div style={{ display: 'inline-flex', gap: 4, marginLeft: 4 }}>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '3px 8px', fontSize: '0.78rem', borderRadius: 5 }} onClick={() => handleQuickSetHS('hom_nay')} title="Xem hôm nay">Hôm nay</button>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '3px 8px', fontSize: '0.78rem', borderRadius: 5 }} onClick={() => handleQuickSetHS('tuan_nay')} title="Xem tuần này">Tuần này</button>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '3px 8px', fontSize: '0.78rem', borderRadius: 5 }} onClick={() => handleQuickSetHS('thang_nay')} title="Xem cả tháng này">Tháng này</button>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '3px 8px', fontSize: '0.78rem', borderRadius: 5 }} onClick={() => handleQuickSetHS('khai_giang_den_nay')} title="Từ khai giảng đến nay">Kỳ hiện tại</button>
+                            </div>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 6, borderLeft: '1px solid #cbd5e1', paddingLeft: 8 }}>
+                                <span style={{ fontSize: '0.76rem', color: '#64748b' }}>hoặc tháng:</span>
+                                <input
+                                    type="month"
+                                    value={monthHS}
+                                    onChange={e => handleMonthHSChange(e.target.value)}
+                                    title="Chọn nhanh cả tháng"
+                                    style={{ padding: '3px 6px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: '0.78rem', fontFamily: 'inherit', background: '#fff' }}
+                                />
+                            </div>
+                        </div>
                         {canExportHS && (
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <button
@@ -3065,13 +3438,13 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 </div>
                             );
                         })}
-                        {khoiStats.length === 0 && <div className="bc-empty"><i className="fas fa-inbox"></i> Chưa có dữ liệu điểm danh tháng này</div>}
+                        {khoiStats.length === 0 && <div className="bc-empty"><i className="fas fa-inbox"></i> Chưa có dữ liệu điểm danh trong khoảng ngày này</div>}
                     </div>
 
                     {/* Bảng chi tiết HS */}
                     <div className="bc-detail-section" style={{ marginTop: 18 }}>
                         <div className="bc-detail-header">
-                            <h3><i className="fas fa-list-alt"></i> Tổng hợp chuyên cần từng học sinh (Tháng {monthHS.split('-')[1]}/{monthHS.split('-')[0]})</h3>
+                            <h3><i className="fas fa-list-alt"></i> Tổng hợp chuyên cần từng học sinh ({tuNgayHS && denNgayHS ? `Từ ${tuNgayHS.split('-').reverse().join('/')} đến ${denNgayHS.split('-').reverse().join('/')}` : `Tháng ${monthHS.split('-')[1]}/${monthHS.split('-')[0]}`})</h3>
                             {canExportHS && (
                                 <div className="bc-export-btns">
                                     <button className="btn btn-success btn-sm" onClick={exportHsExcel}><i className="fas fa-file-excel"></i> Xuất Excel</button>
@@ -3103,7 +3476,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                             <td>{h.so_ngay_phep_ngu}</td>
                                         </tr>
                                     ))}
-                                    {hsData.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có dữ liệu cho tháng {monthHS}</td></tr>}
+                                    {hsData.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có dữ liệu điểm danh từ {tuNgayHS ? tuNgayHS.split('-').reverse().join('/') : ''} đến {denNgayHS ? denNgayHS.split('-').reverse().join('/') : ''}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -3154,184 +3527,536 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             {/* PANEL GIÁO VIÊN */}
             {canExportGV && activeTab === 'panel-gv' && (
                 <div className="bc-main-panel active">
-                    <div className="bc-filter-row" style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#334155' }}>
-                                    <i className="fas fa-calendar-alt" style={{ marginRight: 4, color: 'var(--primary)' }}></i> Từ ngày:
-                                </label>
-                                <input 
-                                    type="date" 
-                                    value={tuNgayGV} 
-                                    max={denNgayGV || undefined}
-                                    onChange={e => handleTuNgayGVChange(e.target.value)} 
-                                    style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem', fontFamily: 'inherit' }} 
-                                />
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#334155' }}>
-                                    <i className="fas fa-calendar-alt" style={{ marginRight: 4, color: 'var(--primary)' }}></i> Đến ngày:
-                                </label>
-                                <input 
-                                    type="date" 
-                                    value={denNgayGV} 
-                                    min={tuNgayGV || undefined}
-                                    max={today}
-                                    onChange={e => handleDenNgayGVChange(e.target.value)} 
-                                    style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem', fontFamily: 'inherit' }} 
-                                />
-                            </div>
-                        </div>
-                        {loadingGV && <span style={{ color: 'var(--primary)' }}><i className="fas fa-spinner fa-spin"></i> Đang tính lương...</span>}
-                        {canExportGV && (
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                <button className="btn btn-sm" onClick={exportGvCongExcel} style={{ color: '#059669', border: '1.5px solid #34d399', backgroundColor: '#ecfdf5', fontWeight: 600, boxShadow: '0 2px 4px rgba(52,211,153,0.1)' }}><i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Bảng Công (Excel)</button>
-                                <button className="btn btn-sm" onClick={exportGvCongPDF} disabled={exportingGvCongPdf} style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600, boxShadow: '0 2px 4px rgba(248,113,113,0.1)' }}>
-                                    {exportingGvCongPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>} Bảng Công (PDF)
-                                </button>
-                                <div style={{ width: 1, background: '#cbd5e1', margin: '0 4px' }}></div>
-                                <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Bảng Lương (Excel)</button>
-                                <button className="btn btn-primary btn-sm" onClick={exportGvPDF} disabled={exportingGvPdf} style={{ background: '#ef4444', borderColor: '#ef4444' }}>
-                                    {exportingGvPdf ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Bảng Lương (PDF)
-                                </button>
-                            </div>
-                        )}
+                    {/* Sub-tabs chuyển đổi: Kỳ trực & Thanh toán VS Thống kê linh hoạt */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '2px solid #e2e8f0', paddingBottom: 8 }}>
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${subTabGV === 'ky_truc' ? 'btn-primary' : 'btn-ghost'}`}
+                            onClick={() => setSubTabGV('ky_truc')}
+                            style={{ fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                            <i className="fas fa-calendar-check"></i> Kỳ chốt tiền trực
+                        </button>
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${subTabGV === 'thong_ke' ? 'btn-primary' : 'btn-ghost'}`}
+                            onClick={() => {
+                                setSubTabGV('thong_ke');
+                                if (!thongKeData) fetchThongKe('2026-09-07', today);
+                            }}
+                            style={{ fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                            <i className="fas fa-chart-line"></i> Thống kê theo khoảng ngày
+                        </button>
                     </div>
 
-                    {/* Stat cards GV */}
-                    <div className="gv-stat-grid">
-                        <div className="gv-unit-card"><div className="gv-unit-icon purple"><i className="fas fa-chalkboard-teacher"></i></div><div className="gv-unit-info"><p>Tổng GV tham gia</p><h3>{gvData.length}</h3></div></div>
-                        <div className="gv-unit-card"><div className="gv-unit-icon blue"><i className="fas fa-calendar-check"></i></div><div className="gv-unit-info"><p>Tổng ca trực (kỳ)</p><h3>{totCaAn + totCaNgu}</h3></div></div>
-                        <div className="gv-unit-card"><div className="gv-unit-icon green"><i className="fas fa-utensils"></i></div><div className="gv-unit-info"><p>Ca ăn / Ca ngủ</p><h3>{totCaAn} / {totCaNgu}</h3></div></div>
-                        <div className="gv-unit-card"><div className="gv-unit-icon orange"><i className="fas fa-money-bill-wave"></i></div><div className="gv-unit-info"><p>Tổng tiền trực</p><h3>{totTien.toLocaleString('vi-VN')} đ</h3></div></div>
-                    </div>
+                    {/* ═══ SUB-TAB 1: KỲ CHỐT TIỀN TRỰC ═══ */}
+                    {subTabGV === 'ky_truc' && (
+                        <div>
+                            {/* Filter & Action Row */}
+                            <div className="bc-filter-row" style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <label style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <i className="fas fa-layer-group" style={{ color: 'var(--primary)' }}></i> Kỳ trực:
+                                    </label>
+                                    <select
+                                        value={selectedKyId}
+                                        onChange={e => {
+                                            const newId = e.target.value;
+                                            setSelectedKyId(newId);
+                                            fetchKyDetail(newId);
+                                        }}
+                                        disabled={loadingKyList}
+                                        style={{
+                                            padding: '7px 14px',
+                                            borderRadius: 8,
+                                            border: '2px solid #93c5fd',
+                                            background: '#eff6ff',
+                                            color: '#1e3a8a',
+                                            fontWeight: 700,
+                                            fontSize: '0.9rem',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {kyList.map(k => (
+                                            <option key={k.id} value={k.id}>
+                                                {k.ten_ky} ({formatDateDMY(k.tu_ngay)} → {k.den_ngay ? formatDateDMY(k.den_ngay) : 'Hiện tại'}) • {k.trang_thai === 'da_chot' ? 'Đã chốt' : 'Đang diễn ra'}
+                                            </option>
+                                        ))}
+                                    </select>
 
+                                    {/* Badge trạng thái kỳ */}
+                                    {selectedKy && (
+                                        <span
+                                            className="badge"
+                                            style={{
+                                                background: selectedKy.trang_thai === 'dang_dien_ra' ? '#dbeafe' : '#f3e8ff',
+                                                color: selectedKy.trang_thai === 'dang_dien_ra' ? '#1e40af' : '#6b21a8',
+                                                fontWeight: 700,
+                                                fontSize: '0.8rem',
+                                                padding: '5px 10px'
+                                            }}
+                                        >
+                                            <i className={selectedKy.trang_thai === 'dang_dien_ra' ? 'fas fa-play-circle' : 'fas fa-check-double'} style={{ marginRight: 4 }}></i>
+                                            {selectedKy.trang_thai === 'dang_dien_ra' ? 'Đang diễn ra' : `Đã chốt (${formatDateDMY(selectedKy.ngay_chot)})`}
+                                        </span>
+                                    )}
+                                </div>
 
-                    {/* Bảng chi tiết GV */}
-                    <div className="bc-detail-section">
-                        <div className="bc-detail-header">
-                            <h3>
-                                <i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên
-                                <span style={{ fontSize: '0.85rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
-                                    (Từ {formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)})
-                                </span>
-                            </h3>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', borderRadius: 8, padding: '7px 14px' }}>
-                                    <i className="fas fa-tag" style={{ color: '#64748b', fontSize: '.8rem' }}></i>
-                                    <span className="ca-an-badge" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                        <i className="fas fa-utensils"></i> {giaAn.toLocaleString('vi-VN')}đ/ca
-                                    </span>
-                                    <span className="ca-ngu-badge" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                        <i className="fas fa-bed"></i> {giaNgu.toLocaleString('vi-VN')}đ/ca
-                                    </span>
+                                {/* Nút thao tác chốt kỳ để reset qua tháng/kỳ tiếp theo */}
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {selectedKy?.trang_thai === 'dang_dien_ra' && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm"
+                                            onClick={() => {
+                                                setChotDenNgay(today);
+                                                setChotGhiChu('');
+                                                fetchPreviewChot(today);
+                                                setShowChotKyModal(true);
+                                            }}
+                                            style={{
+                                                background: '#4f46e5',
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                borderRadius: 8,
+                                                boxShadow: '0 2px 6px rgba(79,70,229,0.25)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 6
+                                            }}
+                                        >
+                                            <i className="fas fa-lock"></i> Chốt kỳ này
+                                        </button>
+                                    )}
+                                </div>
+
+                                {loadingGV && <span style={{ color: 'var(--primary)', fontSize: '0.88rem' }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</span>}
+
+                                {/* 4 nút xuất Báo cáo giữ nguyên */}
+                                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    <button className="btn btn-sm" onClick={exportGvCongExcel} style={{ color: '#059669', border: '1.5px solid #34d399', backgroundColor: '#ecfdf5', fontWeight: 600, boxShadow: '0 2px 4px rgba(52,211,153,0.1)' }}><i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Bảng Công (Excel)</button>
+                                    <button className="btn btn-sm" onClick={exportGvCongPDF} disabled={exportingGvCongPdf} style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600, boxShadow: '0 2px 4px rgba(248,113,113,0.1)' }}>
+                                        {exportingGvCongPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>} Bảng Công (PDF)
+                                    </button>
+                                    <div style={{ width: 1, background: '#cbd5e1', margin: '0 4px' }}></div>
+                                    <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Bảng Lương (Excel)</button>
+                                    <button className="btn btn-primary btn-sm" onClick={exportGvPDF} disabled={exportingGvPdf} style={{ background: '#ef4444', borderColor: '#ef4444' }}>
+                                        {exportingGvPdf ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Bảng Lương (PDF)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Stat cards GV */}
+                            <div className="gv-stat-grid">
+                                <div className="gv-unit-card theme-purple">
+                                    <div className="gv-unit-icon purple">
+                                        <i className="fas fa-chalkboard-teacher"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>GV tham gia</p>
+                                        <h3>{gvData.length} <small style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 500 }}>người</small></h3>
+                                    </div>
+                                </div>
+                                <div className="gv-unit-card theme-blue">
+                                    <div className="gv-unit-icon blue">
+                                        <i className="fas fa-calendar-check"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>Tổng ca trực</p>
+                                        <h3>{totCaAn + totCaNgu} <small style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>ca</small></h3>
+                                        <span className="gv-sub-text">{totCaAn} ăn • {totCaNgu} ngủ</span>
+                                    </div>
+                                </div>
+                                <div className="gv-unit-card theme-amber">
+                                    <div className="gv-unit-icon amber">
+                                        <i className="fas fa-layer-group"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>Ca ăn / Ca ngủ</p>
+                                        <div className="gv-shift-badges">
+                                            <span className="gv-shift-pill an" title="Ca trực trưa ăn">
+                                                <i className="fas fa-utensils"></i> {totCaAn} ăn
+                                            </span>
+                                            <span className="gv-shift-pill ngu" title="Ca trực trưa ngủ">
+                                                <i className="fas fa-bed"></i> {totCaNgu} ngủ
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="gv-unit-card theme-green" style={{ background: 'linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%)' }}>
+                                    <div className="gv-unit-icon green">
+                                        <i className="fas fa-money-bill-wave"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>Tổng tiền trực</p>
+                                        <div className="gv-money-display">
+                                            <span className="gv-money-num">{totTien.toLocaleString('vi-VN')}</span>
+                                            <span className="gv-money-curr">đ</span>
+                                        </div>
+                                        <span className="gv-sub-text" style={{ color: '#16a34a', fontWeight: 600 }}>
+                                            <i className="fas fa-check-circle" style={{ marginRight: 3 }}></i>
+                                            kỳ này
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bảng chi tiết GV theo kỳ */}
+                            <div className="bc-detail-section">
+                                <div className="bc-detail-header">
+                                    <h3>
+                                        <i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên — {selectedKy?.ten_ky || ''}
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
+                                            (Từ {formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)})
+                                        </span>
+                                    </h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', borderRadius: 8, padding: '7px 14px' }}>
+                                            <i className="fas fa-tag" style={{ color: '#64748b', fontSize: '.8rem' }}></i>
+                                            <span className="ca-an-badge" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                <i className="fas fa-utensils"></i> {giaAn.toLocaleString('vi-VN')}đ/ca
+                                            </span>
+                                            <span className="ca-ngu-badge" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                <i className="fas fa-bed"></i> {giaNgu.toLocaleString('vi-VN')}đ/ca
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table className="data-table" id="gv-detail-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 44 }}>STT</th>
+                                                <th>Họ tên GV / Nhân sự trực</th>
+                                                <th style={{ textAlign: 'center' }}><i className="fas fa-utensils" style={{ marginRight: 4 }}></i> Số ca ăn 🍽️</th>
+                                                <th style={{ textAlign: 'center' }}><i className="fas fa-bed" style={{ marginRight: 4 }}></i> Số ca ngủ 🛏️</th>
+                                                <th style={{ textAlign: 'right', minWidth: 180 }}>Thành tiền (VNĐ)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {gvData.map((g, i) => (
+                                                <tr key={g.id}>
+                                                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{i + 1}</td>
+                                                    <td>
+                                                        <strong>{g.ho_ten}</strong>
+                                                        {g.is_ngoai && (
+                                                            <span
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    background: '#fef3c7',
+                                                                    color: '#92400e',
+                                                                    border: '1px solid #fde68a',
+                                                                    padding: '2px 6px',
+                                                                    borderRadius: 4,
+                                                                    marginLeft: 8,
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4,
+                                                                    fontWeight: 600,
+                                                                }}
+                                                            >
+                                                                <i className="fas fa-user-tag"></i>
+                                                                Ngoài DS
+                                                            </span>
+                                                        )}
+                                                        {g.so_ca_truc_thay > 0 && (
+                                                            <span
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    background: '#fff7ed',
+                                                                    color: '#c2410c',
+                                                                    border: '1px solid #ffedd5',
+                                                                    padding: '2px 6px',
+                                                                    borderRadius: 4,
+                                                                    marginLeft: 6,
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4,
+                                                                    fontWeight: 600,
+                                                                }}
+                                                                title={g.chi_tiet_truc_thay?.map(c => `${c.ngay} (${c.loai_truc === 0 ? 'Ăn' : 'Ngủ'} - ${c.phong}): trực thay ${c.thay_cho}`).join('\n')}
+                                                            >
+                                                                <i className="fas fa-exchange-alt"></i>
+                                                                +{g.so_ca_truc_thay} ca trực thay
+                                                            </span>
+                                                        )}
+                                                        {g.so_ca_bi_thay > 0 && (
+                                                            <span
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    background: '#f1f5f9',
+                                                                    color: '#475569',
+                                                                    border: '1px solid #e2e8f0',
+                                                                    padding: '2px 6px',
+                                                                    borderRadius: 4,
+                                                                    marginLeft: 6,
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4,
+                                                                    fontWeight: 500,
+                                                                }}
+                                                                title={g.chi_tiet_bi_thay?.map(c => `${c.ngay} (${c.loai_truc === 0 ? 'Ăn' : 'Ngủ'} - ${c.phong}): ${c.nguoi_thay} trực thay`).join('\n')}
+                                                            >
+                                                                <i className="fas fa-user-clock"></i>
+                                                                -{g.so_ca_bi_thay} ca được trực thay
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-an-badge">{g.so_ca_an} ca</span></td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge">{g.so_ca_ngu} ca</span></td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <div style={{ fontWeight: 800, color: '#00b894', fontSize: '0.95rem' }}>{g.tong_tien.toLocaleString('vi-VN')}đ</div>
+                                                        <div style={{ fontSize: '.72rem', color: '#b7791f' }}>{(g.so_ca_an * giaAn).toLocaleString('vi-VN')}đ ăn</div>
+                                                        <div style={{ fontSize: '.72rem', color: '#6c5ce7' }}>{(g.so_ca_ngu * giaNgu).toLocaleString('vi-VN')}đ ngủ</div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {gvData.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                                                        <i className="fas fa-info-circle" style={{ marginRight: 6 }}></i>
+                                                        Chưa có ca trực nào trong {selectedKy?.ten_ky || 'kỳ này'} ({formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)})
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                        {gvData.length > 0 && (
+                                            <tfoot>
+                                                <tr style={{ background: 'linear-gradient(90deg,rgba(0,156,255,.06),rgba(108,92,231,.04))' }}>
+                                                    <td colSpan={2} style={{ fontWeight: 800, fontSize: '.9rem' }}><i className="fas fa-sigma" style={{ color: 'var(--primary)', marginRight: 4 }}></i>TỔNG CỘNG</td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-an-badge" style={{ fontWeight: 800 }}>{totCaAn} ca</span></td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge" style={{ fontWeight: 800 }}>{totCaNgu} ca</span></td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 800, color: '#00b894', fontSize: '1.05rem' }}>{totTien.toLocaleString('vi-VN')}đ</td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
                                 </div>
                             </div>
                         </div>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table className="data-table" id="gv-detail-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: 44 }}>STT</th>
-                                        <th>Họ tên GV / Nhân sự trực</th>
-                                        <th style={{ textAlign: 'center' }}><i className="fas fa-utensils" style={{ marginRight: 4 }}></i> Số ca ăn</th>
-                                        <th style={{ textAlign: 'center' }}><i className="fas fa-bed" style={{ marginRight: 4 }}></i> Số ca ngủ</th>
-                                        <th style={{ textAlign: 'right', minWidth: 200 }}>Thành tiền (VNĐ)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {gvData.map((g, i) => (
-                                        <tr key={g.id}>
-                                            <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{i + 1}</td>
-                                            <td>
-                                                <strong>{g.ho_ten}</strong>
-                                                {g.is_ngoai && (
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.7rem',
-                                                            background: '#fef3c7',
-                                                            color: '#92400e',
-                                                            border: '1px solid #fde68a',
-                                                            padding: '2px 6px',
-                                                            borderRadius: 4,
-                                                            marginLeft: 8,
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: 4,
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        <i className="fas fa-user-tag"></i>
-                                                        Ngoài DS
-                                                    </span>
-                                                )}
-                                                {g.so_ca_truc_thay > 0 && (
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.7rem',
-                                                            background: '#fff7ed',
-                                                            color: '#c2410c',
-                                                            border: '1px solid #ffedd5',
-                                                            padding: '2px 6px',
-                                                            borderRadius: 4,
-                                                            marginLeft: 6,
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: 4,
-                                                            fontWeight: 600,
-                                                        }}
-                                                        title={g.chi_tiet_truc_thay?.map(c => `${c.ngay} (${c.loai_truc === 0 ? 'Ăn' : 'Ngủ'} - ${c.phong}): trực thay ${c.thay_cho}`).join('\n')}
-                                                    >
-                                                        <i className="fas fa-exchange-alt"></i>
-                                                        +{g.so_ca_truc_thay} ca trực thay
-                                                    </span>
-                                                )}
-                                                {g.so_ca_bi_thay > 0 && (
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.7rem',
-                                                            background: '#f1f5f9',
-                                                            color: '#475569',
-                                                            border: '1px solid #e2e8f0',
-                                                            padding: '2px 6px',
-                                                            borderRadius: 4,
-                                                            marginLeft: 6,
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: 4,
-                                                            fontWeight: 500,
-                                                        }}
-                                                        title={g.chi_tiet_bi_thay?.map(c => `${c.ngay} (${c.loai_truc === 0 ? 'Ăn' : 'Ngủ'} - ${c.phong}): ${c.nguoi_thay} trực thay`).join('\n')}
-                                                    >
-                                                        <i className="fas fa-user-clock"></i>
-                                                        -{g.so_ca_bi_thay} ca được trực thay
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}><span className="ca-an-badge">{g.so_ca_an} ca</span></td>
-                                            <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge">{g.so_ca_ngu} ca</span></td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <div style={{ fontWeight: 800, color: '#00b894', fontSize: '1rem' }}>{g.tong_tien.toLocaleString('vi-VN')}đ</div>
-                                                <div style={{ fontSize: '.74rem', color: '#b7791f' }}>{(g.so_ca_an * giaAn).toLocaleString('vi-VN')}đ ăn</div>
-                                                <div style={{ fontSize: '.74rem', color: '#6c5ce7' }}>{(g.so_ca_ngu * giaNgu).toLocaleString('vi-VN')}đ ngủ</div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {gvData.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có lịch trực nào từ ngày {formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)}</td></tr>}
-                                </tbody>
-                                {gvData.length > 0 && (
-                                    <tfoot>
-                                        <tr style={{ background: 'linear-gradient(90deg,rgba(0,156,255,.06),rgba(108,92,231,.04))' }}>
-                                            <td colSpan={2} style={{ fontWeight: 800, fontSize: '.9rem' }}><i className="fas fa-sigma" style={{ color: 'var(--primary)', marginRight: 4 }}></i>TỔNG CỘNG</td>
-                                            <td style={{ textAlign: 'center' }}><span className="ca-an-badge" style={{ fontWeight: 800 }}>{totCaAn} ca</span></td>
-                                            <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge" style={{ fontWeight: 800 }}>{totCaNgu} ca</span></td>
-                                            <td style={{ textAlign: 'right', fontWeight: 800, color: '#00b894', fontSize: '1.05rem' }}>{totTien.toLocaleString('vi-VN')}đ</td>
-                                        </tr>
-                                    </tfoot>
-                                )}
-                            </table>
+                    )}
+
+                    {/* ═══ SUB-TAB 2: THỐNG KÊ LINH HOẠT THEO KHOẢNG NGÀY ═══ */}
+                    {subTabGV === 'thong_ke' && (
+                        <div>
+                            {/* Bộ lọc Từ ngày - Đến ngày */}
+                            <div className="bc-filter-row" style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <label style={{ fontWeight: 700, fontSize: '0.9rem', color: '#334155' }}>
+                                            <i className="fas fa-calendar-alt" style={{ marginRight: 4, color: 'var(--primary)' }}></i> Từ ngày:
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={tkTuNgay}
+                                            max={tkDenNgay || today}
+                                            onChange={e => setTkTuNgay(e.target.value)}
+                                            style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                        />
+                                        <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.85rem' }}>({formatDateDMY(tkTuNgay)})</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <label style={{ fontWeight: 700, fontSize: '0.9rem', color: '#334155' }}>
+                                            <i className="fas fa-calendar-alt" style={{ marginRight: 4, color: 'var(--primary)' }}></i> Đến ngày:
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={tkDenNgay}
+                                            min={tkTuNgay}
+                                            max={today}
+                                            onChange={e => setTkDenNgay(e.target.value)}
+                                            style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
+                                        />
+                                        <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.85rem' }}>({formatDateDMY(tkDenNgay)})</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        onClick={() => fetchThongKe(tkTuNgay, tkDenNgay)}
+                                        disabled={loadingThongKe}
+                                        style={{ fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}
+                                    >
+                                        {loadingThongKe ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
+                                        Xem thống kê
+                                    </button>
+                                </div>
+
+                                {/* Export buttons for Thống kê */}
+                                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        onClick={exportThongKeExcel}
+                                        style={{ color: '#059669', border: '1.5px solid #34d399', backgroundColor: '#ecfdf5', fontWeight: 600 }}
+                                    >
+                                        <i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Xuất Thống kê (Excel)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        onClick={exportThongKePDF}
+                                        disabled={exportingTkPdf}
+                                        style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600 }}
+                                    >
+                                        {exportingTkPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>}
+                                        Xuất Thống kê (PDF)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Ghi chú giải thích */}
+                            <div style={{ background: '#f8fafc', borderLeft: '4px solid #3b82f6', borderTop: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', borderRadius: '0 8px 8px 0', padding: '10px 16px', marginBottom: 16, fontSize: '0.85rem', color: '#334155', lineHeight: 1.5 }}>
+                                <i className="fas fa-info-circle" style={{ color: '#3b82f6', marginRight: 6 }}></i>
+                                Số ca trực và tiền trực phát sinh được tổng hợp chính xác theo <strong>ngày thực hiện của từng ca trực</strong> trong khoảng ({formatDateDMY(tkTuNgay)} → {formatDateDMY(tkDenNgay)}).
+                            </div>
+
+                            {/* Stat cards Thống kê */}
+                            <div className="gv-stat-grid">
+                                <div className="gv-unit-card theme-purple">
+                                    <div className="gv-unit-icon purple">
+                                        <i className="fas fa-chalkboard-teacher"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>GV tham gia</p>
+                                        <h3>{thongKeData?.summary?.tong_so_gv || 0} <small style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 500 }}>người</small></h3>
+                                    </div>
+                                </div>
+                                <div className="gv-unit-card theme-blue">
+                                    <div className="gv-unit-icon blue">
+                                        <i className="fas fa-calendar-check"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>Tổng ca trực</p>
+                                        <h3>{(thongKeData?.summary?.totCaAn || 0) + (thongKeData?.summary?.totCaNgu || 0)} <small style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>ca</small></h3>
+                                        <span className="gv-sub-text">
+                                            {thongKeData?.summary?.totCaAn || 0} ăn • {thongKeData?.summary?.totCaNgu || 0} ngủ
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="gv-unit-card theme-amber">
+                                    <div className="gv-unit-icon amber">
+                                        <i className="fas fa-layer-group"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>Ca ăn / Ca ngủ</p>
+                                        <div className="gv-shift-badges">
+                                            <span className="gv-shift-pill an">
+                                                <i className="fas fa-utensils"></i> {thongKeData?.summary?.totCaAn || 0} ăn
+                                            </span>
+                                            <span className="gv-shift-pill ngu">
+                                                <i className="fas fa-bed"></i> {thongKeData?.summary?.totCaNgu || 0} ngủ
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="gv-unit-card theme-green" style={{ background: 'linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%)' }}>
+                                    <div className="gv-unit-icon green">
+                                        <i className="fas fa-money-bill-wave"></i>
+                                    </div>
+                                    <div className="gv-unit-info">
+                                        <p>Tổng tiền trực</p>
+                                        <div className="gv-money-display">
+                                            <span className="gv-money-num">{(thongKeData?.summary?.totTienPhatSinh || 0).toLocaleString('vi-VN')}</span>
+                                            <span className="gv-money-curr">đ</span>
+                                        </div>
+                                        <span className="gv-sub-text" style={{ color: '#16a34a', fontWeight: 600 }}>
+                                            <i className="fas fa-check-circle" style={{ marginRight: 3 }}></i>
+                                            phát sinh
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bảng 1: Phân bổ theo các kỳ trực liên quan */}
+                            {thongKeData?.kyList && thongKeData.kyList.length > 0 && (
+                                <div className="bc-detail-section" style={{ marginBottom: 20 }}>
+                                    <div className="bc-detail-header">
+                                        <h3 style={{ fontSize: '0.9rem' }}>
+                                            <i className="fas fa-layer-group" style={{ color: '#6366f1' }}></i> Các kỳ trực có ca thuộc khoảng ngày này
+                                        </h3>
+                                    </div>
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table className="data-table" style={{ fontSize: '0.85rem' }}>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: 44 }}>STT</th>
+                                                    <th>Tên kỳ</th>
+                                                    <th>Thời gian kỳ</th>
+                                                    <th>Trạng thái</th>
+                                                    <th style={{ textAlign: 'right' }}>Tổng tiền cả kỳ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {thongKeData.kyList.map((k, idx) => (
+                                                    <tr key={k.id}>
+                                                        <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                        <td><strong>{k.ten_ky}</strong></td>
+                                                        <td>{formatDateDMY(k.tu_ngay)} → {k.den_ngay ? formatDateDMY(k.den_ngay) : 'Đang diễn ra'}</td>
+                                                        <td>
+                                                            <span className="badge" style={{ background: k.trang_thai === 'da_chot' ? '#f3e8ff' : '#dbeafe', color: k.trang_thai === 'da_chot' ? '#6b21a8' : '#1e40af', fontSize: '0.75rem' }}>
+                                                                {k.trang_thai === 'da_chot' ? 'Đã chốt' : 'Đang diễn ra'}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>{(k.tong_tien || 0).toLocaleString('vi-VN')} đ</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Bảng 2: Chi tiết theo từng giáo viên */}
+                            <div className="bc-detail-section">
+                                <div className="bc-detail-header">
+                                    <h3>
+                                        <i className="fas fa-table"></i> Chi tiết tiền trực theo giáo viên ({formatDateDMY(tkTuNgay)} đến {formatDateDMY(tkDenNgay)})
+                                    </h3>
+                                </div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table className="data-table" id="thongke-gv-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 44 }}>STT</th>
+                                                <th>Họ tên GV / Nhân sự trực</th>
+                                                <th style={{ textAlign: 'center' }}><i className="fas fa-utensils" style={{ marginRight: 4 }}></i> Số ca ăn</th>
+                                                <th style={{ textAlign: 'center' }}><i className="fas fa-bed" style={{ marginRight: 4 }}></i> Số ca ngủ</th>
+                                                <th style={{ textAlign: 'right' }}>Tiền phát sinh (VNĐ)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(thongKeData?.data || []).map((g, i) => (
+                                                <tr key={g.id}>
+                                                    <td style={{ textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{i + 1}</td>
+                                                    <td>
+                                                        <strong>{g.ho_ten}</strong>
+                                                        {g.is_ngoai && <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '2px 6px', borderRadius: 4, marginLeft: 8, fontWeight: 600 }}>Ngoài DS</span>}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-an-badge">{g.so_ca_an} ca</span></td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge">{g.so_ca_ngu} ca</span></td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#00b894' }}>{g.tong_tien.toLocaleString('vi-VN')} đ</td>
+                                                </tr>
+                                            ))}
+                                            {(!thongKeData?.data || thongKeData.data.length === 0) && (
+                                                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>Không có lịch trực nào từ ngày {formatDateDMY(tkTuNgay)} đến {formatDateDMY(tkDenNgay)}</td></tr>
+                                            )}
+                                        </tbody>
+                                        {thongKeData?.data && thongKeData.data.length > 0 && (
+                                            <tfoot>
+                                                <tr style={{ background: 'linear-gradient(90deg,rgba(0,156,255,.06),rgba(108,92,231,.04))' }}>
+                                                    <td colSpan={2} style={{ fontWeight: 800, fontSize: '.9rem' }}><i className="fas fa-sigma" style={{ color: 'var(--primary)', marginRight: 4 }}></i>TỔNG CỘNG</td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-an-badge" style={{ fontWeight: 800 }}>{thongKeData.summary?.totCaAn || 0} ca</span></td>
+                                                    <td style={{ textAlign: 'center' }}><span className="ca-ngu-badge" style={{ fontWeight: 800 }}>{thongKeData.summary?.totCaNgu || 0} ca</span></td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 800, color: '#00b894' }}>{(thongKeData.summary?.totTienPhatSinh || 0).toLocaleString('vi-VN')} đ</td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
 
@@ -4742,6 +5467,96 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                             <button className="btn btn-outline" onClick={() => setShowMienGiamModal(false)}>Hủy bỏ</button>
                             <button className="btn btn-warning" onClick={submitMienGiam} style={{ fontWeight: 700 }}>
                                 <i className="fas fa-check"></i> Lưu miễn giảm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ── MODAL CHỐT KỲ TRỰC GIÁO VIÊN ── */}
+            {showChotKyModal && selectedKy && (
+                <div className="export-modal-overlay">
+                    <div className="export-modal" style={{ maxWidth: 520 }}>
+                        <div className="export-modal-header" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' }}>
+                            <div className="icon" style={{ background: 'rgba(255,255,255,0.2)' }}><i className="fas fa-lock"></i></div>
+                            <div>
+                                <h3 style={{ color: '#fff' }}>Chốt {selectedKy.ten_ky}</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.9)' }}>Bắt đầu từ ngày {formatDateDMY(selectedKy.tu_ngay)}</p>
+                            </div>
+                        </div>
+                        <div className="export-modal-body" style={{ padding: 20 }}>
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', marginBottom: 6, color: '#334155' }}>
+                                    <i className="fas fa-calendar-day" style={{ color: '#4f46e5', marginRight: 6 }}></i>
+                                    Chọn ngày kết thúc kỳ:
+                                </label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input
+                                        type="date"
+                                        value={chotDenNgay}
+                                        min={selectedKy.tu_ngay}
+                                        max={today}
+                                        onChange={e => {
+                                            setChotDenNgay(e.target.value);
+                                            fetchPreviewChot(e.target.value);
+                                        }}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.95rem' }}
+                                    />
+                                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                        ({formatDateDMY(chotDenNgay)})
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Preview Box */}
+                            <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span><i className="fas fa-eye" style={{ color: '#0ea5e9', marginRight: 6 }}></i> Xem trước số liệu chốt kỳ:</span>
+                                    {loadingPreviewChot && <span style={{ fontSize: '0.8rem', color: '#4f46e5' }}><i className="fas fa-spinner fa-spin"></i> Đang tính...</span>}
+                                </div>
+                                {previewChotData ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: '0.85rem' }}>
+                                        <div>Khoảng ngày: <strong>{formatDateDMY(previewChotData.tu_ngay)} → {formatDateDMY(previewChotData.den_ngay)}</strong></div>
+                                        <div>Tổng số GV: <strong>{previewChotData.tong_so_gv} GV</strong></div>
+                                        <div>Ca ăn: <strong>{previewChotData.tong_ca_an} ca</strong></div>
+                                        <div>Ca ngủ: <strong>{previewChotData.tong_ca_ngu} ca</strong></div>
+                                        <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #cbd5e1', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontWeight: 700, color: '#334155' }}>Tổng tiền phát sinh kỳ:</span>
+                                            <strong style={{ fontSize: '1.1rem', color: '#d97706' }}>{(previewChotData.tong_tien || 0).toLocaleString('vi-VN')} đ</strong>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Không có số liệu cho ngày kết thúc này</div>
+                                )}
+                            </div>
+
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6, color: '#334155' }}>
+                                    Ghi chú chốt kỳ (tùy chọn):
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={chotGhiChu}
+                                    onChange={e => setChotGhiChu(e.target.value)}
+                                    placeholder="Ví dụ: Chốt 4 tuần đầu năm học..."
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', fontFamily: 'inherit' }}
+                                />
+                            </div>
+
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', fontSize: '0.82rem', color: '#1e40af', lineHeight: 1.5 }}>
+                                <i className="fas fa-info-circle" style={{ marginRight: 6 }}></i>
+                                <strong>Quy trình tiếp theo:</strong> Sau khi chốt, kỳ mới (Kỳ {kyList.length + 1}) sẽ được tự động tạo và kích hoạt bắt đầu từ ngày <strong>{formatDateDMY(addDaysFrontend(chotDenNgay, 1))}</strong>. Kỳ cũ được lưu trữ để tra cứu, xuất file và thanh toán bất kỳ lúc nào.
+                            </div>
+                        </div>
+                        <div className="export-modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button type="button" className="btn btn-outline" onClick={() => setShowChotKyModal(false)} disabled={submittingChotKy}>Hủy bỏ</button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={submitChotKy}
+                                disabled={submittingChotKy || !previewChotData}
+                                style={{ background: '#4f46e5', fontWeight: 700 }}
+                            >
+                                {submittingChotKy ? <><i className="fas fa-spinner fa-spin"></i> Đang chốt...</> : <><i className="fas fa-check"></i> Xác nhận chốt kỳ</>}
                             </button>
                         </div>
                     </div>
