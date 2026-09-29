@@ -146,11 +146,6 @@ export default function DiemDanhAn() {
         return date === todayVN();
     }, [date]);
 
-    const isFutureDate = useMemo(() => {
-        return date > todayVN();
-    }, [date]);
-
-
     const [phongList, setPhongList] = useState([]);
     const [hsList, setHsList] = useState([]);
     const [diemDanhDb, setDiemDanhDb] = useState({});
