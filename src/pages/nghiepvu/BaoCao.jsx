@@ -84,9 +84,20 @@ export default function BaoCao() {
     const [hsPage, setHsPage] = useState(0);
     const HS_PER_PAGE = 50;
 
-    // Tab Giáo viên
-    const [tuNgayGV, setTuNgayGV] = useState(today.slice(0, 8) + '01');
-    const [denNgayGV, setDenNgayGV] = useState(today);
+    // Helper tính ngày đầu và ngày cuối của tháng
+    const getMonthRange = (mStr) => {
+        const [y, m] = (mStr || today.slice(0, 7)).split('-');
+        const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
+        return {
+            tuNgay: `${y}-${m}-01`,
+            denNgay: `${y}-${m}-${String(lastDay).padStart(2, '0')}`
+        };
+    };
+
+    // Tab Giáo viên (thanh toán theo tháng)
+    const [monthGV, setMonthGV] = useState(today.slice(0, 7));
+    const [tuNgayGV, setTuNgayGV] = useState(() => getMonthRange(today.slice(0, 7)).tuNgay);
+    const [denNgayGV, setDenNgayGV] = useState(() => getMonthRange(today.slice(0, 7)).denNgay);
     const [gvData, setGvData] = useState([]);
     const [giaAn, setGiaAn] = useState(0);
     const [giaNgu, setGiaNgu] = useState(0);
@@ -331,19 +342,13 @@ export default function BaoCao() {
         return () => ctrl.abort();
     }, [monthHS, lopFilter]);
 
-    // Handlers ràng buộc khoảng ngày
-    const handleTuNgayGVChange = (val) => {
-        setTuNgayGV(val);
-        if (val && denNgayGV && val > denNgayGV) {
-            setDenNgayGV(val);
-        }
-    };
-
-    const handleDenNgayGVChange = (val) => {
-        setDenNgayGV(val);
-        if (val && tuNgayGV && val < tuNgayGV) {
-            setTuNgayGV(val);
-        }
+    // Handlers chọn tháng tính tiền trực GV
+    const handleMonthGVChange = (newMonth) => {
+        if (!newMonth) return;
+        setMonthGV(newMonth);
+        const { tuNgay, denNgay } = getMonthRange(newMonth);
+        setTuNgayGV(tuNgay);
+        setDenNgayGV(denNgay);
     };
 
     // Lấy dữ liệu Báo cáo GV
@@ -1769,7 +1774,8 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
         setExportingGvPdf(true);
         try {
-            const dateStr = `Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ngày ${denNgayGV.split('-').reverse().join('/')}`;
+            const [y, m] = monthGV.split('-');
+            const dateStr = `Tháng ${m}/${y} (Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ngày ${denNgayGV.split('-').reverse().join('/')})`;
             const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
 
             let tbody = '';
@@ -1813,7 +1819,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         </table>
       </div>
       <div style="text-align:center; margin: 10px 0 12px;">
-        <h1 style="font-size:15pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ</h1>
+        <h1 style="font-size:15pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ THÁNG ${m}/${y}</h1>
         <div style="font-size:10.5pt; margin-top:3px; font-style:italic;">${dateStr}</div>
       </div>
 
@@ -1872,7 +1878,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
 
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
-            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính tiền trực (Từ ${tuNgayGV} đến ${denNgayGV})</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng thanh toán tiền trực GV Tháng ${m}/${y}</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
         } catch (err) {
             alert('Lỗi: ' + err.message);
@@ -1884,7 +1890,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
     // ── Hàm xuất Excel Công GV ──
     const exportGvCongExcel = () => {
         if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
-        const [y, m] = tuNgayGV.split('-');
+        const [y, m] = monthGV.split('-');
         const year = parseInt(y, 10);
         const month = parseInt(m, 10);
         const activeDates = new Set();
@@ -1946,8 +1952,8 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         const wb = XLSX.utils.book_new();
         const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
         const wsAn = XLSX.utils.aoa_to_sheet([
-            [`BẢNG TÍNH CÔNG BÁN TRÚ ĂN NĂM HỌC ${namHoc}`],
-            [`(Từ ngày ${tuNgayGV.split('-').reverse().join('/')} - ${denNgayGV.split('-').reverse().join('/')})`],
+            [`BẢNG TÍNH CÔNG BÁN TRÚ ĂN THÁNG ${m}/${y} - NĂM HỌC ${namHoc}`],
+            [`(Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})`],
             [],
             headerRowAn,
             ...dataRowsAn
@@ -1957,8 +1963,8 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         XLSX.utils.book_append_sheet(wb, wsAn, 'Công Ăn');
 
         const wsNgu = XLSX.utils.aoa_to_sheet([
-            [`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ NĂM HỌC ${namHoc}`],
-            [`(Từ ngày ${tuNgayGV.split('-').reverse().join('/')} - ${denNgayGV.split('-').reverse().join('/')})`],
+            [`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ THÁNG ${m}/${y} - NĂM HỌC ${namHoc}`],
+            [`(Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})`],
             [],
             headerRowNgu,
             ...dataRowsNgu
@@ -1966,7 +1972,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         wsNgu['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRowNgu.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headerRowNgu.length - 1 } }];
         XLSX.utils.book_append_sheet(wb, wsNgu, 'Công Ngủ');
 
-        XLSX.writeFile(wb, `bang-cong-gv-${tuNgayGV}-to-${denNgayGV}.xlsx`);
+        XLSX.writeFile(wb, `bang-cong-gv-thang-${m}-${y}.xlsx`);
     };
 
     // ── Hàm xuất PDF Công GV (Tách riêng 2 bảng Ăn và Ngủ) ──
@@ -1975,7 +1981,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
         setExportingGvCongPdf(true);
         try {
-            const [y, m] = tuNgayGV.split('-');
+            const [y, m] = monthGV.split('-');
             const year = parseInt(y, 10);
             const month = parseInt(m, 10);
             const activeDates = new Set();
@@ -1994,9 +2000,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
             });
 
             const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-            const firstDay = workDays[0]?.dateStr.split('-').reverse().join('/') || '';
-            const lastDay = workDays[workDays.length - 1]?.dateStr.split('-').reverse().join('/') || '';
-            const subtitle = `(Từ ngày ${firstDay} - ${lastDay})`;
+            const subtitle = `Tháng ${m}/${y} - Năm học ${namHoc} (Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})`;
 
             const css = `*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Times New Roman',Times,serif;font-size:10.5pt;color:#000;padding:15px;}
@@ -2141,13 +2145,13 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                 </div>
             </div>`;
 
-            const pageAn = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ ĂN NĂM HỌC ${namHoc}`, thAn, tbodyAn);
-            const pageNgu = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ NĂM HỌC ${namHoc}`, thNgu, tbodyNgu);
+            const pageAn = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ ĂN THÁNG ${m}/${y}`, thAn, tbodyAn);
+            const pageNgu = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ THÁNG ${m}/${y}`, thNgu, tbodyNgu);
             const htmlPages = `${pageAn}\n${pageNgu}`;
 
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
-            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính công bán trú (Từ ${tuNgayGV} đến ${denNgayGV})</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính công bán trú Tháng ${m}/${y}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
         } catch (err) {
             alert('Lỗi: ' + err.message);
@@ -2170,9 +2174,10 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
     };
 
     const exportGvExcel = () => {
+        const [y, m] = monthGV.split('-');
         const rows = [
-            ['BẢNG THỐNG KÊ LƯƠNG GIÁO VIÊN TRỰC BÁN TRÚ'],
-            [`Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')}  |  Đơn giá ăn: ${giaAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${giaNgu.toLocaleString('vi-VN')}đ`], [],
+            [`BẢNG TỔNG HỢP TIỀN TRỰC BÁN TRÚ THÁNG ${m}/${y}`],
+            [`Tháng ${m}/${y} (Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})  |  Đơn giá ăn: ${giaAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${giaNgu.toLocaleString('vi-VN')}đ`], [],
             ['STT', 'Họ tên GV / Nhân sự trực', 'Số ca ăn', 'Đơn giá ăn', 'Số ca ngủ', 'Đơn giá ngủ', 'Tổng số ca', 'Trong đó trực thay', 'Tổng thành tiền (VNĐ)', 'Ký nhận', 'Ghi chú'],
             ...gvData.map((g, i) => {
                 let ghiChu = '';
@@ -2198,7 +2203,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'GV');
-        XLSX.writeFile(wb, `baocao-gv-${tuNgayGV}-to-${denNgayGV}.xlsx`);
+        XLSX.writeFile(wb, `bang-luong-gv-thang-${m}-${y}.xlsx`);
     };
 
     // ── Hàm nạp dữ liệu HS vắng theo ngày ──
@@ -3135,27 +3140,15 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             {canExportGV && activeTab === 'panel-gv' && (
                 <div className="bc-main-panel active">
                     <div className="bc-filter-row" style={{ marginBottom: 18 }}>
-                        <div className="bc-filter-item" style={{display:'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
-                            <div>
-                                <label><i className="fas fa-calendar-alt"></i> Từ ngày:</label>{' '}
-                                <input 
-                                    type="date" 
-                                    value={tuNgayGV} 
-                                    max={denNgayGV || undefined}
-                                    onChange={e => handleTuNgayGVChange(e.target.value)} 
-                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0' }} 
-                                />
-                            </div>
-                            <div>
-                                <label><i className="fas fa-calendar-alt"></i> Đến ngày:</label>{' '}
-                                <input 
-                                    type="date" 
-                                    value={denNgayGV} 
-                                    min={tuNgayGV || undefined}
-                                    onChange={e => handleDenNgayGVChange(e.target.value)} 
-                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0' }} 
-                                />
-                            </div>
+                        <div className="bc-filter-item" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <label style={{ fontWeight: 600 }}><i className="fas fa-calendar-alt"></i> Chọn Tháng:</label>
+                            <input 
+                                type="month" 
+                                value={monthGV} 
+                                onChange={e => handleMonthGVChange(e.target.value)} 
+                                style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit' }} 
+                            />
+                            <button className="btn btn-outline btn-sm" onClick={() => handleMonthGVChange(today.slice(0, 7))}>Tháng này</button>
                         </div>
                         {loadingGV && <span style={{ color: 'var(--primary)' }}><i className="fas fa-spinner fa-spin"></i> Đang tính lương...</span>}
                         {canExportGV && (
@@ -3185,7 +3178,12 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     {/* Bảng chi tiết GV */}
                     <div className="bc-detail-section">
                         <div className="bc-detail-header">
-                            <h3><i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên (Từ {tuNgayGV.split('-').reverse().join('/')} đến {denNgayGV.split('-').reverse().join('/')})</h3>
+                            <h3>
+                                <i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên - Tháng {monthGV.split('-')[1]}/{monthGV.split('-')[0]}
+                                <span style={{ fontSize: '0.82rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
+                                    (Từ {tuNgayGV.split('-').reverse().join('/')} đến {denNgayGV.split('-').reverse().join('/')})
+                                </span>
+                            </h3>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', borderRadius: 8, padding: '7px 14px' }}>
                                     <i className="fas fa-tag" style={{ color: '#64748b', fontSize: '.8rem' }}></i>
@@ -3287,7 +3285,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                             </td>
                                         </tr>
                                     ))}
-                                    {gvData.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có lịch trực nào đã được xác nhận từ {tuNgayGV.split('-').reverse().join('/')} đến {denNgayGV.split('-').reverse().join('/')}</td></tr>}
+                                    {gvData.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có lịch trực nào trong Tháng {monthGV.split('-')[1]}/{monthGV.split('-')[0]} (từ {tuNgayGV.split('-').reverse().join('/')} đến {denNgayGV.split('-').reverse().join('/')})</td></tr>}
                                 </tbody>
                                 {gvData.length > 0 && (
                                     <tfoot>
