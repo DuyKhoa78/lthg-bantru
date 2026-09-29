@@ -353,55 +353,7 @@ export default function BaoCao() {
         return '';
     };
 
-    const getActivePresetKey = (start, end) => {
-        const matchedDot = dotThanhToanConfig.find(d => d.start === start && d.end === end);
-        if (matchedDot) return `dot_${matchedDot.dot}`;
-        if (start === '2026-09-07' && (end === '2027-01-22' || end === '2026-12-25')) return 'hk1';
-        if (start === '2027-01-25' && end === '2027-06-30') return 'hk2';
-        if (start === '2026-09-07' && end === '2027-06-30') return 'ca_nam';
-        if (start === '2026-09-07' && end === '2026-10-02') return 'thang_9';
-        if (start === '2026-10-05' && end === '2026-10-30') return 'thang_10';
-        if (start === '2026-11-02' && end === '2026-11-27') return 'thang_11';
-        if (start === '2026-11-30' && end === '2026-12-25') return 'thang_12';
-        if (start === '2026-12-28' && end === '2027-01-22') return 'thang_1';
-        return 'custom';
-    };
 
-    const handleQuickPresetChange = (presetKey) => {
-        if (presetKey === 'custom') return;
-        if (presetKey.startsWith('dot_')) {
-            const dotNum = parseInt(presetKey.replace('dot_', ''), 10);
-            const found = dotThanhToanConfig.find(d => d.dot === dotNum);
-            if (found) {
-                setTuNgayGV(found.start);
-                setDenNgayGV(found.end);
-            }
-        } else if (presetKey === 'hk1') {
-            setTuNgayGV('2026-09-07');
-            setDenNgayGV('2027-01-22');
-        } else if (presetKey === 'hk2') {
-            setTuNgayGV('2027-01-25');
-            setDenNgayGV('2027-06-30');
-        } else if (presetKey === 'ca_nam') {
-            setTuNgayGV('2026-09-07');
-            setDenNgayGV('2027-06-30');
-        } else if (presetKey === 'thang_9') {
-            setTuNgayGV('2026-09-07');
-            setDenNgayGV('2026-10-02');
-        } else if (presetKey === 'thang_10') {
-            setTuNgayGV('2026-10-05');
-            setDenNgayGV('2026-10-30');
-        } else if (presetKey === 'thang_11') {
-            setTuNgayGV('2026-11-02');
-            setDenNgayGV('2026-11-27');
-        } else if (presetKey === 'thang_12') {
-            setTuNgayGV('2026-11-30');
-            setDenNgayGV('2026-12-25');
-        } else if (presetKey === 'thang_1') {
-            setTuNgayGV('2026-12-28');
-            setDenNgayGV('2027-01-22');
-        }
-    };
 
     // Lấy dữ liệu Báo cáo GV
     useEffect(() => {
@@ -3202,58 +3154,30 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             {/* PANEL GIÁO VIÊN */}
             {canExportGV && activeTab === 'panel-gv' && (
                 <div className="bc-main-panel active">
-                    <div className="bc-filter-row" style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>
-                                <i className="fas fa-bolt" style={{ color: '#f59e0b' }}></i> Chọn nhanh:
-                            </label>
-                            <select 
-                                value={getActivePresetKey(tuNgayGV, denNgayGV)} 
-                                onChange={e => handleQuickPresetChange(e.target.value)}
-                                style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', background: '#fff', fontWeight: 500, fontSize: '0.9rem', outline: 'none' }}
-                            >
-                                <option value="custom">-- Tùy chỉnh khoảng ngày --</option>
-                                <optgroup label="📅 Theo Đợt thanh toán (4 tuần / đợt)">
-                                    {dotThanhToanConfig.map(d => (
-                                        <option key={d.dot} value={`dot_${d.dot}`}>
-                                            {d.label}
-                                        </option>
-                                    ))}
-                                </optgroup>
-                                <optgroup label="🎓 Theo Học kỳ (4 - 5 tháng)">
-                                    <option value="hk1">Học kỳ 1 (4 tháng: 07/09/2026 → 22/01/2027)</option>
-                                    <option value="hk2">Học kỳ 2 (25/01/2027 → 30/06/2027)</option>
-                                    <option value="ca_nam">Cả năm học (07/09/2026 → 30/06/2027)</option>
-                                </optgroup>
-                                <optgroup label="📆 Theo Tháng (chu kỳ học thực tế)">
-                                    <option value="thang_9">Tháng 9 (07/09/2026 → 02/10/2026)</option>
-                                    <option value="thang_10">Tháng 10 (05/10/2026 → 30/10/2026)</option>
-                                    <option value="thang_11">Tháng 11 (02/11/2026 → 27/11/2026)</option>
-                                    <option value="thang_12">Tháng 12 (30/11/2026 → 25/12/2026)</option>
-                                    <option value="thang_1">Tháng 1/2027 (28/12/2026 → 22/01/2027)</option>
-                                </optgroup>
-                            </select>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <label style={{ fontWeight: 600, fontSize: '0.88rem', color: '#475569' }}>Từ ngày:</label>
+                    <div className="bc-filter-row" style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#334155' }}>
+                                    <i className="fas fa-calendar-alt" style={{ marginRight: 4, color: 'var(--primary)' }}></i> Từ ngày:
+                                </label>
                                 <input 
                                     type="date" 
                                     value={tuNgayGV} 
                                     max={denNgayGV || undefined}
                                     onChange={e => handleTuNgayGVChange(e.target.value)} 
-                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', fontFamily: 'inherit' }} 
+                                    style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem', fontFamily: 'inherit' }} 
                                 />
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <label style={{ fontWeight: 600, fontSize: '0.88rem', color: '#475569' }}>Đến ngày:</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#334155' }}>
+                                    <i className="fas fa-calendar-alt" style={{ marginRight: 4, color: 'var(--primary)' }}></i> Đến ngày:
+                                </label>
                                 <input 
                                     type="date" 
                                     value={denNgayGV} 
                                     min={tuNgayGV || undefined}
                                     onChange={e => handleDenNgayGVChange(e.target.value)} 
-                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', fontFamily: 'inherit' }} 
+                                    style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem', fontFamily: 'inherit' }} 
                                 />
                             </div>
                         </div>
@@ -3287,11 +3211,6 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         <div className="bc-detail-header">
                             <h3>
                                 <i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên
-                                {getTimeRangeLabel(tuNgayGV, denNgayGV) && (
-                                    <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 6, background: '#e0f2fe', color: '#0369a1', fontSize: '0.85rem', fontWeight: 600 }}>
-                                        {getTimeRangeLabel(tuNgayGV, denNgayGV)}
-                                    </span>
-                                )}
                                 <span style={{ fontSize: '0.85rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
                                     (Từ {formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)})
                                 </span>
