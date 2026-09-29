@@ -84,20 +84,10 @@ export default function BaoCao() {
     const [hsPage, setHsPage] = useState(0);
     const HS_PER_PAGE = 50;
 
-    // Helper tính ngày đầu và ngày cuối của tháng
-    const getMonthRange = (mStr) => {
-        const [y, m] = (mStr || today.slice(0, 7)).split('-');
-        const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
-        return {
-            tuNgay: `${y}-${m}-01`,
-            denNgay: `${y}-${m}-${String(lastDay).padStart(2, '0')}`
-        };
-    };
-
-    // Tab Giáo viên (thanh toán theo tháng)
-    const [monthGV, setMonthGV] = useState(today.slice(0, 7));
-    const [tuNgayGV, setTuNgayGV] = useState(() => getMonthRange(today.slice(0, 7)).tuNgay);
-    const [denNgayGV, setDenNgayGV] = useState(() => getMonthRange(today.slice(0, 7)).denNgay);
+    // Tab Giáo viên (linh hoạt theo đợt 4 tuần / tháng / học kỳ 4 tháng / tùy chọn ngày)
+    const initialDot = DEFAULT_DOT_THANH_TOAN_CONFIG.find(d => today >= d.start && today <= d.end) || DEFAULT_DOT_THANH_TOAN_CONFIG[0];
+    const [tuNgayGV, setTuNgayGV] = useState(initialDot.start);
+    const [denNgayGV, setDenNgayGV] = useState(initialDot.end);
     const [gvData, setGvData] = useState([]);
     const [giaAn, setGiaAn] = useState(0);
     const [giaNgu, setGiaNgu] = useState(0);
@@ -342,13 +332,75 @@ export default function BaoCao() {
         return () => ctrl.abort();
     }, [monthHS, lopFilter]);
 
-    // Handlers chọn tháng tính tiền trực GV
-    const handleMonthGVChange = (newMonth) => {
-        if (!newMonth) return;
-        setMonthGV(newMonth);
-        const { tuNgay, denNgay } = getMonthRange(newMonth);
-        setTuNgayGV(tuNgay);
-        setDenNgayGV(denNgay);
+    // Handlers chọn thời gian tính tiền trực GV linh hoạt
+    const handleTuNgayGVChange = (val) => setTuNgayGV(val);
+    const handleDenNgayGVChange = (val) => setDenNgayGV(val);
+
+    const getTimeRangeLabel = (start, end) => {
+        if (!start || !end) return '';
+        const matchedDot = dotThanhToanConfig.find(d => d.start === start && d.end === end);
+        if (matchedDot) return `Đợt ${matchedDot.dot} (${matchedDot.weeks || ''})`;
+
+        if (start === '2026-09-07' && (end === '2027-01-22' || end === '2026-12-25')) return 'Học kỳ 1 (4 tháng)';
+        if (start === '2027-01-25' && end === '2027-06-30') return 'Học kỳ 2';
+        if (start === '2026-09-07' && end === '2027-06-30') return 'Cả năm học';
+
+        const [y1, m1] = start.split('-');
+        const [y2, m2] = end.split('-');
+        if (y1 === y2 && m1 === m2) {
+            return `Tháng ${parseInt(m1, 10)}/${y1}`;
+        }
+        return '';
+    };
+
+    const getActivePresetKey = (start, end) => {
+        const matchedDot = dotThanhToanConfig.find(d => d.start === start && d.end === end);
+        if (matchedDot) return `dot_${matchedDot.dot}`;
+        if (start === '2026-09-07' && (end === '2027-01-22' || end === '2026-12-25')) return 'hk1';
+        if (start === '2027-01-25' && end === '2027-06-30') return 'hk2';
+        if (start === '2026-09-07' && end === '2027-06-30') return 'ca_nam';
+        if (start === '2026-09-07' && end === '2026-10-02') return 'thang_9';
+        if (start === '2026-10-05' && end === '2026-10-30') return 'thang_10';
+        if (start === '2026-11-02' && end === '2026-11-27') return 'thang_11';
+        if (start === '2026-11-30' && end === '2026-12-25') return 'thang_12';
+        if (start === '2026-12-28' && end === '2027-01-22') return 'thang_1';
+        return 'custom';
+    };
+
+    const handleQuickPresetChange = (presetKey) => {
+        if (presetKey === 'custom') return;
+        if (presetKey.startsWith('dot_')) {
+            const dotNum = parseInt(presetKey.replace('dot_', ''), 10);
+            const found = dotThanhToanConfig.find(d => d.dot === dotNum);
+            if (found) {
+                setTuNgayGV(found.start);
+                setDenNgayGV(found.end);
+            }
+        } else if (presetKey === 'hk1') {
+            setTuNgayGV('2026-09-07');
+            setDenNgayGV('2027-01-22');
+        } else if (presetKey === 'hk2') {
+            setTuNgayGV('2027-01-25');
+            setDenNgayGV('2027-06-30');
+        } else if (presetKey === 'ca_nam') {
+            setTuNgayGV('2026-09-07');
+            setDenNgayGV('2027-06-30');
+        } else if (presetKey === 'thang_9') {
+            setTuNgayGV('2026-09-07');
+            setDenNgayGV('2026-10-02');
+        } else if (presetKey === 'thang_10') {
+            setTuNgayGV('2026-10-05');
+            setDenNgayGV('2026-10-30');
+        } else if (presetKey === 'thang_11') {
+            setTuNgayGV('2026-11-02');
+            setDenNgayGV('2026-11-27');
+        } else if (presetKey === 'thang_12') {
+            setTuNgayGV('2026-11-30');
+            setDenNgayGV('2026-12-25');
+        } else if (presetKey === 'thang_1') {
+            setTuNgayGV('2026-12-28');
+            setDenNgayGV('2027-01-22');
+        }
     };
 
     // Lấy dữ liệu Báo cáo GV
@@ -1774,8 +1826,10 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
         setExportingGvPdf(true);
         try {
-            const [y, m] = monthGV.split('-');
-            const dateStr = `Tháng ${m}/${y} (Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ngày ${denNgayGV.split('-').reverse().join('/')})`;
+            const tuNgayDMY = tuNgayGV.split('-').reverse().join('/');
+            const denNgayDMY = denNgayGV.split('-').reverse().join('/');
+            const timeLabel = getTimeRangeLabel(tuNgayGV, denNgayGV);
+            const dateStr = `Từ ngày ${tuNgayDMY} đến ngày ${denNgayDMY}`;
             const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
 
             let tbody = '';
@@ -1819,8 +1873,9 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         </table>
       </div>
       <div style="text-align:center; margin: 10px 0 12px;">
-        <h1 style="font-size:15pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ THÁNG ${m}/${y}</h1>
-        <div style="font-size:10.5pt; margin-top:3px; font-style:italic;">${dateStr}</div>
+        <h1 style="font-size:15pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ GIÁO VIÊN</h1>
+        ${timeLabel ? `<div style="font-size:11pt; font-weight:bold; color:#1e293b; margin-top:2px;">${timeLabel.toUpperCase()}</div>` : ''}
+        <div style="font-size:10pt; margin-top:3px; font-style:italic;">(${dateStr})</div>
       </div>
 
       <table class="dt-an">
@@ -1878,7 +1933,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
 
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
-            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng thanh toán tiền trực GV Tháng ${m}/${y}</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng thanh toán tiền trực GV (${tuNgayDMY} đến ${denNgayDMY})</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
         } catch (err) {
             alert('Lỗi: ' + err.message);
@@ -1890,9 +1945,12 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
     // ── Hàm xuất Excel Công GV ──
     const exportGvCongExcel = () => {
         if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
-        const [y, m] = monthGV.split('-');
-        const year = parseInt(y, 10);
-        const month = parseInt(m, 10);
+        const tuNgayDMY = tuNgayGV.split('-').reverse().join('/');
+        const denNgayDMY = denNgayGV.split('-').reverse().join('/');
+        const timeLabel = getTimeRangeLabel(tuNgayGV, denNgayGV);
+        const [yStart, mStart] = tuNgayGV.split('-');
+        const year = parseInt(yStart, 10);
+        const month = parseInt(mStart, 10);
         const activeDates = new Set();
         gvData.forEach(g => {
             (g.ngay_an || []).forEach(d => activeDates.add(d));
@@ -1952,8 +2010,8 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         const wb = XLSX.utils.book_new();
         const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
         const wsAn = XLSX.utils.aoa_to_sheet([
-            [`BẢNG TÍNH CÔNG BÁN TRÚ ĂN THÁNG ${m}/${y} - NĂM HỌC ${namHoc}`],
-            [`(Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})`],
+            [`BẢNG TÍNH CÔNG BÁN TRÚ ĂN${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''} - NĂM HỌC ${namHoc}`],
+            [`(Từ ngày ${tuNgayDMY} đến ${denNgayDMY})`],
             [],
             headerRowAn,
             ...dataRowsAn
@@ -1963,8 +2021,8 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         XLSX.utils.book_append_sheet(wb, wsAn, 'Công Ăn');
 
         const wsNgu = XLSX.utils.aoa_to_sheet([
-            [`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ THÁNG ${m}/${y} - NĂM HỌC ${namHoc}`],
-            [`(Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})`],
+            [`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''} - NĂM HỌC ${namHoc}`],
+            [`(Từ ngày ${tuNgayDMY} đến ${denNgayDMY})`],
             [],
             headerRowNgu,
             ...dataRowsNgu
@@ -1972,7 +2030,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         wsNgu['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRowNgu.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headerRowNgu.length - 1 } }];
         XLSX.utils.book_append_sheet(wb, wsNgu, 'Công Ngủ');
 
-        XLSX.writeFile(wb, `bang-cong-gv-thang-${m}-${y}.xlsx`);
+        XLSX.writeFile(wb, `bang-cong-gv_${tuNgayGV}_den_${denNgayGV}.xlsx`);
     };
 
     // ── Hàm xuất PDF Công GV (Tách riêng 2 bảng Ăn và Ngủ) ──
@@ -1981,9 +2039,12 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
         if (gvData.length === 0) return alert('Không có dữ liệu để xuất!');
         setExportingGvCongPdf(true);
         try {
-            const [y, m] = monthGV.split('-');
-            const year = parseInt(y, 10);
-            const month = parseInt(m, 10);
+            const tuNgayDMY = tuNgayGV.split('-').reverse().join('/');
+            const denNgayDMY = denNgayGV.split('-').reverse().join('/');
+            const timeLabel = getTimeRangeLabel(tuNgayGV, denNgayGV);
+            const [yStart, mStart] = tuNgayGV.split('-');
+            const year = parseInt(yStart, 10);
+            const month = parseInt(mStart, 10);
             const activeDates = new Set();
             gvData.forEach(g => {
                 (g.ngay_an || []).forEach(d => activeDates.add(d));
@@ -2000,7 +2061,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
             });
 
             const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-            const subtitle = `Tháng ${m}/${y} - Năm học ${namHoc} (Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})`;
+            const subtitle = `${timeLabel ? timeLabel + ' - ' : ''}Năm học ${namHoc} (Từ ngày ${tuNgayDMY} đến ${denNgayDMY})`;
 
             const css = `*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Times New Roman',Times,serif;font-size:10.5pt;color:#000;padding:15px;}
@@ -2145,13 +2206,13 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                 </div>
             </div>`;
 
-            const pageAn = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ ĂN THÁNG ${m}/${y}`, thAn, tbodyAn);
-            const pageNgu = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ THÁNG ${m}/${y}`, thNgu, tbodyNgu);
+            const pageAn = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ ĂN${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''}`, thAn, tbodyAn);
+            const pageNgu = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''}`, thNgu, tbodyNgu);
             const htmlPages = `${pageAn}\n${pageNgu}`;
 
             const w = window.open('', '_blank');
             if (!w) return alert('Trình duyệt chặn popup!');
-            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính công bán trú Tháng ${m}/${y}</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính công bán trú (${tuNgayDMY} đến ${denNgayDMY})</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
         } catch (err) {
             alert('Lỗi: ' + err.message);
@@ -2174,10 +2235,12 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
     };
 
     const exportGvExcel = () => {
-        const [y, m] = monthGV.split('-');
+        const tuNgayDMY = tuNgayGV.split('-').reverse().join('/');
+        const denNgayDMY = denNgayGV.split('-').reverse().join('/');
+        const timeLabel = getTimeRangeLabel(tuNgayGV, denNgayGV);
         const rows = [
-            [`BẢNG TỔNG HỢP TIỀN TRỰC BÁN TRÚ THÁNG ${m}/${y}`],
-            [`Tháng ${m}/${y} (Từ ngày ${tuNgayGV.split('-').reverse().join('/')} đến ${denNgayGV.split('-').reverse().join('/')})  |  Đơn giá ăn: ${giaAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${giaNgu.toLocaleString('vi-VN')}đ`], [],
+            [`BẢNG TỔNG HỢP TIỀN TRỰC BÁN TRÚ GIÁO VIÊN${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''}`],
+            [`Thời gian: Từ ngày ${tuNgayDMY} đến ngày ${denNgayDMY}  |  Đơn giá ăn: ${giaAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${giaNgu.toLocaleString('vi-VN')}đ`], [],
             ['STT', 'Họ tên GV / Nhân sự trực', 'Số ca ăn', 'Đơn giá ăn', 'Số ca ngủ', 'Đơn giá ngủ', 'Tổng số ca', 'Trong đó trực thay', 'Tổng thành tiền (VNĐ)', 'Ký nhận', 'Ghi chú'],
             ...gvData.map((g, i) => {
                 let ghiChu = '';
@@ -2203,7 +2266,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'GV');
-        XLSX.writeFile(wb, `bang-luong-gv-thang-${m}-${y}.xlsx`);
+        XLSX.writeFile(wb, `bang-luong-gv_${tuNgayGV}_den_${denNgayGV}.xlsx`);
     };
 
     // ── Hàm nạp dữ liệu HS vắng theo ngày ──
@@ -3139,16 +3202,60 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
             {/* PANEL GIÁO VIÊN */}
             {canExportGV && activeTab === 'panel-gv' && (
                 <div className="bc-main-panel active">
-                    <div className="bc-filter-row" style={{ marginBottom: 18 }}>
-                        <div className="bc-filter-item" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ fontWeight: 600 }}><i className="fas fa-calendar-alt"></i> Chọn Tháng:</label>
-                            <input 
-                                type="month" 
-                                value={monthGV} 
-                                onChange={e => handleMonthGVChange(e.target.value)} 
-                                style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontFamily: 'inherit' }} 
-                            />
-                            <button className="btn btn-outline btn-sm" onClick={() => handleMonthGVChange(today.slice(0, 7))}>Tháng này</button>
+                    <div className="bc-filter-row" style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>
+                                <i className="fas fa-bolt" style={{ color: '#f59e0b' }}></i> Chọn nhanh:
+                            </label>
+                            <select 
+                                value={getActivePresetKey(tuNgayGV, denNgayGV)} 
+                                onChange={e => handleQuickPresetChange(e.target.value)}
+                                style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', background: '#fff', fontWeight: 500, fontSize: '0.9rem', outline: 'none' }}
+                            >
+                                <option value="custom">-- Tùy chỉnh khoảng ngày --</option>
+                                <optgroup label="📅 Theo Đợt thanh toán (4 tuần / đợt)">
+                                    {dotThanhToanConfig.map(d => (
+                                        <option key={d.dot} value={`dot_${d.dot}`}>
+                                            {d.label}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="🎓 Theo Học kỳ (4 - 5 tháng)">
+                                    <option value="hk1">Học kỳ 1 (4 tháng: 07/09/2026 → 22/01/2027)</option>
+                                    <option value="hk2">Học kỳ 2 (25/01/2027 → 30/06/2027)</option>
+                                    <option value="ca_nam">Cả năm học (07/09/2026 → 30/06/2027)</option>
+                                </optgroup>
+                                <optgroup label="📆 Theo Tháng (chu kỳ học thực tế)">
+                                    <option value="thang_9">Tháng 9 (07/09/2026 → 02/10/2026)</option>
+                                    <option value="thang_10">Tháng 10 (05/10/2026 → 30/10/2026)</option>
+                                    <option value="thang_11">Tháng 11 (02/11/2026 → 27/11/2026)</option>
+                                    <option value="thang_12">Tháng 12 (30/11/2026 → 25/12/2026)</option>
+                                    <option value="thang_1">Tháng 1/2027 (28/12/2026 → 22/01/2027)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <label style={{ fontWeight: 600, fontSize: '0.88rem', color: '#475569' }}>Từ ngày:</label>
+                                <input 
+                                    type="date" 
+                                    value={tuNgayGV} 
+                                    max={denNgayGV || undefined}
+                                    onChange={e => handleTuNgayGVChange(e.target.value)} 
+                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', fontFamily: 'inherit' }} 
+                                />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <label style={{ fontWeight: 600, fontSize: '0.88rem', color: '#475569' }}>Đến ngày:</label>
+                                <input 
+                                    type="date" 
+                                    value={denNgayGV} 
+                                    min={tuNgayGV || undefined}
+                                    onChange={e => handleDenNgayGVChange(e.target.value)} 
+                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.88rem', fontFamily: 'inherit' }} 
+                                />
+                            </div>
                         </div>
                         {loadingGV && <span style={{ color: 'var(--primary)' }}><i className="fas fa-spinner fa-spin"></i> Đang tính lương...</span>}
                         {canExportGV && (
@@ -3179,9 +3286,14 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     <div className="bc-detail-section">
                         <div className="bc-detail-header">
                             <h3>
-                                <i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên - Tháng {monthGV.split('-')[1]}/{monthGV.split('-')[0]}
-                                <span style={{ fontSize: '0.82rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
-                                    (Từ {tuNgayGV.split('-').reverse().join('/')} đến {denNgayGV.split('-').reverse().join('/')})
+                                <i className="fas fa-table"></i> Bảng tính tiền trực theo giáo viên
+                                {getTimeRangeLabel(tuNgayGV, denNgayGV) && (
+                                    <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 6, background: '#e0f2fe', color: '#0369a1', fontSize: '0.85rem', fontWeight: 600 }}>
+                                        {getTimeRangeLabel(tuNgayGV, denNgayGV)}
+                                    </span>
+                                )}
+                                <span style={{ fontSize: '0.85rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
+                                    (Từ {formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)})
                                 </span>
                             </h3>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -3285,7 +3397,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                             </td>
                                         </tr>
                                     ))}
-                                    {gvData.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có lịch trực nào trong Tháng {monthGV.split('-')[1]}/{monthGV.split('-')[0]} (từ {tuNgayGV.split('-').reverse().join('/')} đến {denNgayGV.split('-').reverse().join('/')})</td></tr>}
+                                    {gvData.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16, color: '#94a3b8' }}>Không có lịch trực nào từ ngày {formatDateDMY(tuNgayGV)} đến {formatDateDMY(denNgayGV)}</td></tr>}
                                 </tbody>
                                 {gvData.length > 0 && (
                                     <tfoot>
