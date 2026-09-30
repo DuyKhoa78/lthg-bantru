@@ -508,11 +508,12 @@
 
 #dd-student-area {
   flex: 1 1 0%;
-  min-height: 0;
+  min-height: 350px;
   overflow-y: auto !important;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  overflow-anchor: none; /* Ngăn trình duyệt tự động nhảy cuộn khi kết quả tìm kiếm co giãn */
 }
 
 /* Scrollbar tùy chỉnh rõ ràng, đẹp mắt cho danh sách phòng và danh sách học sinh */
@@ -582,6 +583,17 @@
   display: flex; align-items: center; justify-content: center;
 }
 .dd-status-btn:hover:not(.active) { background: #f0f9ff; color: var(--primary); border-color: var(--primary); }
+.dd-status-btn.phep-locked {
+  width: auto !important;
+  min-width: 32px;
+  padding: 0 8px !important;
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #d97706 !important;
+  cursor: default !important;
+  opacity: 0.95 !important;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.2) !important;
+}
 
 /* Summary bar */
 .dd-summary {
@@ -853,11 +865,12 @@
     width: 100% !important;
   }
   .dd-search-box input {
-    height: 36px !important;
-    font-size: 0.88rem !important;
+    height: 40px !important;
+    font-size: 16px !important; /* Bắt buộc tối thiểu 16px để ngăn iOS Safari giật màn hình và tự zoom khi gõ phím */
     border-radius: 8px !important;
-    padding-left: 32px !important;
-    padding-right: 32px !important;
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+    touch-action: manipulation;
   }
   .dd-teacher-actions-bar {
     flex-direction: column !important;

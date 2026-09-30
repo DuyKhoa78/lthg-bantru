@@ -14,7 +14,7 @@ import '../../styles/admin.css';
 import './DiemDanh.css';
 
 const STATUS_MAP = { 0: 'comat', 1: 'vang', 2: 'phep' };
-const INV_STATUS_MAP = { 'comat': 0, 'vang': 1, 'phep': 2, 'chua_diem_danh': 1 };
+const INV_STATUS_MAP = { 'comat': 0, 'vang': 1, 'phep': 2, 'chua_diem_danh': null };
 const STATUS = {
     comat: { label: 'Có mặt', bg: '#f0fdf4', border: '#bbf7d0', dot: '#22c55e' },
     vang: { label: 'Vắng', bg: '#fef2f2', border: '#fecaca', dot: '#ef4444' },
@@ -549,11 +549,13 @@ export default function DiemDanhAn() {
                         const newOverrides = {};
                         list.forEach(s => {
                             if (s.status === 0) newOverrides[s.id] = 'comat';
+                            else if (s.status === 1) newOverrides[s.id] = 'vang';
+                            else if (s.status === 2) newOverrides[s.id] = 'phep';
                         });
                         setOverrides(prev => ({ ...prev, ...newOverrides }));
-                        const validScannedCount = list.filter(x => x.status === 0).length;
+                        const validScannedCount = list.filter(x => x.status !== undefined && x.status !== null).length;
                         if (validScannedCount > 0) {
-                            setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp (${validScannedCount} học sinh đã quét)`);
+                            setDraftRestoredMsg(`Đã bảo toàn dữ liệu nháp (${validScannedCount} học sinh đã ghi nhận)`);
                             setTimeout(() => setDraftRestoredMsg(null), 3500);
                         }
                     }
@@ -599,6 +601,12 @@ export default function DiemDanhAn() {
                 list.forEach(s => {
                     if (s.status === 0) {
                         allDraftOverrides[s.id] = 'comat';
+                        totalRestored++;
+                    } else if (s.status === 1) {
+                        allDraftOverrides[s.id] = 'vang';
+                        totalRestored++;
+                    } else if (s.status === 2) {
+                        allDraftOverrides[s.id] = 'phep';
                         totalRestored++;
                     }
                 });
@@ -740,6 +748,73 @@ export default function DiemDanhAn() {
     }, [isGiaoVien, myAssignments, selectedPhong, isGopMode]);
 
     const isGiamSatOnly = isGiaoVien && currentDuty !== 0;
+
+    // ── AUTOSAVE (TỰ ĐỘNG LƯU BẢN NHÁP CHO GIÁO VIÊN) ──
+    // Mỗi khi giáo viên chọn/đổi trạng thái (bằng tay, quét QR, hoặc chọn tất cả):
+    // 1. Lưu ngay tức thì vào LocalStorage để không bao giờ bị mất nếu lỡ reload/thoát app
+    // 2. Debounce 1.2 giây tự động đồng bộ lên server draft
+    useEffect(() => {
+        if (!overrides || Object.keys(overrides).length === 0) return;
+        if (!canTeacherOperate && isGiaoVien) return;
+
+        const allSource = allAssignedStudents.length > 0 ? allAssignedStudents : students;
+        if (allSource.length === 0) return;
+
+        const roomsToSave = isGopMode ? myDutyRooms : (selectedPhong ? [selectedPhong.ma_phong] : []);
+        if (roomsToSave.length === 0) return;
+
+        // Lưu tức thì vào LocalStorage
+        roomsToSave.forEach(roomCode => {
+            const roomStudents = allSource.filter(s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === roomCode);
+            if (roomStudents.length === 0) return;
+
+            const draftList = roomStudents.map(s => {
+                const st = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : null);
+                if (st === 'comat') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
+                if (st === 'vang') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
+                if (st === 'phep') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
+                return null;
+            }).filter(Boolean);
+
+            if (draftList.length > 0) {
+                try {
+                    localStorage.setItem(`bantru_draft_${date}_an_${roomCode}`, JSON.stringify(draftList));
+                } catch (e) {
+                    console.warn('LocalStorage save error:', e);
+                }
+            }
+        });
+        setLastLocalSaveTime(new Date());
+
+        // Debounce đồng bộ nền lên máy chủ
+        const timer = setTimeout(() => {
+            roomsToSave.forEach(roomCode => {
+                const roomStudents = allSource.filter(s => (s.phong_hien_thi || s.phong_an || s.ma_phong_target) === roomCode);
+                const draftList = roomStudents.map(s => {
+                    const st = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : null);
+                    if (st === 'comat') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
+                    if (st === 'vang') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
+                    if (st === 'phep') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
+                    return null;
+                }).filter(Boolean);
+
+                if (draftList.length > 0) {
+                    api.post('/api/diemdanh/draft-sync/', {
+                        ngay: date,
+                        loai_truc: 0,
+                        ma_phong_id: roomCode,
+                        danh_sach_hs: draftList
+                    }).then(r => {
+                        if (r.data?.ok) setLastSyncedTime(new Date());
+                    }).catch(err => {
+                        console.warn('Draft sync to server error:', err);
+                    });
+                }
+            });
+        }, 1200);
+
+        return () => clearTimeout(timer);
+    }, [overrides, date, isGopMode, myDutyRooms, selectedPhong, allAssignedStudents, students, canTeacherOperate, isGiaoVien, diemDanhDb]);
 
     // Xác nhận học sinh từ camera quét mã QR (Zero data loss, hỗ trợ liên phòng)
     const handleConfirmStudent = (student) => {
@@ -1040,6 +1115,15 @@ export default function DiemDanhAn() {
             }
             return;
         }
+        const curSt = overrides[id] ?? (diemDanhDb[id] !== undefined && diemDanhDb[id] !== null ? STATUS_MAP[diemDanhDb[id]] : 'chua_diem_danh');
+        if (isGiaoVien && curSt === 'phep') {
+            showAlert('Học sinh đã được Admin duyệt phép. Giáo viên không thể sửa đổi trạng thái.', 'info');
+            return;
+        }
+        if (isGiaoVien && st === 'phep') {
+            showAlert('Giáo viên không có quyền ghi Phép khi điểm danh. Thao tác báo nghỉ phép do Ban quản lý/Admin phụ trách.', 'warning');
+            return;
+        }
         setOverrides(p => ({ ...p, [id]: st }));
         setSaved(false);
     };
@@ -1093,18 +1177,29 @@ export default function DiemDanhAn() {
             : (allAssignedStudents.length > 0 ? allAssignedStudents : students);
 
         if (targetStudents.length === 0) return;
-        setSaving(true);
-        try {
-            const records = targetStudents.map(s => {
-                const effectivePhong = s.phong_hien_thi || s.phong_an || s.ma_phong_target || activeSingleRoom || selectedPhong?.ma_phong;
-                const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : 'chua_diem_danh');
-                return {
+
+        // CHỈ LƯU TẠM NHỮNG HỌC SINH ĐÃ ĐƯỢC TÍCH / CHỌN TRẠNG THÁI (Có mặt, Vắng, Phép)
+        // CÒN HỌC SINH CHƯA ĐIỂM DANH THÌ ĐỂ TRỐNG (KHÔNG GỬI VẮNG, TRÁNH TRÙNG VỚI HS VẮNG THẬT)
+        const records = [];
+        for (const s of targetStudents) {
+            const effectivePhong = s.phong_hien_thi || s.phong_an || s.ma_phong_target || activeSingleRoom || selectedPhong?.ma_phong;
+            const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : null);
+            if (curSt && curSt !== 'chua_diem_danh' && INV_STATUS_MAP[curSt] !== null && INV_STATUS_MAP[curSt] !== undefined) {
+                records.push({
                     ma_hs: s.id,
                     ngay: date,
                     status: INV_STATUS_MAP[curSt],
                     ma_phong: effectivePhong,
-                };
-            });
+                });
+            }
+        }
+
+        if (records.length === 0) {
+            return showAlert('Chưa có học sinh nào được tích chọn trạng thái để lưu tạm.', 'info');
+        }
+
+        setSaving(true);
+        try {
             await api.post('/api/diemdanh/save/', { loai: 'an', records });
 
             setDiemDanhDb(prev => {
@@ -1123,7 +1218,7 @@ export default function DiemDanhAn() {
 
             await fetchDiemDanh(date, true);
             const roomMsg = isSavingAll ? `cho cả ${myDutyRooms.length} phòng phụ trách` : `phòng ${activeSingleRoom}`;
-            showAlert(`Đã lưu thành công điểm danh ${roomMsg} (${records.length} học sinh)!`, 'success');
+            showAlert(`Đã lưu tạm thành công điểm danh ${roomMsg} (${records.length} học sinh đã tích)! Các học sinh chưa chọn vẫn được giữ để trống.`, 'success');
         } catch (err) {
             showAlert(err.response?.data?.error || 'Lỗi khi lưu điểm danh');
         } finally { setSaving(false); }
@@ -2242,15 +2337,15 @@ ${htmlPagesStr}
                                             }}
                                             onClick={handleSave}
                                             disabled={saving || !canTeacherOperate}
-                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : (activeSingleRoom ? `Lưu điểm danh phòng ${activeSingleRoom}` : `Lưu cả ${myDutyRooms.length} phòng phụ trách`)}
+                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : (activeSingleRoom ? `Lưu tạm điểm danh phòng ${activeSingleRoom} (chỉ lưu HS đã tích, chưa chọn để trống)` : `Lưu tạm cả ${myDutyRooms.length} phòng phụ trách`)}
                                         >
                                             {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
                                             <span>
                                                 {saved 
-                                                    ? 'Đã lưu!' 
+                                                    ? 'Đã lưu tạm!' 
                                                     : saving 
                                                         ? 'Đang lưu...' 
-                                                        : (activeSingleRoom ? `Lưu ${activeSingleRoom}` : (myDutyRooms.length > 0 ? `Lưu (${myDutyRooms.length}P)` : 'Lưu'))}
+                                                        : (activeSingleRoom ? `Lưu tạm ${activeSingleRoom}` : (myDutyRooms.length > 0 ? `Lưu tạm (${myDutyRooms.length}P)` : 'Lưu tạm'))}
                                             </span>
                                         </button>
 
@@ -2528,7 +2623,11 @@ ${htmlPagesStr}
                                     <div className="dd-search-box" style={{ maxWidth: '100%', width: '100%', boxSizing: 'border-box' }}>
                                         <i className="fas fa-search dd-search-icon"></i>
                                         <input
-                                            type="text"
+                                            type="search"
+                                            inputMode="search"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                             placeholder="Tìm tên hoặc mã HS (VD: 1, 10, 180)..."
                                             value={searchTerm}
                                             onChange={e => setSearchTerm(e.target.value)}
@@ -2586,24 +2685,48 @@ ${htmlPagesStr}
                                                 </div>
 
                                                 <div className="dd-status-btns">
-                                                     {['comat', 'vang', 'phep'].map(key => {
-                                                         const val = STATUS[key];
-                                                         return (
-                                                             <button key={key}
-                                                                 className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
-                                                                 style={{
-                                                                     ...(s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}),
-                                                                     cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
-                                                                     opacity: (!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1
-                                                                 }}
-                                                                 onClick={() => changeStatus(s.id, key)}
-                                                                 disabled={!canTeacherOperate}
-                                                                 title={!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label}>
-                                                                 {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
-                                                             </button>
-                                                         );
-                                                     })}
-                                                 </div>
+                                                    {isGiaoVien && s.trang_thai === 'phep' ? (
+                                                        <span
+                                                            className="dd-status-btn active phep-locked"
+                                                            style={{
+                                                                background: '#fffbeb',
+                                                                color: '#d97706',
+                                                                border: '1.5px solid #fde68a',
+                                                                boxShadow: '0 1px 4px rgba(217, 119, 6, 0.2)',
+                                                                cursor: 'not-allowed',
+                                                                padding: '4px 10px',
+                                                                borderRadius: 8,
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 700,
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 5
+                                                            }}
+                                                            title="Học sinh đã được Admin duyệt phép. Giáo viên không thể sửa đổi."
+                                                        >
+                                                            <i className="fas fa-file-alt" style={{ color: '#f59e0b' }}></i> Có phép (Admin)
+                                                        </span>
+                                                    ) : (
+                                                        (isGiaoVien ? ['comat', 'vang'] : ['comat', 'vang', 'phep']).map(key => {
+                                                            const val = STATUS[key];
+                                                            return (
+                                                                <button key={key}
+                                                                    className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
+                                                                    style={{
+                                                                        ...(s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}),
+                                                                        cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                                        opacity: (!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1
+                                                                    }}
+                                                                    onClick={() => changeStatus(s.id, key)}
+                                                                    disabled={!canTeacherOperate}
+                                                                    title={!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label}>
+                                                                    {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
+                                                                    {key === 'phep' && <span style={{ fontSize: '0.72rem', marginLeft: 3, fontWeight: 700 }}>Phép</span>}
+                                                                </button>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
