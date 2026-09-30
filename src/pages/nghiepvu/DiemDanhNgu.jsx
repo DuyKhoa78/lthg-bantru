@@ -2642,24 +2642,31 @@ ${htmlPagesStr}
                                                     <span className="dd-student-class"><b style={{ color: '#6c5ce7', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
                                                 </div>
 
-                                                <div className="dd-status-btns" style={isGiaoVien && s.trang_thai === 'phep' ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
-                                                    {(isGiaoVien ? (s.trang_thai === 'phep' ? ['comat', 'vang', 'phep'] : ['comat', 'vang']) : ['comat', 'vang', 'phep']).map(key => {
+                                                <div className="dd-status-btns">
+                                                    {['comat', 'vang', 'phep'].map(key => {
                                                         const val = STATUS[key];
-                                                        const isLockedPhep = isGiaoVien && s.trang_thai === 'phep';
+                                                        const isPhepForGv = isGiaoVien && key === 'phep';
+                                                        const isStudentPhep = s.trang_thai === 'phep';
+                                                        const isLockedForGv = isGiaoVien && isStudentPhep;
+                                                        const isDisabled = !canTeacherOperate || isPhepForGv || isLockedForGv;
                                                         return (
                                                             <button key={key}
                                                                 className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
                                                                 style={{
                                                                     ...(s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}),
-                                                                    cursor: (!canTeacherOperate || isLockedPhep) ? 'not-allowed' : 'pointer',
-                                                                    opacity: isLockedPhep ? (s.trang_thai === key ? 0.9 : 0.4) : ((!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1)
+                                                                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                                                    opacity: isLockedForGv
+                                                                        ? (s.trang_thai === key ? 0.7 : 0.3)
+                                                                        : isPhepForGv
+                                                                            ? 0.35
+                                                                            : ((!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1)
                                                                 }}
                                                                 onClick={() => {
-                                                                    if (isLockedPhep) return;
+                                                                    if (isDisabled) return;
                                                                     changeStatus(s.id, key);
                                                                 }}
-                                                                disabled={!canTeacherOperate || isLockedPhep}
-                                                                title={!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label}>
+                                                                disabled={isDisabled}
+                                                                title={isPhepForGv ? (isStudentPhep ? 'Học sinh có phép' : 'Chỉ Admin mới có quyền báo phép') : (!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label)}>
                                                                 {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
                                                             </button>
                                                         );
