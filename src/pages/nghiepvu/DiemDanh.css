@@ -583,17 +583,6 @@
   display: flex; align-items: center; justify-content: center;
 }
 .dd-status-btn:hover:not(.active) { background: #f0f9ff; color: var(--primary); border-color: var(--primary); }
-.dd-status-btn.phep-locked {
-  width: auto !important;
-  min-width: 32px;
-  padding: 0 8px !important;
-  background: #fffbeb !important;
-  border-color: #fde68a !important;
-  color: #d97706 !important;
-  cursor: default !important;
-  opacity: 0.95 !important;
-  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.2) !important;
-}
 
 /* Summary bar */
 .dd-summary {

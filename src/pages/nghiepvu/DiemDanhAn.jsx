@@ -2684,48 +2684,28 @@ ${htmlPagesStr}
                                                     </span>
                                                 </div>
 
-                                                <div className="dd-status-btns">
-                                                    {isGiaoVien && s.trang_thai === 'phep' ? (
-                                                        <span
-                                                            className="dd-status-btn active phep-locked"
-                                                            style={{
-                                                                background: '#fffbeb',
-                                                                color: '#d97706',
-                                                                border: '1.5px solid #fde68a',
-                                                                boxShadow: '0 1px 4px rgba(217, 119, 6, 0.2)',
-                                                                cursor: 'not-allowed',
-                                                                padding: '4px 10px',
-                                                                borderRadius: 8,
-                                                                fontSize: '0.75rem',
-                                                                fontWeight: 700,
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: 5
-                                                            }}
-                                                            title="Học sinh đã được Admin duyệt phép. Giáo viên không thể sửa đổi."
-                                                        >
-                                                            <i className="fas fa-file-alt" style={{ color: '#f59e0b' }}></i> Có phép (Admin)
-                                                        </span>
-                                                    ) : (
-                                                        (isGiaoVien ? ['comat', 'vang'] : ['comat', 'vang', 'phep']).map(key => {
-                                                            const val = STATUS[key];
-                                                            return (
-                                                                <button key={key}
-                                                                    className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
-                                                                    style={{
-                                                                        ...(s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}),
-                                                                        cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
-                                                                        opacity: (!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1
-                                                                    }}
-                                                                    onClick={() => changeStatus(s.id, key)}
-                                                                    disabled={!canTeacherOperate}
-                                                                    title={!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label}>
-                                                                    {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
-                                                                    {key === 'phep' && <span style={{ fontSize: '0.72rem', marginLeft: 3, fontWeight: 700 }}>Phép</span>}
-                                                                </button>
-                                                            );
-                                                        })
-                                                    )}
+                                                <div className="dd-status-btns" style={isGiaoVien && s.trang_thai === 'phep' ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
+                                                    {(isGiaoVien ? (s.trang_thai === 'phep' ? ['comat', 'vang', 'phep'] : ['comat', 'vang']) : ['comat', 'vang', 'phep']).map(key => {
+                                                        const val = STATUS[key];
+                                                        const isLockedPhep = isGiaoVien && s.trang_thai === 'phep';
+                                                        return (
+                                                            <button key={key}
+                                                                className={`dd-status-btn${s.trang_thai === key ? ' active' : ''}`}
+                                                                style={{
+                                                                    ...(s.trang_thai === key ? { background: val.dot, color: '#fff', border: `1.5px solid ${val.dot}`, boxShadow: `0 2px 8px ${val.dot}66` } : {}),
+                                                                    cursor: (!canTeacherOperate || isLockedPhep) ? 'not-allowed' : 'pointer',
+                                                                    opacity: isLockedPhep ? (s.trang_thai === key ? 0.9 : 0.4) : ((!canTeacherOperate && s.trang_thai !== key) ? 0.45 : 1)
+                                                                }}
+                                                                onClick={() => {
+                                                                    if (isLockedPhep) return;
+                                                                    changeStatus(s.id, key);
+                                                                }}
+                                                                disabled={!canTeacherOperate || isLockedPhep}
+                                                                title={!canTeacherOperate ? 'Chế độ chỉ đọc' : val.label}>
+                                                                {key === 'comat' ? <i className="fas fa-check"></i> : key === 'vang' ? <i className="fas fa-times"></i> : <i className="fas fa-file-alt"></i>}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         ))}
