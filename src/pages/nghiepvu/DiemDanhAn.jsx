@@ -836,8 +836,7 @@ export default function DiemDanhAn() {
                         savedHsIds.forEach(id => { delete next[id]; });
                         return next;
                     });
-                    setSaved(true);
-                    setTimeout(() => setSaved(false), 2500);
+
                     setLastSyncedTime(new Date());
                 } catch (err) {
                     console.warn('Auto save to DB error:', err);
