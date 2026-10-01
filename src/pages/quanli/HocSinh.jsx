@@ -277,8 +277,8 @@ export default function HocSinh() {
                 ho_ten: form.ho_ten,
                 lop: form.lop,
                 gioi_tinh: Number(form.gioi_tinh),
-                ma_phong_an: form.ma_phong_an || null,
-                ma_phong_ngu: form.ma_phong_ngu || null,
+                ma_phong_an: form.dang_hoc ? (form.ma_phong_an || null) : null,
+                ma_phong_ngu: form.dang_hoc ? (form.ma_phong_ngu || null) : null,
                 dang_hoc: form.dang_hoc,
                 ngay_vao: finalNgayVao,
                 ngay_rut: !form.dang_hoc ? form.ngay_rut : null,
@@ -1117,7 +1117,9 @@ export default function HocSinh() {
                                                     setForm({
                                                         ...form,
                                                         dang_hoc: isChecked,
-                                                        ngay_rut: isChecked ? '' : form.ngay_rut
+                                                        ngay_rut: isChecked ? '' : (form.ngay_rut || new Date().toISOString().split('T')[0]),
+                                                        ma_phong_an: isChecked ? form.ma_phong_an : '',
+                                                        ma_phong_ngu: isChecked ? form.ma_phong_ngu : '',
                                                     });
                                                 }}
                                             />
@@ -1160,7 +1162,9 @@ export default function HocSinh() {
                                             setForm({
                                                 ...form,
                                                 ngay_rut: val,
-                                                dang_hoc: val ? false : form.dang_hoc
+                                                dang_hoc: val ? false : form.dang_hoc,
+                                                ma_phong_an: val ? '' : form.ma_phong_an,
+                                                ma_phong_ngu: val ? '' : form.ma_phong_ngu,
                                             });
                                         }}
                                     />
@@ -1174,15 +1178,27 @@ export default function HocSinh() {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Phòng ăn</label>
-                                    <select className="form-control" value={form.ma_phong_an} onChange={(e) => setForm({ ...form, ma_phong_an: e.target.value })}>
-                                        <option value="">-- Chọn phòng ăn --</option>
+                                    <select
+                                        className="form-control"
+                                        value={form.ma_phong_an || ''}
+                                        onChange={(e) => setForm({ ...form, ma_phong_an: e.target.value })}
+                                        disabled={!form.dang_hoc}
+                                        style={!form.dang_hoc ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}}
+                                    >
+                                        <option value="">{!form.dang_hoc ? '-- Không xếp phòng (Đã rút) --' : '-- Chọn phòng ăn --'}</option>
                                         {phongAn.map(p => <option key={p.ma_phong} value={p.ma_phong}>{p.ma_phong}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Phòng ngủ</label>
-                                    <select className="form-control" value={form.ma_phong_ngu} onChange={(e) => setForm({ ...form, ma_phong_ngu: e.target.value })}>
-                                        <option value="">-- Chọn phòng ngủ --</option>
+                                    <select
+                                        className="form-control"
+                                        value={form.ma_phong_ngu || ''}
+                                        onChange={(e) => setForm({ ...form, ma_phong_ngu: e.target.value })}
+                                        disabled={!form.dang_hoc}
+                                        style={!form.dang_hoc ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}}
+                                    >
+                                        <option value="">{!form.dang_hoc ? '-- Không xếp phòng (Đã rút) --' : '-- Chọn phòng ngủ --'}</option>
                                         {phongNgu.filter(p => form.gioi_tinh === '' || p.gioi_tinh === Number(form.gioi_tinh)).map(p => (
                                             <option key={p.ma_phong} value={p.ma_phong}>{p.ma_phong} ({p.gioi_tinh === 0 ? 'Nam' : 'Nữ'})</option>
                                         ))}

@@ -321,8 +321,8 @@ export default function DiemDanhNgu() {
 
         hsList.forEach(hs => {
             if (hs.ngay_vao && date < hs.ngay_vao) return;
-            if (hs.ngay_rut && date > hs.ngay_rut) return;
-            if (!hs.dang_hoc && (!hs.ngay_rut || date > hs.ngay_rut)) return;
+            if (hs.ngay_rut && date >= hs.ngay_rut) return;
+            if (!hs.dang_hoc && (!hs.ngay_rut || date >= hs.ngay_rut)) return;
             if (!isHsAllowed(hs)) return;
             if (overridedElsewhere.has(hs.id)) return;
 
@@ -341,8 +341,8 @@ export default function DiemDanhNgu() {
             const baseHs = hsList.find(h => h.id === x.id);
             if (!baseHs) return;
             if (baseHs.ngay_vao && date < baseHs.ngay_vao) return;
-            if (baseHs.ngay_rut && date > baseHs.ngay_rut) return;
-            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || date > baseHs.ngay_rut)) return;
+            if (baseHs.ngay_rut && date >= baseHs.ngay_rut) return;
+            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || date >= baseHs.ngay_rut)) return;
 
             const effectivePhong = x.phong_ngu
                 || cauhinhNgay?.lop_phong_ngu?.[baseHs.lop]
@@ -385,8 +385,8 @@ export default function DiemDanhNgu() {
         );
         const base = hsList.filter(hs => {
             if (hs.ngay_vao && targetDate < hs.ngay_vao) return false;
-            if (hs.ngay_rut && targetDate > hs.ngay_rut) return false;
-            if (!hs.dang_hoc && (!hs.ngay_rut || targetDate > hs.ngay_rut)) return false;
+            if (hs.ngay_rut && targetDate >= hs.ngay_rut) return false;
+            if (!hs.dang_hoc && (!hs.ngay_rut || targetDate >= hs.ngay_rut)) return false;
             if (!isHsAllowed(hs)) return false;
             if (!isGenderCompatible(hs)) return false;
             if (overridedElsewhere.has(hs.id)) return false;
@@ -402,8 +402,8 @@ export default function DiemDanhNgu() {
             const baseHs = hsList.find(h => h.id === x.id);
             if (!baseHs) return false;
             if (baseHs.ngay_vao && targetDate < baseHs.ngay_vao) return false;
-            if (baseHs.ngay_rut && targetDate > baseHs.ngay_rut) return false;
-            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || targetDate > baseHs.ngay_rut)) return false;
+            if (baseHs.ngay_rut && targetDate >= baseHs.ngay_rut) return false;
+            if (!baseHs.dang_hoc && (!baseHs.ngay_rut || targetDate >= baseHs.ngay_rut)) return false;
             if (!isGenderCompatible(baseHs)) return false;
             const effectivePhong = x.phong_ngu || cauhinhNgay?.lop_phong_ngu?.[baseHs.lop] || phongTamNgu || roomSnapshotDb[baseHs.id] || baseHs.phong_ngu;
             return effectivePhong === ma_phong;
