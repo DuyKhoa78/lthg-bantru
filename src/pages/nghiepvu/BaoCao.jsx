@@ -868,9 +868,9 @@ export default function BaoCao() {
             const htmlPages = exportAnRooms.map(ma_phong => {
                 const roomStudents = sortStudentsForRoom(
                     [...(dataByPhong[ma_phong] || [])].filter(s => {
-                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
-                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
-                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut <= ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut <= ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     }),
                     ma_phong
                 );
@@ -881,7 +881,7 @@ export default function BaoCao() {
                 const dataRows = roomStudents.map((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
                     const dayCells = weekGroups.map(wg => wg.days.map(({ ngay }, di2) => {
-                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay >= s.ngay_rut);
                         if (isOutOfRange) {
                             return `<td class="col-day-an cell-inactive"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}><span class="mk-slash">/</span></td>`;
                         }
@@ -891,7 +891,7 @@ export default function BaoCao() {
                         return `<td class="col-day-an"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${sym}</td>`;
                     }).join('')).join('');
 
-                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     const filteredVang = activeDays.filter(ng => s.diemdanh[ng] === 1).length;
                     const filteredPhep = activeDays.filter(ng => s.diemdanh[ng] === 2).length;
                     const filteredCoMat = activeDays.filter(ng => s.diemdanh[ng] === 0).length; // Chỉ đếm khi đã ghi nhận rõ là có mặt
@@ -1034,9 +1034,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             exportAnRooms.forEach(ma_phong => {
                 const roomStudents = sortStudentsForRoom(
                     [...(dataByPhong[ma_phong] || [])].filter(s => {
-                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
-                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
-                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut <= ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut <= ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     }),
                     ma_phong
                 );
@@ -1060,9 +1060,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 ];
                 roomStudents.forEach((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     const dayCells = ngay_ban_tru.map(ngay => {
-                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay >= s.ngay_rut);
                         if (isOutOfRange) return '/';
                         const v = s.diemdanh[ngay]; return v === 0 ? '✓' : v === 1 ? '✗' : v === 2 ? 'P' : '';
                     });
@@ -1146,9 +1146,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             const htmlPages = exportNguRooms.map(ma_phong => {
                 const roomStudents = [...(dataByPhong[ma_phong] || [])]
                     .filter(s => {
-                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
-                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
-                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut <= ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut <= ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     })
                     .sort((a, b) => a.id - b.id);
                 if (!roomStudents || roomStudents.length === 0) return null;
@@ -1166,7 +1166,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 const dataRows = roomStudents.map((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
                     const dayCells = weekGroups.map(wg => wg.days.map(({ ngay }, di2) => {
-                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay >= s.ngay_rut);
                         if (isOutOfRange) {
                             return `<td class="col-day-an cell-inactive"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}><span class="mk-slash">/</span></td>`;
                         }
@@ -1180,7 +1180,7 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                         return `<td class="col-day-an"${di2 === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${sym}</td>`;
                     }).join('')).join('');
 
-                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     const filteredVang = activeDays.filter(ng => s.diemdanh[ng] === 1).length;
                     const filteredPhep = activeDays.filter(ng => s.diemdanh[ng] === 2).length;
                     const filteredCoMat = activeDays.filter(ng => s.diemdanh[ng] === 0).length;
@@ -1320,9 +1320,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
             exportNguRooms.forEach(ma_phong => {
                 const roomStudents = [...(dataByPhong[ma_phong] || [])]
                     .filter(s => {
-                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut < ngay_ban_tru[0])) return false;
-                        if (s.ngay_rut && s.ngay_rut < ngay_ban_tru[0]) return false;
-                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                        if (s.dang_hoc === false && (!s.ngay_rut || s.ngay_rut <= ngay_ban_tru[0])) return false;
+                        if (s.ngay_rut && s.ngay_rut <= ngay_ban_tru[0]) return false;
+                        return ngay_ban_tru.some(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     })
                     .sort((a, b) => a.id - b.id);
                 if (!roomStudents || roomStudents.length === 0) return;
@@ -1341,9 +1341,9 @@ body { font-family:'Times New Roman',Times,serif; font-size:8pt; color:#000; bac
                 ];
                 roomStudents.forEach((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng <= s.ngay_rut));
+                    const activeDays = ngay_ban_tru.filter(ng => (!s.ngay_vao || ng >= s.ngay_vao) && (!s.ngay_rut || ng < s.ngay_rut));
                     const dayCells = ngay_ban_tru.map(ngay => {
-                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay > s.ngay_rut);
+                        const isOutOfRange = (s.ngay_vao && ngay < s.ngay_vao) || (s.ngay_rut && ngay >= s.ngay_rut);
                         if (isOutOfRange) return '/';
                         const v = s.diemdanh[ngay]; return v === 0 ? '✓' : v === 1 ? '✗' : v === 2 ? 'P' : '';
                     });

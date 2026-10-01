@@ -277,8 +277,8 @@ export default function HocSinh() {
                 ho_ten: form.ho_ten,
                 lop: form.lop,
                 gioi_tinh: Number(form.gioi_tinh),
-                ma_phong_an: form.dang_hoc ? (form.ma_phong_an || null) : null,
-                ma_phong_ngu: form.dang_hoc ? (form.ma_phong_ngu || null) : null,
+                ma_phong_an: form.ma_phong_an || null,
+                ma_phong_ngu: form.ma_phong_ngu || null,
                 dang_hoc: form.dang_hoc,
                 ngay_vao: finalNgayVao,
                 ngay_rut: !form.dang_hoc ? form.ngay_rut : null,
@@ -1118,8 +1118,6 @@ export default function HocSinh() {
                                                         ...form,
                                                         dang_hoc: isChecked,
                                                         ngay_rut: isChecked ? '' : (form.ngay_rut || new Date().toISOString().split('T')[0]),
-                                                        ma_phong_an: isChecked ? form.ma_phong_an : '',
-                                                        ma_phong_ngu: isChecked ? form.ma_phong_ngu : '',
                                                     });
                                                 }}
                                             />
@@ -1163,14 +1161,12 @@ export default function HocSinh() {
                                                 ...form,
                                                 ngay_rut: val,
                                                 dang_hoc: val ? false : form.dang_hoc,
-                                                ma_phong_an: val ? '' : form.ma_phong_an,
-                                                ma_phong_ngu: val ? '' : form.ma_phong_ngu,
                                             });
                                         }}
                                     />
                                     <small style={{ color: !form.dang_hoc ? '#dc2626' : '#64748b', fontSize: '.75rem', display: 'block', marginTop: 4, fontWeight: !form.dang_hoc ? 600 : 400 }}>
                                         {!form.dang_hoc
-                                            ? '⚠️ Bắt buộc nhập ngày rút bán trú khi học sinh đã rút.'
+                                            ? '⚠️ Bắt buộc nhập ngày rút bán trú khi học sinh đã rút (từ ngày này sẽ không có tên điểm danh).'
                                             : 'Chỉ điền khi học sinh rút bán trú (sẽ tự động chuyển sang Đã rút bán trú).'}
                                     </small>
                                 </div>
@@ -1182,10 +1178,8 @@ export default function HocSinh() {
                                         className="form-control"
                                         value={form.ma_phong_an || ''}
                                         onChange={(e) => setForm({ ...form, ma_phong_an: e.target.value })}
-                                        disabled={!form.dang_hoc}
-                                        style={!form.dang_hoc ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}}
                                     >
-                                        <option value="">{!form.dang_hoc ? '-- Không xếp phòng (Đã rút) --' : '-- Chọn phòng ăn --'}</option>
+                                        <option value="">-- Chọn phòng ăn --</option>
                                         {phongAn.map(p => <option key={p.ma_phong} value={p.ma_phong}>{p.ma_phong}</option>)}
                                     </select>
                                 </div>
@@ -1195,12 +1189,10 @@ export default function HocSinh() {
                                         className="form-control"
                                         value={form.ma_phong_ngu || ''}
                                         onChange={(e) => setForm({ ...form, ma_phong_ngu: e.target.value })}
-                                        disabled={!form.dang_hoc}
-                                        style={!form.dang_hoc ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}}
                                     >
-                                        <option value="">{!form.dang_hoc ? '-- Không xếp phòng (Đã rút) --' : '-- Chọn phòng ngủ --'}</option>
+                                        <option value="">-- Chọn phòng ngủ --</option>
                                         {phongNgu.filter(p => form.gioi_tinh === '' || p.gioi_tinh === Number(form.gioi_tinh)).map(p => (
-                                            <option key={p.ma_phong} value={p.ma_phong}>{p.ma_phong} ({p.gioi_tinh === 0 ? 'Nam' : 'Nữ'})</option>
+                                             <option key={p.ma_phong} value={p.ma_phong}>{p.ma_phong} ({p.gioi_tinh === 0 ? 'Nam' : 'Nữ'})</option>
                                         ))}
                                     </select>
                                 </div>
