@@ -786,7 +786,7 @@ export default function DiemDanhAn() {
         });
         setLastLocalSaveTime(new Date());
 
-        // Debounce 3 giây: tự động lưu trực tiếp dữ liệu điểm danh vào CSDL và đồng bộ bản nháp
+        // Debounce 1.5 giây: tự động lưu trực tiếp dữ liệu điểm danh vào CSDL và đồng bộ bản nháp
         const timer = setTimeout(async () => {
             const recordsToSave = [];
             const updatedDb = {};
@@ -843,7 +843,7 @@ export default function DiemDanhAn() {
                     console.warn('Auto save to DB error:', err);
                 }
             }
-        }, 3000);
+        }, 1500);
 
         return () => clearTimeout(timer);
     }, [overrides, date, isGopMode, myDutyRooms, selectedPhong, allAssignedStudents, students, canTeacherOperate, isGiaoVien, diemDanhDb]);
