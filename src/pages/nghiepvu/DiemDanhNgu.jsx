@@ -814,17 +814,34 @@ export default function DiemDanhNgu() {
         });
         setLastLocalSaveTime(new Date());
 
-        // Debounce đồng bộ nền lên máy chủ
-        const timer = setTimeout(() => {
+        // Debounce 3 giây: tự động lưu trực tiếp dữ liệu điểm danh vào CSDL và đồng bộ bản nháp
+        const timer = setTimeout(async () => {
+            const recordsToSave = [];
+            const updatedDb = {};
+            const savedHsIds = [];
+
             roomsToSave.forEach(roomCode => {
                 const roomStudents = allSource.filter(s => (s.phong_hien_thi || s.phong_ngu || s.ma_phong_target) === roomCode);
-                const draftList = roomStudents.map(s => {
-                    const st = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : null);
-                    if (st === 'comat') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
-                    if (st === 'vang') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
-                    if (st === 'phep') return { id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' };
-                    return null;
-                }).filter(Boolean);
+                const draftList = [];
+
+                roomStudents.forEach(s => {
+                    const curSt = overrides[s.id] ?? (diemDanhDb[s.id] !== undefined && diemDanhDb[s.id] !== null ? STATUS_MAP[diemDanhDb[s.id]] : null);
+                    if (curSt && curSt !== 'chua_diem_danh' && INV_STATUS_MAP[curSt] !== null && INV_STATUS_MAP[curSt] !== undefined) {
+                        recordsToSave.push({
+                            ma_hs: s.id,
+                            ngay: date,
+                            status: INV_STATUS_MAP[curSt],
+                            ma_phong: roomCode,
+                        });
+                        updatedDb[s.id] = INV_STATUS_MAP[curSt];
+                        if (overrides[s.id] !== undefined) {
+                            savedHsIds.push(s.id);
+                        }
+                    }
+                    if (curSt === 'comat') draftList.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 0, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' });
+                    else if (curSt === 'vang') draftList.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 1, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' });
+                    else if (curSt === 'phep') draftList.push({ id: s.id, ho_ten: s.ho_ten, lop: s.lop, status: 2, scanned_at: new Date().toISOString(), phuong_thuc: 'thu_cong' });
+                });
 
                 if (draftList.length > 0) {
                     api.post('/api/diemdanh/draft-sync/', {
@@ -832,14 +849,29 @@ export default function DiemDanhNgu() {
                         loai_truc: 1,
                         ma_phong_id: roomCode,
                         danh_sach_hs: draftList
-                    }).then(r => {
-                        if (r.data?.ok) setLastSyncedTime(new Date());
                     }).catch(err => {
                         console.warn('Draft sync to server error:', err);
                     });
                 }
             });
-        }, 1200);
+
+            if (recordsToSave.length > 0) {
+                try {
+                    await api.post('/api/diemdanh/save/', { loai: 'ngu', records: recordsToSave });
+                    setDiemDanhDb(prev => ({ ...prev, ...updatedDb }));
+                    setOverrides(prev => {
+                        const next = { ...prev };
+                        savedHsIds.forEach(id => { delete next[id]; });
+                        return next;
+                    });
+                    setSaved(true);
+                    setTimeout(() => setSaved(false), 2500);
+                    setLastSyncedTime(new Date());
+                } catch (err) {
+                    console.warn('Auto save to DB error:', err);
+                }
+            }
+        }, 3000);
 
         return () => clearTimeout(timer);
     }, [overrides, date, isGopMode, myDutyRooms, selectedPhong, allAssignedStudents, students, canTeacherOperate, isGiaoVien, diemDanhDb]);
@@ -906,9 +938,12 @@ export default function DiemDanhNgu() {
         if (!targetRoom) return;
 
         // Lấy đúng danh sách học sinh của phòng đang chọn
-        const targetStudents = (allAssignedStudents.length > 0 ? allAssignedStudents : students).filter(
+        let targetStudents = (allAssignedStudents.length > 0 ? allAssignedStudents : students).filter(
             s => (s.phong_hien_thi || s.phong_ngu || s.ma_phong_target) === targetRoom
         );
+        if (targetStudents.length === 0 && !isGopMode && students.length > 0) {
+            targetStudents = students;
+        }
         if (targetStudents.length === 0) return;
 
         // Những học sinh chưa điểm danh sẽ tự động ghi nhận là VẮNG (status: 1)
@@ -2633,11 +2668,6 @@ ${htmlPagesStr}
                                                 <div className="dd-student-info">
                                                     <span className="dd-student-name">
                                                         {(s.ho_ten || '').normalize('NFC')}
-                                                        {isGopMode && s.phong_hien_thi && (
-                                                            <span className="dd-student-room-badge" style={{ background: '#ede9fe', color: '#6d28d9', borderColor: '#c4b5fd', marginLeft: 6 }}>
-                                                                {s.phong_hien_thi}
-                                                            </span>
-                                                        )}
                                                     </span>
                                                     <span className="dd-student-class"><b style={{ color: '#6c5ce7', marginRight: 4 }}>MSBT: 26{String(s.id).padStart(3, '0')}</b> • {s.lop}</span>
                                                 </div>
@@ -2930,9 +2960,12 @@ ${htmlPagesStr}
                         <div className="dd-modal-body">
                             {(() => {
                                 const targetRoomName = activeSingleRoom || selectedPhong?.ma_phong || '';
-                                const targetStudents = activeSingleRoom
-                                    ? students.filter(s => (s.phong === activeSingleRoom || s.phong_hien_thi === activeSingleRoom || s.phong_ngu === activeSingleRoom || s.ma_phong === activeSingleRoom))
+                                let targetStudents = targetRoomName
+                                    ? students.filter(s => (s.phong_hien_thi === targetRoomName || s.phong_ngu === targetRoomName || s.ma_phong_target === targetRoomName || s.phong === targetRoomName || s.ma_phong === targetRoomName))
                                     : students;
+                                if (targetStudents.length === 0 && !isGopMode && students.length > 0) {
+                                    targetStudents = students;
+                                }
                                 const totalTarget = targetStudents.length;
                                 const cmCount = targetStudents.filter(s => s.trang_thai === 'comat').length;
                                 const phepCount = targetStudents.filter(s => s.trang_thai === 'phep').length;
