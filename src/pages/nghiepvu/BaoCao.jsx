@@ -121,7 +121,7 @@ export default function BaoCao() {
 
     // Sub-tab Thống kê tùy chọn
     const [tkTuNgay, setTkTuNgay] = useState('2026-09-07');
-    const [tkDenNgay, setTkDenNgay] = useState(today);
+    const [tkDenNgay, setTkDenNgay] = useState('2026-09-30');
     const [thongKeData, setThongKeData] = useState(null);
     const [loadingThongKe, setLoadingThongKe] = useState(false);
     const [exportingTkPdf, setExportingTkPdf] = useState(false);
@@ -535,7 +535,7 @@ export default function BaoCao() {
     const fetchThongKe = async (tu = tkTuNgay, den = tkDenNgay) => {
         if (!tu || !den || tu > den) {
             alert('Vui lòng chọn khoảng ngày hợp lệ (Từ ngày ≤ Đến ngày)!');
-            return;
+            return null;
         }
         setLoadingThongKe(true);
         try {
@@ -550,60 +550,80 @@ export default function BaoCao() {
                     if (cmp !== 0) return cmp;
                     return nameA.middle.localeCompare(nameB.middle, 'vi');
                 });
-                setThongKeData({
+                const fullResult = {
                     ...res.data,
+                    tu_ngay: tu,
+                    den_ngay: den,
                     data: sortedGv
-                });
+                };
+                setThongKeData(fullResult);
+                return fullResult;
             }
+            return null;
         } catch (err) {
             console.error('Lỗi khi tải thống kê:', err);
             alert(err.response?.data?.error || 'Có lỗi xảy ra khi tải thống kê');
+            return null;
         } finally {
             setLoadingThongKe(false);
         }
     };
 
     // Xuất Excel Thống kê tổng hợp
-    const exportThongKeExcel = () => {
-        if (!thongKeData || !thongKeData.data || thongKeData.data.length === 0) {
+    const exportThongKeExcel = async () => {
+        let currentData = thongKeData;
+        if (!currentData || currentData.tu_ngay !== tkTuNgay || currentData.den_ngay !== tkDenNgay) {
+            currentData = await fetchThongKe(tkTuNgay, tkDenNgay);
+        }
+        if (!currentData || !currentData.data || currentData.data.length === 0) {
             alert('Không có dữ liệu thống kê để xuất!');
             return;
         }
         const wb = XLSX.utils.book_new();
 
+        const tuDMY = formatDateDMY(currentData.tu_ngay || tkTuNgay);
+        const denDMY = formatDateDMY(currentData.den_ngay || tkDenNgay);
+
         const rows = [];
         rows.push(['BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN']);
-        rows.push([`Khoảng thời gian: Từ ngày ${formatDateDMY(tkTuNgay)} đến ngày ${formatDateDMY(tkDenNgay)}`]);
+        rows.push([`Khoảng thời gian: Từ ngày ${tuDMY} đến ngày ${denDMY}`]);
         rows.push([`Ngày lập: ${formatDateDMY(today)}`]);
         rows.push([]);
         rows.push(['TỔNG QUAN SỐ LIỆU TRONG KHOẢNG NGÀY:']);
-        rows.push(['Tổng GV tham gia:', thongKeData.summary?.tong_so_gv || 0]);
-        rows.push(['Tổng ca ăn:', thongKeData.summary?.totCaAn || 0]);
-        rows.push(['Tổng ca ngủ:', thongKeData.summary?.totCaNgu || 0]);
-        rows.push(['Tổng tiền trực phát sinh (đ):', (thongKeData.summary?.totTienPhatSinh || 0)]);
+        rows.push(['Tổng GV tham gia:', currentData.summary?.tong_so_gv || 0]);
+        rows.push(['Tổng ca ăn:', currentData.summary?.totCaAn || 0]);
+        rows.push(['Tổng ca ngủ:', currentData.summary?.totCaNgu || 0]);
+        rows.push(['Tổng tiền trực phát sinh (đ):', (currentData.summary?.totTienPhatSinh || 0)]);
         rows.push([]);
         rows.push(['CHI TIẾT THEO GIÁO VIÊN:']);
         rows.push(['STT', 'Họ tên giáo viên', 'Số ca ăn', 'Số ca ngủ', 'Thành tiền phát sinh (đ)']);
 
-        thongKeData.data.forEach((g, idx) => {
+        currentData.data.forEach((g, idx) => {
             rows.push([
                 idx + 1,
-                g.ho_ten,
+                g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : ''),
                 g.so_ca_an || 0,
                 g.so_ca_ngu || 0,
                 g.tong_tien || 0
             ]);
         });
+        rows.push([
+            '',
+            'TỔNG CỘNG',
+            currentData.summary?.totCaAn || 0,
+            currentData.summary?.totCaNgu || 0,
+            currentData.summary?.totTienPhatSinh || 0
+        ]);
 
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, 'ThongKeGV');
 
-        if (thongKeData.kyList && thongKeData.kyList.length > 0) {
+        if (currentData.kyList && currentData.kyList.length > 0) {
             const kyRows = [
                 ['CÁC KỲ TRỰC LIÊN QUAN TRONG KHOẢNG THỜI GIAN'],
                 ['STT', 'Tên kỳ', 'Từ ngày', 'Đến ngày', 'Trạng thái', 'Tổng tiền kỳ (đ)']
             ];
-            thongKeData.kyList.forEach((k, idx) => {
+            currentData.kyList.forEach((k, idx) => {
                 kyRows.push([
                     idx + 1,
                     k.ten_ky,
@@ -617,73 +637,81 @@ export default function BaoCao() {
             XLSX.utils.book_append_sheet(wb, wsKy, 'KyTrucPhanBo');
         }
 
-        XLSX.writeFile(wb, `thong-ke-tien-truc_${tkTuNgay}_den_${tkDenNgay}.xlsx`);
+        XLSX.writeFile(wb, `thong-ke-tien-truc_${currentData.tu_ngay || tkTuNgay}_den_${currentData.den_ngay || tkDenNgay}.xlsx`);
     };
 
-    // Xuất PDF Thống kê tổng hợp
-    const exportThongKePDF = () => {
-        if (!thongKeData || !thongKeData.data || thongKeData.data.length === 0) {
+    // Xuất PDF Thống kê tổng hợp (Chuẩn văn bản hành chính in ấn - FULL ĐEN)
+    const exportThongKePDF = async () => {
+        let currentData = thongKeData;
+        if (!currentData || currentData.tu_ngay !== tkTuNgay || currentData.den_ngay !== tkDenNgay) {
+            currentData = await fetchThongKe(tkTuNgay, tkDenNgay);
+        }
+        if (!currentData || !currentData.data || currentData.data.length === 0) {
             alert('Không có dữ liệu thống kê để xuất!');
             return;
         }
         setExportingTkPdf(true);
         try {
-            const tuNgayDMY = formatDateDMY(tkTuNgay);
-            const denNgayDMY = formatDateDMY(tkDenNgay);
+            const tuNgayDMY = formatDateDMY(currentData.tu_ngay || tkTuNgay);
+            const denNgayDMY = formatDateDMY(currentData.den_ngay || tkDenNgay);
             const dateStr = `Từ ngày ${tuNgayDMY} đến ngày ${denNgayDMY}`;
             const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
 
             let tbody = '';
-            thongKeData.data.forEach((g, i) => {
+            currentData.data.forEach((g, i) => {
+                let note = '';
+                if (g.is_ngoai) note += ' (Ngoài DS)';
                 tbody += `<tr>
-                    <td class="tc">${i + 1}</td>
-                    <td class="tl">${g.ho_ten}</td>
-                    <td class="tc">${g.so_ca_an || 0}</td>
-                    <td class="tc">${g.so_ca_ngu || 0}</td>
-                    <td class="tr" style="font-weight:700; color:#059669;">${(g.tong_tien || 0).toLocaleString('vi-VN')} đ</td>
+                    <td class="tc" style="border:1px solid #000; padding:4px 3px;">${i + 1}</td>
+                    <td class="tl" style="border:1px solid #000; padding:4px 6px;">${g.ho_ten}${note ? `<span style="font-size:8.5pt; font-style:italic;">${note}</span>` : ''}</td>
+                    <td class="tc" style="border:1px solid #000; padding:4px 3px;">${g.so_ca_an || 0}</td>
+                    <td class="tc" style="border:1px solid #000; padding:4px 3px;">${g.so_ca_ngu || 0}</td>
+                    <td class="tr" style="border:1px solid #000; padding:4px 6px; font-weight:bold;">${(g.tong_tien || 0).toLocaleString('vi-VN')} đ</td>
                 </tr>`;
             });
 
-            tbody += `<tr style="background:#f0fdf4; font-weight:bold;">
-                <td colspan="2" class="tc">TỔNG CỘNG</td>
-                <td class="tc">${thongKeData.summary?.totCaAn || 0}</td>
-                <td class="tc">${thongKeData.summary?.totCaNgu || 0}</td>
-                <td class="tr" style="color:#059669; font-size:10pt;">${(thongKeData.summary?.totTienPhatSinh || 0).toLocaleString('vi-VN')} đ</td>
+            tbody += `<tr style="background:#ececec; font-weight:bold;">
+                <td colspan="2" class="tc" style="border:1px solid #000; padding:5px 6px;">TỔNG CỘNG</td>
+                <td class="tc" style="border:1px solid #000; padding:5px 3px;">${currentData.summary?.totCaAn || 0}</td>
+                <td class="tc" style="border:1px solid #000; padding:5px 3px;">${currentData.summary?.totCaNgu || 0}</td>
+                <td class="tr" style="border:1px solid #000; padding:5px 6px; font-size:10pt; font-weight:bold;">${(currentData.summary?.totTienPhatSinh || 0).toLocaleString('vi-VN')} đ</td>
             </tr>`;
 
             const htmlPage = `
             <div class="hdr-inner-an">
-                <table style="width:100%; border:none; margin-bottom:12px;">
+                <table style="width:100%; border:none; margin-bottom:10px;">
                     <tr>
                         <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
-                            <div style="font-size:9.5pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>THÀNH PHỐ HỒ CHÍ MINH</div>
-                            <div style="font-size:9.5pt; font-weight:bold;">TRƯỜNG THPT LÊ THI HỒNG GẤM</div>
+                            <div style="font-size:9pt; text-transform:uppercase;">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</div>
+                            <div style="font-size:9.5pt; font-weight:bold; text-transform:uppercase;">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
+                            <div style="margin: 2px auto 0 auto; width: 110px; border-bottom: 1px solid #000;"></div>
                         </td>
                         <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
                             <div style="font-size:9.5pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                            <div style="font-size:9.5pt; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</div>
+                            <div style="font-size:9.5pt; font-weight:bold;">Độc lập - Tự do - Hạnh phúc</div>
+                            <div style="margin: 2px auto 0 auto; width: 130px; border-bottom: 1px solid #000;"></div>
                         </td>
                     </tr>
                 </table>
                 <div style="text-align:center; margin:14px 0 10px 0;">
-                    <div style="font-size:14pt; font-weight:bold; text-transform:uppercase;">BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN</div>
-                    <div style="font-size:10.5pt; font-style:italic; margin-top:3px;">${dateStr}</div>
+                    <div style="font-size:13.5pt; font-weight:bold; text-transform:uppercase;">BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN</div>
+                    <div style="font-size:10pt; font-style:italic; margin-top:3px;">${dateStr}</div>
                 </div>
-                <table class="report-table" style="width:100%; border-collapse:collapse; font-size:9pt;">
+                <table class="report-table" style="width:100%; border-collapse:collapse; font-size:9pt; border:1px solid #000;">
                     <thead>
-                        <tr style="background:#e2e8f0; font-weight:bold;">
-                            <th style="width:40px; border:1px solid #94a3b8; padding:6px;">STT</th>
-                            <th style="border:1px solid #94a3b8; padding:6px;">Họ tên giáo viên</th>
-                            <th style="width:80px; border:1px solid #94a3b8; padding:6px;">Số ca ăn</th>
-                            <th style="width:80px; border:1px solid #94a3b8; padding:6px;">Số ca ngủ</th>
-                            <th style="width:140px; border:1px solid #94a3b8; padding:6px;">Tiền trực phát sinh</th>
+                        <tr style="background:#ececec; font-weight:bold;">
+                            <th style="width:38px; border:1px solid #000; padding:5px 3px; text-align:center;">STT</th>
+                            <th style="border:1px solid #000; padding:5px 6px; text-align:left;">Họ tên giáo viên</th>
+                            <th style="width:75px; border:1px solid #000; padding:5px 3px; text-align:center;">Số ca ăn</th>
+                            <th style="width:75px; border:1px solid #000; padding:5px 3px; text-align:center;">Số ca ngủ</th>
+                            <th style="width:140px; border:1px solid #000; padding:5px 6px; text-align:right;">Tiền trực phát sinh</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${tbody}
                     </tbody>
                 </table>
-                <table style="width:100%; border:none; margin-top:25px; page-break-inside:avoid;">
+                <table style="width:100%; border:none; margin-top:22px; page-break-inside:avoid;">
                     <tr>
                         <td style="width:50%; text-align:center; vertical-align:top; border:none;">
                             <div style="font-weight:bold; font-size:9.5pt;">NGƯỜI LẬP BÁO CÁO</div>
@@ -701,9 +729,19 @@ export default function BaoCao() {
             </div>`;
 
             const css = `@page { size: A4 portrait; margin: 12mm 10mm; }
-            body { font-family: "Times New Roman", Times, serif; font-size: 10pt; color: #000; margin: 0; padding: 0; }
-            .tc { text-align: center; } .tl { text-align: left; } .tr { text-align: right; }
-            table.report-table td { border: 1px solid #94a3b8; padding: 4px 6px; }`;
+            * { box-sizing: border-box; color: #000 !important; }
+            body { font-family: "Times New Roman", Times, serif; font-size: 10pt; color: #000; margin: 0; padding: 0; background: #fff; }
+            .tc { text-align: center; } .tl { text-align: left; padding-left: 6px; } .tr { text-align: right; padding-right: 6px; }
+            table.report-table { width: 100%; border-collapse: collapse; border: 1px solid #000 !important; }
+            table.report-table th, table.report-table td { border: 1px solid #000 !important; padding: 4px 6px; color: #000 !important; vertical-align: middle; }
+            table.report-table th { background: #ececec !important; font-weight: bold; }
+            @media print {
+                body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                * { color: #000 !important; }
+                table.report-table th { background: #ececec !important; }
+                table.report-table, table.report-table th, table.report-table td { border: 1px solid #000 !important; }
+                tr { page-break-inside: avoid; break-inside: avoid; }
+            }`;
 
             const w = window.open('', '_blank');
             if (!w) { alert('Trình duyệt chặn popup!'); return; }
@@ -2124,7 +2162,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
                 if (g.is_ngoai) note += ' (Ngoài DS)';
                 tbody += `<tr>
           <td class="tc">${i + 1}</td>
-          <td class="tl">${g.ho_ten}${note ? ` <span style="font-size:8pt;font-style:italic;color:#c2410c;">${note}</span>` : ''}</td>
+          <td class="tl">${g.ho_ten}${note ? ` <span style="font-size:8pt;font-style:italic;">${note}</span>` : ''}</td>
           <td class="tc">${g.so_ca_an || 0}</td>
           <td class="tr">${giaAn.toLocaleString('vi-VN')}</td>
           <td class="tc">${g.so_ca_ngu || 0}</td>
@@ -2133,13 +2171,13 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
           <td class="tc"></td>
         </tr>`;
             });
-            tbody += `<tr style="background:#f0fdf4; font-weight:bold;">
+            tbody += `<tr style="background:#ececec; font-weight:bold;">
         <td colspan="2" class="tc">TỔNG CỘNG</td>
         <td class="tc">${totCaAn}</td>
         <td class="tc">-</td>
         <td class="tc">${totCaNgu}</td>
         <td class="tc">-</td>
-        <td class="tr" style="font-size:10pt; color:#166534;">${totTien.toLocaleString('vi-VN')} đ</td>
+        <td class="tr" style="font-size:10pt; font-weight:bold;">${totTien.toLocaleString('vi-VN')} đ</td>
         <td class="tc"></td>
       </tr>`;
 
@@ -3542,7 +3580,9 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                             className={`btn btn-sm ${subTabGV === 'thong_ke' ? 'btn-primary' : 'btn-ghost'}`}
                             onClick={() => {
                                 setSubTabGV('thong_ke');
-                                if (!thongKeData) fetchThongKe('2026-09-07', today);
+                                if (!thongKeData || thongKeData.tu_ngay !== tkTuNgay || thongKeData.den_ngay !== tkDenNgay) {
+                                    fetchThongKe(tkTuNgay, tkDenNgay);
+                                }
                             }}
                             style={{ fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}
                         >
@@ -3851,7 +3891,13 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                             type="date"
                                             value={tkTuNgay}
                                             max={tkDenNgay || today}
-                                            onChange={e => setTkTuNgay(e.target.value)}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setTkTuNgay(val);
+                                                if (val && tkDenNgay && val <= tkDenNgay) {
+                                                    fetchThongKe(val, tkDenNgay);
+                                                }
+                                            }}
                                             style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
                                         />
                                         <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.85rem' }}>({formatDateDMY(tkTuNgay)})</span>
@@ -3865,7 +3911,13 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                             value={tkDenNgay}
                                             min={tkTuNgay}
                                             max={today}
-                                            onChange={e => setTkDenNgay(e.target.value)}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setTkDenNgay(val);
+                                                if (val && tkTuNgay && tkTuNgay <= val) {
+                                                    fetchThongKe(tkTuNgay, val);
+                                                }
+                                            }}
                                             style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.9rem' }}
                                         />
                                         <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.85rem' }}>({formatDateDMY(tkDenNgay)})</span>
@@ -3879,6 +3931,30 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     >
                                         {loadingThongKe ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
                                         Xem thống kê
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline"
+                                        onClick={() => {
+                                            setTkTuNgay('2026-09-07');
+                                            setTkDenNgay('2026-09-30');
+                                            fetchThongKe('2026-09-07', '2026-09-30');
+                                        }}
+                                        style={{ fontWeight: 600, borderRadius: 8 }}
+                                    >
+                                        Hết Tháng 9 (30/09)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline"
+                                        onClick={() => {
+                                            setTkTuNgay('2026-09-07');
+                                            setTkDenNgay(today);
+                                            fetchThongKe('2026-09-07', today);
+                                        }}
+                                        style={{ fontWeight: 600, borderRadius: 8 }}
+                                    >
+                                        Đến nay ({formatDateDMY(today)})
                                     </button>
                                 </div>
 
