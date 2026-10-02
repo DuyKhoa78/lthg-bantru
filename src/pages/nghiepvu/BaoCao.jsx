@@ -720,7 +720,7 @@ export default function BaoCao() {
                         </td>
                         <td style="width:50%; text-align:center; vertical-align:top; border:none;">
                             <div style="font-style:italic; font-size:8.5pt;">${todayStr}</div>
-                            <div style="font-weight:bold; font-size:9.5pt;">HIỆU TRƯỞNG / QUẢN LÝ BÁN TRÚ</div>
+                            <div style="font-weight:bold; font-size:9.5pt; text-transform:uppercase;">GIÁM ĐỐC</div>
                             <div style="font-style:italic; font-size:8.5pt;">(Ký, đóng dấu)</div>
                             <div style="margin-top:55px; font-weight:bold; font-size:9.5pt;">${quanLyName || ''}</div>
                         </td>
