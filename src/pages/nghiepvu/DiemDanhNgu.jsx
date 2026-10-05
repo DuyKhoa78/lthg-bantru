@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import { cachedFetch } from '../../utils/cache';
@@ -56,7 +56,9 @@ const shiftDate = (baseIso, days) => {
 
 export default function DiemDanhNgu() {
     const { user } = useAuth();
-    const isGiaoVien = user?.role === 'giao_vien';
+    const navigate = useNavigate();
+    const isDutyStaff = user?.role === 'giao_vien' || user?.role === 'hoc_vu';
+    const isGiaoVien = isDutyStaff;
 
     // Lấy ngày hôm nay theo giờ máy (máy đặt đúng múi giờ Việt Nam)
     const todayVN = () => {
@@ -430,8 +432,9 @@ export default function DiemDanhNgu() {
                 list = filtered.length > 0 ? filtered : phongList;
             }
         }
-        // Đối với Giáo viên: Khóa chỉ hiển thị phòng được phân công trực
-        if (isGiaoVien && Array.isArray(assignedRoomCodes)) {
+        // Đối với Giáo viên & Học vụ: Khóa chỉ hiển thị phòng được phân công trực (đang nạp thì trả về rỗng)
+        if (isGiaoVien) {
+            if (!Array.isArray(assignedRoomCodes)) return [];
             list = list.filter(p => assignedRoomCodes.includes(p.ma_phong));
         }
         return list;
@@ -465,7 +468,7 @@ export default function DiemDanhNgu() {
 
     // Tự động chọn phòng hoặc chế độ gộp
     useEffect(() => {
-        // ADMIN / HỌC VỤ: Giữ nguyên như cũ hoàn toàn!
+        // ADMIN: Giữ nguyên như cũ hoàn toàn!
         if (!isGiaoVien) {
             setIsGopMode(false);
             if (urlPhong && visiblePhongList.some(p => p.ma_phong === urlPhong)) {
@@ -479,26 +482,39 @@ export default function DiemDanhNgu() {
             return;
         }
 
-        // DÀNH RIÊNG CHO GIÁO VIÊN:
+        // DÀNH RIÊNG CHO GIÁO VIÊN & HỌC VỤ:
+        // Đợi nạp xong phân công phòng
+        if (assignedRoomCodes === null) {
+            return;
+        }
+
+        // Không có phân công phòng trong ca này
+        if (visiblePhongList.length === 0) {
+            setSelectedPhongCode(null);
+            setIsGopMode(false);
+            return;
+        }
+
         if (urlPhong && urlPhong !== 'ALL' && visiblePhongList.some(p => p.ma_phong === urlPhong)) {
             setSelectedPhongCode(urlPhong);
             setIsGopMode(false);
             return;
         }
-        if (urlGop) {
+        if (urlGop && visiblePhongList.length >= 2) {
             setIsGopMode(true);
             setSelectedPhongCode(null);
             return;
         }
-        // Trường hợp ban đầu vào trang chưa có query param:
-        if (!urlPhong && !urlGop) {
-            if (assignedRoomCodes && assignedRoomCodes.length >= 2) {
-                setIsGopMode(true);
-                setSelectedPhongCode(null);
-            } else if (visiblePhongList.length > 0) {
-                setSelectedPhongCode(visiblePhongList[0]?.ma_phong);
-                setIsGopMode(false);
-            }
+        // Trường hợp ban đầu vào trang chưa có query param hoặc URL không khớp phòng phân công:
+        if (visiblePhongList.length >= 2 && !urlPhong) {
+            setIsGopMode(true);
+            setSelectedPhongCode(null);
+        } else if (visiblePhongList.length === 1) {
+            setSelectedPhongCode(visiblePhongList[0]?.ma_phong);
+            setIsGopMode(false);
+        } else if (visiblePhongList.length > 0) {
+            const isCurrentValid = selectedPhongCode && visiblePhongList.some(p => p.ma_phong === selectedPhongCode);
+            if (!isCurrentValid) setSelectedPhongCode(visiblePhongList[0]?.ma_phong);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visiblePhongList, urlPhong, urlGop, isGiaoVien, assignedRoomCodes]);
@@ -521,25 +537,31 @@ export default function DiemDanhNgu() {
         return false;
     }, [isGiaoVien, isGopMode, myDutyRooms, selectedPhong]);
 
-    // Quyền thao tác:
-    // Admin/Học vụ: chỉ được thao tác với ngày hiện tại và ngày quá khứ (không thao tác với ngày chưa đến).
-    // Giáo viên: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ đúng khung giờ ca ngủ (11h30 - 12h05).
-    const canTeacherOperate = useMemo(() => {
-        if (date > todayVN()) return false;
-        if (!isGiaoVien) return true;
-        if (!hasTeacherDuty) return false;
-        return isDateToday && shiftTiming.state === 'dang_dien_ra';
-    }, [isGiaoVien, hasTeacherDuty, isDateToday, shiftTiming.state, date]);
-
     // Kiểm tra khung giờ điểm danh
     const isAllowedTime = useCallback(() => {
         if (user?.is_admin || user?.is_superuser) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
-        if (isGiaoVien) {
+        if (user?.role === 'giao_vien') {
             return isDateToday && mins >= 690 && mins < 725; // 11:30 - 12:05
         }
-        return mins >= 660 && mins <= 840; // Học vụ: 11:00 - 14:00
-    }, [user, isGiaoVien, currentTime, isDateToday]);
+        if (user?.role === 'hoc_vu') {
+            return isDateToday && mins >= 690 && mins <= 840; // 11:30 - 14:00
+        }
+        return true;
+    }, [user, currentTime, isDateToday]);
+
+    // Quyền thao tác:
+    // Admin: chỉ được thao tác với ngày hiện tại và ngày quá khứ.
+    // Giáo viên & Học vụ: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ trong khung giờ cho phép.
+    const canTeacherOperate = useMemo(() => {
+        if (date > todayVN()) return false;
+        if (!isGiaoVien) return true;
+        if (!hasTeacherDuty) return false;
+        if (user?.role === 'hoc_vu') {
+            return isDateToday && isAllowedTime();
+        }
+        return isDateToday && shiftTiming.state === 'dang_dien_ra';
+    }, [isGiaoVien, hasTeacherDuty, isDateToday, shiftTiming.state, date, user, isAllowedTime]);
 
     // Tự động phục hồi bản nháp (LocalStorage + Server Draft) khi đổi phòng hoặc chế độ gộp
     useEffect(() => {
@@ -1974,7 +1996,7 @@ ${htmlPagesStr}
                                             <div className="dd-group-title">TẤT CẢ PHÒNG TRỰC</div>
                                         </div>
                                         <div className="dd-group-sub">
-                                            <span className="dd-group-sub-text">Gộp: {myDutyRooms.map(r => (typeof r === 'string' && r.startsWith('P')) ? r : `P${r}`).join(', ')}</span>
+                                            <span className="dd-group-sub-text">Gộp: {myDutyRooms.join(', ')}</span>
                                             <span className="dd-group-badge">{allAssignedStudents.length} HS</span>
                                         </div>
                                     </li>
@@ -2018,7 +2040,11 @@ ${htmlPagesStr}
                                         </li>
                                     );
                                 })}
-                                {visiblePhongList.length === 0 && <li style={{ padding: 12, color: '#94a3b8', textAlign: 'center' }}>Không có phòng</li>}
+                                {visiblePhongList.length === 0 && (
+                                    <li style={{ padding: 14, color: '#94a3b8', textAlign: 'center', fontSize: '0.85rem' }}>
+                                        {isGiaoVien ? (assignedRoomCodes === null ? 'Đang nạp phân công...' : 'Không có phòng trực ca này') : 'Không có phòng'}
+                                    </li>
+                                )}
                             </ul>
                         </>
                     )}
@@ -2036,6 +2062,27 @@ ${htmlPagesStr}
                             <h3 style={{ color: '#475569', fontSize: '1.4rem', marginBottom: 8 }}>Không có lịch bán trú</h3>
                             <p style={{ color: '#64748b', fontSize: '1rem', maxWidth: 460 }}>Ngày <b>{fmtDate(date)}</b> không có phân công trực, học sinh nghỉ bán trú.</p>
                         </div>
+                    ) : (isGiaoVien && assignedRoomCodes !== null && assignedRoomCodes.length === 0) ? (
+                        <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: 12, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ fontSize: '3.5rem', color: '#6366f1', marginBottom: 16 }}>
+                                <i className="fas fa-bed"></i>
+                            </div>
+                            <h3 style={{ color: '#1e293b', fontSize: '1.3rem', marginBottom: 8, fontWeight: 700 }}>
+                                Không có phân công trực Ca Ngủ hôm nay
+                            </h3>
+                            <p style={{ color: '#64748b', fontSize: '0.95rem', maxWidth: 480, lineHeight: 1.6, marginBottom: 24 }}>
+                                {user?.fullname || 'Bạn'} không có lịch phân công trực điểm danh phòng ngủ trong ngày <b>{fmtDate(date)}</b>.
+                            </p>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => navigate(`/diemdanh-an?ngay=${date}`)}
+                                style={{ fontWeight: 600, padding: '10px 22px', display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 8 }}
+                            >
+                                <i className="fas fa-utensils"></i> Kiểm tra / Đến điểm danh Ca Ăn
+                                <i className="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
                     ) : (
                         <>
                             <div className="dd-main-header">
@@ -2045,7 +2092,7 @@ ${htmlPagesStr}
                                             {isGopMode ? (
                                                 <span>
                                                     <i className="fas fa-layer-group" style={{ marginRight: 8, color: '#6c5ce7' }}></i>
-                                                    Điểm danh gộp ({myDutyRooms.map(r => `P${r}`).join(', ')})
+                                                    Điểm danh gộp ({myDutyRooms.join(' • ')})
                                                 </span>
                                             ) : selectedPhong ? (
                                                 `Phòng ${selectedPhong.ma_phong}`
@@ -2208,7 +2255,7 @@ ${htmlPagesStr}
                                                 <strong>Chưa đến giờ điểm danh ca ngủ (11h30 – 12h05):</strong> Hệ thống mở quét QR lúc 11h30. Hiện tại: <b><LiveClock /></b>.
                                             </div>
                                         </div>
-                                    ) : shiftTiming.state === 'da_qua_gio' ? (
+                                    ) : (shiftTiming.state === 'da_qua_gio' && (user?.role !== 'hoc_vu' || !isAllowedTime())) ? (
                                         <div className="dd-shift-notice-banner danger">
                                             <i className="fas fa-lock"></i>
                                             <div>

@@ -279,7 +279,7 @@ export default function GvDashboard() {
                         badge: 'Cần điểm danh trước',
                         ca: 0,
                         actionType: 'diemdanh',
-                        path: `/diemdanh-an?ngay=${dutyData.today}&gop=1`,
+                        path: anItems.length >= 2 ? `/diemdanh-an?ngay=${dutyData.today}&gop=1` : `/diemdanh-an?ngay=${dutyData.today}&phong=${anItems[0]?.ma_phong_id}`,
                         actionText: 'Vào điểm danh ca ăn ngay'
                     });
                 } else {
@@ -309,7 +309,7 @@ export default function GvDashboard() {
                         badge: `Đóng lúc 12:00 (${minsLeft}p)`,
                         ca: 0,
                         actionType: 'diemdanh',
-                        path: `/diemdanh-an?ngay=${dutyData.today}&gop=1`,
+                        path: anItems.length >= 2 ? `/diemdanh-an?ngay=${dutyData.today}&gop=1` : `/diemdanh-an?ngay=${dutyData.today}&phong=${anItems[0]?.ma_phong_id}`,
                         actionText: 'Vào điểm danh phòng ăn ngay'
                     });
                 } else if (!anBaoCaoDone) {
@@ -388,7 +388,7 @@ export default function GvDashboard() {
                         badge: 'Cần điểm danh trước',
                         ca: 1,
                         actionType: 'diemdanh',
-                        path: `/diemdanh-ngu?ngay=${dutyData.today}&gop=1`,
+                        path: nguItems.length >= 2 ? `/diemdanh-ngu?ngay=${dutyData.today}&gop=1` : `/diemdanh-ngu?ngay=${dutyData.today}&phong=${nguItems[0]?.ma_phong_id}`,
                         actionText: 'Vào điểm danh phòng ngủ ngay'
                     });
                 } else {
@@ -418,7 +418,7 @@ export default function GvDashboard() {
                         badge: `Đóng lúc 13:00 (${minsLeft}p)`,
                         ca: 1,
                         actionType: 'diemdanh',
-                        path: `/diemdanh-ngu?ngay=${dutyData.today}&gop=1`,
+                        path: nguItems.length >= 2 ? `/diemdanh-ngu?ngay=${dutyData.today}&gop=1` : `/diemdanh-ngu?ngay=${dutyData.today}&phong=${nguItems[0]?.ma_phong_id}`,
                         actionText: 'Vào điểm danh phòng ngủ ngay'
                     });
                 } else if (!nguBaoCaoDone) {
@@ -975,7 +975,13 @@ export default function GvDashboard() {
                                                             <button
                                                                 type="button"
                                                                 className="btn gv-btn-consolidated"
-                                                                onClick={() => navigate(`${shift.path}?ngay=${shift.ngay}&gop=1`)}
+                                                                onClick={() => {
+                                                                    if (hasMultipleRooms) {
+                                                                        navigate(`${shift.path}?ngay=${shift.ngay}&gop=1`);
+                                                                    } else {
+                                                                        navigate(`${shift.path}?ngay=${shift.ngay}&phong=${roomCodes[0]}`);
+                                                                    }
+                                                                }}
                                                             >
                                                                 <i className="fas fa-qrcode"></i>
                                                                 <span>VÀO ĐIỂM DANH ({roomCodesStr})</span>

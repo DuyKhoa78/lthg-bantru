@@ -113,10 +113,83 @@ export default function Dashboard() {
         return () => { ctrl.abort(); clearInterval(midnightCheck); };
     }, []);
 
+    const [viewMode, setViewMode] = useState('tong_quan'); // 'tong_quan' | 'ca_nhan'
     const stat = data?.stat || {};
 
     if (user?.role === 'giao_vien') {
         return <GvDashboard />;
+    }
+
+    if (user?.role === 'hoc_vu' && viewMode === 'ca_nhan') {
+        return (
+            <div>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: '10px 16px',
+                    marginBottom: 20
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.92rem' }}>
+                            <i className="fas fa-user-clock" style={{ color: '#009CFF', marginRight: 6 }}></i>
+                            Chế độ xem Học vụ:
+                        </span>
+                        <div style={{ display: 'inline-flex', background: '#e2e8f0', borderRadius: 8, padding: 3 }}>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('tong_quan')}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 6,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    background: 'transparent',
+                                    color: '#64748b',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <i className="fas fa-chart-pie" style={{ marginRight: 6 }}></i>
+                                Thống kê toàn trường
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('ca_nhan')}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 6,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    background: '#fff',
+                                    color: '#009CFF',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <i className="fas fa-clipboard-check" style={{ marginRight: 6 }}></i>
+                                Ca trực & Điểm danh cá nhân
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setViewMode('tong_quan')}
+                        style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                        <i className="fas fa-arrow-left"></i> Về Thống kê toàn trường
+                    </button>
+                </div>
+                <GvDashboard />
+            </div>
+        );
     }
 
     /* ── Loading ── */
@@ -144,6 +217,72 @@ export default function Dashboard() {
 
     return (
         <>
+            {user?.role === 'hoc_vu' && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: '10px 16px',
+                    marginBottom: 20
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.92rem' }}>
+                            <i className="fas fa-user-clock" style={{ color: '#009CFF', marginRight: 6 }}></i>
+                            Chế độ xem Học vụ:
+                        </span>
+                        <div style={{ display: 'inline-flex', background: '#e2e8f0', borderRadius: 8, padding: 3 }}>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('tong_quan')}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 6,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    background: '#fff',
+                                    color: '#009CFF',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <i className="fas fa-chart-pie" style={{ marginRight: 6 }}></i>
+                                Thống kê toàn trường
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('ca_nhan')}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 6,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    background: 'transparent',
+                                    color: '#64748b',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <i className="fas fa-clipboard-check" style={{ marginRight: 6 }}></i>
+                                Ca trực & Điểm danh cá nhân
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setViewMode('ca_nhan')}
+                        style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                        <i className="fas fa-arrow-right"></i> Đến ca trực của tôi
+                    </button>
+                </div>
+            )}
             {/* ── Header gọn ── */}
             <div className="content-header">
                 <h2 className="page-title">Thống kê điểm danh bán trú</h2>

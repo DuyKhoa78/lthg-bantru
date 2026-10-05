@@ -149,7 +149,7 @@ export default function TaiKhoan() {
       const payload = { ...form };
       if (modal !== 'add') delete payload.password;
       if (modal !== 'add') payload.id = modal.edit.id;
-      if (payload.role !== 'giao_vien') payload.giao_vien_id = null;
+      if (payload.role !== 'giao_vien' && payload.role !== 'hoc_vu') payload.giao_vien_id = null;
 
       await api.post('/api/taikhoan/save/', payload);
       setModal(null);
@@ -410,11 +410,11 @@ export default function TaiKhoan() {
                 </div>
               </div>
 
-              {form.role === 'giao_vien' && (
+              {(form.role === 'giao_vien' || form.role === 'hoc_vu') && (
                 <div className="form-group" style={{ marginBottom: 14 }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <i className="fas fa-chalkboard-teacher" style={{ color: '#8b5cf6' }}></i>
-                    Hồ sơ Giáo viên liên kết
+                    Hồ sơ Giáo viên / Nhân sự trực liên kết
                   </label>
                   <select
                     className="form-control"
@@ -426,11 +426,11 @@ export default function TaiKhoan() {
                         ...prev,
                         giao_vien_id: val,
                         fullname: prev.fullname || gv?.ho_ten || '',
-                        position: prev.position || 'Giáo viên',
+                        position: prev.position || (prev.role === 'hoc_vu' ? 'Học vụ bán trú' : 'Giáo viên'),
                       }));
                     }}
                   >
-                    <option value="">-- Chọn giáo viên từ danh mục (tuỳ chọn) --</option>
+                    <option value="">-- Chọn nhân sự từ danh mục (tuỳ chọn) --</option>
                     {gvList.map(g => (
                       <option key={g.id} value={g.id}>
                         {g.ho_ten} {g.to_bo_mon ? `(${g.to_bo_mon})` : ''}
@@ -438,7 +438,7 @@ export default function TaiKhoan() {
                     ))}
                   </select>
                   <small style={{ color: '#64748b', marginTop: 4, display: 'block', fontSize: '0.8rem' }}>
-                    Tài khoản giáo viên cần liên kết với hồ sơ GV để tự động đồng bộ ca trực và điểm danh đúng phòng được phân công.
+                    Tài khoản cần liên kết với hồ sơ GV/Nhân sự trực để tự động đồng bộ ca trực và điểm danh đúng phòng được phân công.
                   </small>
                 </div>
               )}
