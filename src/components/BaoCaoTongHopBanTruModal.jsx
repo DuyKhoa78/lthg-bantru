@@ -325,7 +325,23 @@ export default function BaoCaoTongHopBanTruModal({
 
   const tuDMY = formatDateDMY(tuNgay);
   const denDMY = formatDateDMY(denNgay);
-  const todayStr = `Thành phố Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+  const selectedKy = keToanKys.find((k) => k.id === selectedKeToanKyId);
+  const isKyDaChot = selectedKy?.trang_thai === 'da_chot';
+
+  let signDay = new Date().getDate();
+  let signMonth = new Date().getMonth() + 1;
+  let signYear = new Date().getFullYear();
+
+  if (isKyDaChot && denNgay) {
+    const parts = String(denNgay).split('-');
+    if (parts.length === 3) {
+      signYear = parts[0];
+      signMonth = parseInt(parts[1], 10);
+      signDay = parseInt(parts[2], 10);
+    }
+  }
+
+  const todayStr = `Thành phố Hồ Chí Minh, ngày ${signDay} tháng ${signMonth} năm ${signYear}`;
 
   // ── Tính tổng từng cột của Bảng Tổng Hợp ──
   const totals = tableData.reduce(

@@ -213,6 +213,18 @@ export default function TongHopChiTra() {
     return kyData?.ky || kyData || {};
   }, [kyData]);
 
+  const todayVN = useMemo(() => {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+  }, []);
+
+  const isKyDaChot = kyInfo?.trang_thai === 'da_chot';
+  const ngayLapHienThi = useMemo(() => {
+    if (isKyDaChot) {
+      return kyInfo?.den_ngay || (kyInfo?.ngay_chot ? String(kyInfo.ngay_chot).substring(0, 10) : todayVN);
+    }
+    return todayVN;
+  }, [isKyDaChot, kyInfo?.den_ngay, kyInfo?.ngay_chot, todayVN]);
+
   const maxClosedDenNgay = useMemo(() => {
     return (kyList || [])
       .filter((k) => k.id !== kyInfo?.id && k.trang_thai === 'da_chot' && k.den_ngay)
@@ -641,6 +653,7 @@ export default function TongHopChiTra() {
 
   // ─── Inline Edit: Cập nhật Số tài khoản hoặc Ghi chú của người nhận ─────────────
   const handleStartEditRecipientField = (recipient, field) => {
+    if (kyInfo?.trang_thai === 'da_chot') return;
     setEditingRecipientCell({
       recipientId: recipient.id,
       field,
@@ -650,7 +663,10 @@ export default function TongHopChiTra() {
   };
 
   const handleSaveRecipientField = async () => {
-    if (!editingRecipientCell || !kyInfo?.id) return;
+    if (!editingRecipientCell || !kyInfo?.id || kyInfo?.trang_thai === 'da_chot') {
+      setEditingRecipientCell(null);
+      return;
+    }
     const { recipient, field, value } = editingRecipientCell;
     const trimmed = value !== undefined ? String(value).trim() : '';
     const currentVal = (recipient[field] || '').trim();
@@ -716,11 +732,15 @@ export default function TongHopChiTra() {
   ) => {
     if (!kyInfo) return '';
     const tuDMY = formatDateDMY(kyInfo.tu_ngay);
-    const denDMY = formatDateDMY(kyInfo.den_ngay);
-    const today = new Date();
-    const dayStr = String(today.getDate()).padStart(2, '0');
-    const monthStr = String(today.getMonth() + 1).padStart(2, '0');
-    const yearStr = today.getFullYear();
+    let dayStr = '08', monthStr = '10', yearStr = '2026';
+    if (ngayLapHienThi) {
+      const parts = ngayLapHienThi.split('-');
+      if (parts.length === 3) {
+        yearStr = parts[0];
+        monthStr = parts[1];
+        dayStr = parts[2];
+      }
+    }
     const todayStr = `Thành phố Hồ Chí Minh, Ngày ${dayStr} tháng ${monthStr} năm ${yearStr}`;
 
     const activeCols = columns.filter((col) => col.kich_hoat !== false);
@@ -1257,11 +1277,14 @@ export default function TongHopChiTra() {
       tooltip = hasNote ? `${customNote}\n────────────────────────\n${mainInfo}` : mainInfo;
     }
 
+    const canEdit = !isLocked && !isKyDaChot;
+
     return (
       <td
         key={col.ma_khoan_chi}
-        className={cellClass}
-        onClick={isLocked ? undefined : () => handleOpenCellEdit(recipient, col, ct)}
+        className={`${cellClass} ${isKyDaChot ? 'cell-locked-view' : ''}`}
+        onClick={canEdit ? () => handleOpenCellEdit(recipient, col, ct) : undefined}
+        style={isKyDaChot ? { cursor: 'default' } : undefined}
         title={tooltip}
       >
         {amount > 0 ? formatTien(amount) : ''}
@@ -1320,14 +1343,24 @@ export default function TongHopChiTra() {
               </button>
             )}
             {isSuperAdminOrAccountant && kyInfo?.id && (
-              <button
-                className={`thct-btn-sm ${kyInfo.trang_thai === 'da_chot' ? 'thct-btn-warning' : 'thct-btn-amber'}`}
-                onClick={handleToggleLock}
-                title={kyInfo.trang_thai === 'da_chot' ? 'Mở lại kỳ để chỉnh sửa (đồng bộ Báo cáo)' : 'Khóa chốt kỳ số liệu (đồng bộ Báo cáo)'}
-              >
-                <i className={`fas fa-${kyInfo.trang_thai === 'da_chot' ? 'lock-open' : 'lock'}`}></i>
-                {kyInfo.trang_thai === 'da_chot' ? 'Mở lại' : 'Chốt kỳ'}
-              </button>
+              kyInfo.trang_thai === 'da_chot' ? (
+                <button
+                  type="button"
+                  className="thct-btn-sm thct-btn-locked"
+                  disabled
+                  title="Kỳ đã chốt sổ, số liệu khóa cố định không thể chỉnh sửa hay mở lại"
+                >
+                  <i className="fas fa-lock"></i> Đã chốt sổ
+                </button>
+              ) : (
+                <button
+                  className="thct-btn-sm thct-btn-amber"
+                  onClick={handleToggleLock}
+                  title="Khóa chốt kỳ số liệu (đồng bộ Báo cáo)"
+                >
+                  <i className="fas fa-lock"></i> Chốt kỳ
+                </button>
+              )
             )}
             <button className="thct-btn-sm thct-btn-excel" onClick={handleExportExcel} disabled={!kyInfo?.id} title="Xuất dữ liệu ra file Excel chuẩn kế toán">
               <i className="fas fa-file-excel"></i> Xuất Excel
@@ -1440,8 +1473,9 @@ export default function TongHopChiTra() {
                       {/* Cột Số tài khoản - Cho phép nhập/sửa trực tiếp */}
                       <td
                         className={`account-cell ${editingRecipientCell?.recipientId === nn.id && editingRecipientCell?.field === 'so_tai_khoan' ? 'is-editing' : ''}`}
-                        onClick={() => handleStartEditRecipientField(nn, 'so_tai_khoan')}
-                        title="Nhấp để nhập / sửa số tài khoản ngân hàng"
+                        onClick={!isKyDaChot ? () => handleStartEditRecipientField(nn, 'so_tai_khoan') : undefined}
+                        title={isKyDaChot ? (nn.so_tai_khoan || 'Số tài khoản') : "Nhấp để nhập / sửa số tài khoản ngân hàng"}
+                        style={isKyDaChot ? { cursor: 'default' } : undefined}
                       >
                         {editingRecipientCell?.recipientId === nn.id && editingRecipientCell?.field === 'so_tai_khoan' ? (
                           <input
@@ -1458,7 +1492,7 @@ export default function TongHopChiTra() {
                         ) : (
                           <div className="thct-cell-text-wrapper">
                             <span>{(nn.so_tai_khoan && nn.so_tai_khoan !== '-') ? nn.so_tai_khoan : ''}</span>
-                            <i className="fas fa-pen thct-cell-edit-icon" title="Sửa STK"></i>
+                            {!isKyDaChot && <i className="fas fa-pen thct-cell-edit-icon" title="Sửa STK"></i>}
                           </div>
                         )}
                       </td>
@@ -1466,8 +1500,9 @@ export default function TongHopChiTra() {
                       {/* Cột Ghi chú - Cho phép nhập/sửa trực tiếp */}
                       <td
                         className={`note-cell ${editingRecipientCell?.recipientId === nn.id && editingRecipientCell?.field === 'ghi_chu' ? 'is-editing' : ''}`}
-                        onClick={() => handleStartEditRecipientField(nn, 'ghi_chu')}
-                        title={nn.ghi_chu ? `Ghi chú: ${nn.ghi_chu}\n(Nhấp để sửa)` : 'Nhấp để nhập ghi chú'}
+                        onClick={!isKyDaChot ? () => handleStartEditRecipientField(nn, 'ghi_chu') : undefined}
+                        title={isKyDaChot ? (nn.ghi_chu || '') : (nn.ghi_chu ? `Ghi chú: ${nn.ghi_chu}\n(Nhấp để sửa)` : 'Nhấp để nhập ghi chú')}
+                        style={isKyDaChot ? { cursor: 'default' } : undefined}
                       >
                         {editingRecipientCell?.recipientId === nn.id && editingRecipientCell?.field === 'ghi_chu' ? (
                           <input
@@ -1494,7 +1529,7 @@ export default function TongHopChiTra() {
                             >
                               {(nn.ghi_chu && nn.ghi_chu !== '-') ? nn.ghi_chu : ''}
                             </span>
-                            <i className="fas fa-pen thct-cell-edit-icon" title="Sửa ghi chú"></i>
+                            {!isKyDaChot && <i className="fas fa-pen thct-cell-edit-icon" title="Sửa ghi chú"></i>}
                           </div>
                         )}
                       </td>
@@ -1550,7 +1585,7 @@ export default function TongHopChiTra() {
               Số tiền bằng chữ: <strong>{docSoThanhChu(columnSums.grandTotal)}</strong>
             </div>
             <div style={{ color: '#64748b' }}>
-              Ngày lập: {formatDateDMY(kyInfo?.ngay_lap)} | Người lập: {kyInfo?.created_by_name || 'Kế toán'}
+              Ngày lập: {formatDateDMY(ngayLapHienThi)} | Người lập: {kyInfo?.created_by_name || 'Kế toán'}
             </div>
           </div>
         )}

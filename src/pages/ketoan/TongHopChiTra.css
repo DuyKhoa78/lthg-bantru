@@ -269,6 +269,20 @@
   border-color: #b91c1c !important;
 }
 
+.thct-btn-locked {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: 1px solid #cbd5e1 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+  user-select: none;
+}
+
+.thct-locked-view {
+  cursor: default !important;
+}
+
 .thct-btn-excel {
   background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
   color: #ffffff !important;
