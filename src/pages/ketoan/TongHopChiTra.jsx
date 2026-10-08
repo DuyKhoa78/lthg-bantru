@@ -218,12 +218,9 @@ export default function TongHopChiTra() {
   }, []);
 
   const isKyDaChot = kyInfo?.trang_thai === 'da_chot';
-  const ngayLapHienThi = useMemo(() => {
-    if (isKyDaChot) {
-      return kyInfo?.den_ngay || (kyInfo?.ngay_chot ? String(kyInfo.ngay_chot).substring(0, 10) : todayVN);
-    }
-    return todayVN;
-  }, [isKyDaChot, kyInfo?.den_ngay, kyInfo?.ngay_chot, todayVN]);
+  const ngayLapHienThi = isKyDaChot
+    ? (kyInfo?.den_ngay || (kyInfo?.ngay_chot ? String(kyInfo.ngay_chot).substring(0, 10) : todayVN))
+    : todayVN;
 
   const maxClosedDenNgay = useMemo(() => {
     return (kyList || [])
@@ -732,6 +729,7 @@ export default function TongHopChiTra() {
   ) => {
     if (!kyInfo) return '';
     const tuDMY = formatDateDMY(kyInfo.tu_ngay);
+    const denDMY = formatDateDMY(kyInfo.den_ngay);
     let dayStr = '08', monthStr = '10', yearStr = '2026';
     if (ngayLapHienThi) {
       const parts = ngayLapHienThi.split('-');
