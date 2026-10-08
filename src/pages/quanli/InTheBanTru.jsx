@@ -65,44 +65,22 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 // Lấy đường dẫn ảnh thẻ học sinh (hỗ trợ cả production Vercel/Azure và local dev)
 function getStudentAvatarUrl(student) {
   if (!student) return pastePhotoAvatar;
-  const rawId = student.raw_id !== undefined ? student.raw_id : student.id;
-
-  let url = student.avatar_url;
-  if (!url && rawId) {
-    url = `/uploads/avatars/${rawId}.jpg`;
+  const lop = (student.lop || '').trim();
+  // Khối 11 (và toàn bộ thẻ HS bán trú) sử dụng khung dán ảnh 3x4 tiêu chuẩn
+  if (lop.startsWith('11') || !student.avatar_url) {
+    return pastePhotoAvatar;
   }
-  if (!url) return pastePhotoAvatar;
-
-  // Nếu url tương đối /uploads/... và có API_BASE, gắn API_BASE để browser tải trực tiếp từ backend
+  let url = student.avatar_url;
   if (url.startsWith('/uploads') && API_BASE) {
     return `${API_BASE}${url}`;
   }
   return url;
 }
 
-// Xử lý fallback đa tầng khi ảnh thẻ tải lỗi
-function handleAvatarError(e, student) {
-  const target = e.currentTarget;
-  if (!student || !target) return;
-
-  const rawId = student.raw_id !== undefined ? student.raw_id : student.id;
-  const cardId = getCardId(student);
-  const currentSrc = target.src || '';
-
-  const backendRaw = API_BASE ? `${API_BASE}/uploads/avatars/${rawId}.jpg` : '';
-  const backendCard = API_BASE ? `${API_BASE}/uploads/avatars/${cardId}.jpg` : '';
-  const localRaw = `/uploads/avatars/${rawId}.jpg`;
-  const localCard = `/uploads/avatars/${cardId}.jpg`;
-
-  if (backendRaw && currentSrc !== backendRaw && !currentSrc.includes(`/uploads/avatars/${rawId}.jpg`)) {
-    target.src = backendRaw;
-  } else if (backendCard && currentSrc !== backendCard && !currentSrc.includes(`/uploads/avatars/${cardId}.jpg`)) {
-    target.src = backendCard;
-  } else if (!currentSrc.includes(localRaw) && !currentSrc.endsWith(localRaw)) {
-    target.src = localRaw;
-  } else if (!currentSrc.includes(localCard) && !currentSrc.endsWith(localCard)) {
-    target.src = localCard;
-  } else if (target.src !== pastePhotoAvatar) {
+// Xử lý fallback khi ảnh thẻ tải lỗi -> chuyển ngay về khung dán 3x4 tiêu chuẩn
+function handleAvatarError(e) {
+  const target = e?.currentTarget;
+  if (target && target.src !== pastePhotoAvatar) {
     target.src = pastePhotoAvatar;
   }
 }
@@ -153,7 +131,7 @@ function CardFront({ student, namHoc }) {
           <img
             src={avatarSrc}
             alt={displayName}
-            onError={(e) => handleAvatarError(e, student)}
+            onError={handleAvatarError}
           />
         </div>
 
@@ -484,7 +462,7 @@ export default function InTheBanTru() {
               <div className="student-detail-left">
                 <img
                   src={getStudentAvatarUrl(currentIndividualStudent)}
-                  onError={(e) => handleAvatarError(e, currentIndividualStudent)}
+                  onError={handleAvatarError}
                   alt={currentIndividualStudent.name || 'Ảnh học sinh'}
                   className="student-avatar-mini"
                 />
