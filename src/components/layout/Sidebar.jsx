@@ -18,6 +18,10 @@ const menuItems = [
   { to: '/bao-cao-truc',  icon: 'fab fa-google',          label: 'Báo cáo Google Form',  customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_quan_ly || u.is_hoc_vu || u.position?.toLowerCase().includes('giám đốc') },
   { to: '/bao-cao',       icon: 'fas fa-chart-bar',       label: 'Thống kê & Báo cáo',   customRoleCheck: (u) => !u.is_giao_vien && u.role !== 'giao_vien' && (u.is_admin || u.is_superuser || u.is_quan_ly || u.is_ke_toan || u.is_hoc_vu) },
 
+  // ─── Kế toán Bán trú (Admin + Kế toán) ───
+  { label: 'KẾ TOÁN BÁN TRÚ', type: 'label', customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_ke_toan },
+  { to: '/tong-hop-chi-tra', icon: 'fas fa-file-invoice-dollar', label: 'Tổng hợp chi trả', customRoleCheck: (u) => u.is_admin || u.is_superuser || u.is_ke_toan },
+
   // ─── Quản lý danh mục (Admin + Quản lý + Kế toán xem) ───
   { label: 'QUẢN LÝ DANH MỤC', type: 'label', customRoleCheck: (u) => u.can_quan_ly_danh_muc || u.is_ke_toan },
   { to: '/lich-truc-admin', icon: 'fas fa-calendar-check', label: 'Phân công theo Ngày',  permission: 'can_quan_ly_danh_muc' },

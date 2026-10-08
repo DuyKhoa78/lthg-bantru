@@ -71,7 +71,7 @@ export default function BaoCaoTrucGV() {
         ma_bao_mat_hien_tai: 'BT789',
         ten_truong: 'LÊ THỊ HỒNG GẤM',
         nam_hoc: '2026-2027',
-        nguoi_phu_trach: 'Tạ Thị Diệu Lê',
+        nguoi_phu_trach: 'Vũ Quốc Phong',
         tu_ngay: todayStr,
         den_ngay: todayStr,
     });

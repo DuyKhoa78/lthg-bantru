@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import MainLayout from './components/layout/MainLayout';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // ── Tải ngay (trang dùng thường xuyên) ──
 import Login        from './pages/accounts/Login';
@@ -26,6 +27,7 @@ const VatDung       = lazy(() => import('./pages/quanli/VatDung'));
 const CauHinh       = lazy(() => import('./pages/quanli/CauHinh'));
 const Profile       = lazy(() => import('./pages/accounts/Profile'));
 const TaiKhoan      = lazy(() => import('./pages/quanli/TaiKhoan'));
+const TongHopChiTra = lazy(() => import('./pages/ketoan/TongHopChiTra'));
 
 import { useAuth } from './hooks/useAuth';
 
@@ -77,6 +79,7 @@ function AppRoutes() {
         <Route path="/lich-truc-khung" element={<LichTrucKhung />} />
         <Route path="/bao-cao"         element={<BaoCao />} />
         <Route path="/bao-cao-truc"    element={<BaoCaoTrucGV />} />
+        <Route path="/tong-hop-chi-tra" element={<TongHopChiTra />} />
 
         {/* Quản lý */}
         <Route path="/giao-vien"      element={<GiaoVien />} />
@@ -101,9 +104,11 @@ export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
-        <Suspense fallback={<PageLoader />}>
-          <AppRoutes />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <AppRoutes />
+          </Suspense>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );

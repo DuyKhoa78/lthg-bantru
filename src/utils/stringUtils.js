@@ -2,6 +2,16 @@ export const removeAccents = (str) => {
   return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D") : "";
 };
 
+export const formatDateDMY = (dateStr) => {
+  if (!dateStr) return '';
+  const clean = String(dateStr).split('T')[0];
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+};
+
 export const getSortNames = (fullName) => {
   if (!fullName) return { first: '', middle: '', last: '' };
   const cleanName = fullName.replace(/\s*\(.*?\)\s*/g, '').trim();
@@ -169,3 +179,79 @@ export const escapeHtml = (str) => {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 };
+
+export const docSoThanhChu = (soTien) => {
+  if (!soTien || isNaN(soTien) || Number(soTien) <= 0) return 'Không đồng';
+  const chuSo = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+  const doc3So = (baso, showKhong = false) => {
+    let tram = Math.floor(baso / 100);
+    let chuc = Math.floor((baso % 100) / 10);
+    let donvi = baso % 10;
+    let res = '';
+    if (tram > 0 || showKhong) {
+      res += chuSo[tram] + ' trăm ';
+    }
+    if (chuc > 1) {
+      res += chuSo[chuc] + ' mươi ';
+      if (donvi === 1) res += 'mốt ';
+      else if (donvi === 5) res += 'lăm ';
+      else if (donvi > 0) res += chuSo[donvi] + ' ';
+    } else if (chuc === 1) {
+      res += 'mười ';
+      if (donvi === 5) res += 'lăm ';
+      else if (donvi > 0) res += chuSo[donvi] + ' ';
+    } else if (tram > 0 && donvi > 0) {
+      res += 'lẻ ' + chuSo[donvi] + ' ';
+    } else if (donvi > 0) {
+      res += chuSo[donvi] + ' ';
+    }
+    return res.trim();
+  };
+
+  const donViLop = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
+  let s = Math.round(Number(soTien)).toString();
+  let groups = [];
+  while (s.length > 0) {
+    groups.unshift(s.slice(-3));
+    s = s.slice(0, -3);
+  }
+
+  let str = '';
+  for (let i = 0; i < groups.length; i++) {
+    let num = parseInt(groups[i], 10);
+    let lop = donViLop[groups.length - 1 - i];
+    if (num > 0) {
+      let doc = doc3So(num, i > 0);
+      str += doc + ' ' + (lop ? lop + ' ' : '');
+    }
+  }
+  str = str.trim() + ' đồng.';
+  str = str.replace(/\s+/g, ' ');
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+// Định dạng tiền tệ VNĐ (ví dụ: 180.000 đ, 0 đ)
+export const formatVND = (val) => {
+  if (val === null || val === undefined || val === '') return '0 đ';
+  const num = Math.round(Number(val));
+  if (isNaN(num)) return '0 đ';
+  return num.toLocaleString('vi-VN') + ' đ';
+};
+
+// Định dạng đơn giá trong cấu hình kế toán: nếu > 0 hiển thị '180.000 đ', nếu 0 hoặc rỗng hiển thị trống
+export const formatDonGia = (val) => {
+  if (val === null || val === undefined || val === '' || val === '-' || val === '—') return '';
+  const num = Math.round(Number(val));
+  if (isNaN(num) || num === 0) return '';
+  return num.toLocaleString('vi-VN') + ' đ';
+};
+
+// Định dạng số tiền trong bảng dữ liệu: nếu > 0 hiển thị '180.000', nếu 0 hoặc rỗng hiển thị trống
+export const formatTien = (val) => {
+  if (val === null || val === undefined || val === '' || val === '-' || val === '—') return '';
+  const num = Math.round(Number(val));
+  if (isNaN(num) || num === 0) return '';
+  return num.toLocaleString('vi-VN');
+};
+
+

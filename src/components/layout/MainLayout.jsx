@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
@@ -9,9 +9,12 @@ const MOBILE_BP = 768;
 
 export default function MainLayout() {
   const { systemStatus } = useAuth();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= MOBILE_BP);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isFlushPage = location.pathname.startsWith('/tong-hop-chi-tra');
 
   useEffect(() => {
     const handler = () => {
@@ -53,7 +56,7 @@ export default function MainLayout() {
         onToggle={toggle}
       />
       <main
-        className={`main-content${!isMobile && collapsed ? ' sidebar-collapsed' : ''}`}
+        className={`main-content${!isMobile && collapsed ? ' sidebar-collapsed' : ''}${isFlushPage ? ' thct-flush-main' : ''}`}
         id="mainContent"
       >
         {/* Banner cảnh báo Admin khi đang bật Chế độ bảo trì */}
@@ -98,11 +101,11 @@ export default function MainLayout() {
           </div>
         )}
 
-        <div className="card-wrap">
+        <div className={`card-wrap${isFlushPage ? ' thct-flush-card' : ''}`}>
           <Outlet />
         </div>
       </main>
-      <Footer collapsed={!isMobile && collapsed} />
+      {!isFlushPage && <Footer collapsed={!isMobile && collapsed} />}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import api from '../../services/api';
 import { formatLopList, getSortNames, sortStudentsForRoom, splitStudentsByTeachers } from '../../utils/stringUtils';
 import '../../styles/admin.css';
 import './BaoCao.css';
+import BaoCaoTongHopBanTruModal from '../../components/BaoCaoTongHopBanTruModal';
 
 Chart.register(ArcElement, BarElement, LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler);
 
@@ -113,8 +114,10 @@ export default function BaoCao() {
 
     // Modal Chốt kỳ
     const [showChotKyModal, setShowChotKyModal] = useState(false);
+    const [chotTuNgay, setChotTuNgay] = useState('');
     const [chotDenNgay, setChotDenNgay] = useState(today);
     const [chotGhiChu, setChotGhiChu] = useState('');
+    const [confirmChotKyText, setConfirmChotKyText] = useState('');
     const [previewChotData, setPreviewChotData] = useState(null);
     const [loadingPreviewChot, setLoadingPreviewChot] = useState(false);
     const [submittingChotKy, setSubmittingChotKy] = useState(false);
@@ -125,6 +128,7 @@ export default function BaoCao() {
     const [thongKeData, setThongKeData] = useState(null);
     const [loadingThongKe, setLoadingThongKe] = useState(false);
     const [exportingTkPdf, setExportingTkPdf] = useState(false);
+    const [showTongHopModal, setShowTongHopModal] = useState(false);
 
     // Xuất báo cáo điểm danh ăn chính thức
     const [showExportAnModal, setShowExportAnModal] = useState(false);
@@ -490,11 +494,12 @@ export default function BaoCao() {
     }, [activeTab, canExportGV, selectedKyId, subTabGV, kyList.length]);
 
     // ── Xem trước chốt kỳ trực ──
-    const fetchPreviewChot = async (denNgay) => {
+    const fetchPreviewChot = async (denNgay, tuNgay) => {
         if (!selectedKyId || !denNgay) return;
         setLoadingPreviewChot(true);
         try {
-            const res = await api.get(`/api/baocao/ky-truc/${selectedKyId}/preview-chot?den_ngay=${denNgay}`);
+            const qTu = tuNgay ? `&tu_ngay=${tuNgay}` : '';
+            const res = await api.get(`/api/baocao/ky-truc/${selectedKyId}/preview-chot?den_ngay=${denNgay}${qTu}`);
             if (res.data?.ok) {
                 setPreviewChotData(res.data.preview);
             } else {
@@ -511,9 +516,18 @@ export default function BaoCao() {
     // ── Thực hiện chốt kỳ trực ──
     const submitChotKy = async () => {
         if (!selectedKyId || !chotDenNgay) return;
+        if (chotTuNgay && chotDenNgay && chotTuNgay > chotDenNgay) {
+            alert('Từ ngày không được lớn hơn Đến ngày.');
+            return;
+        }
+        if (confirmChotKyText.trim().toLowerCase() !== 'tôi chốt') {
+            alert('Vui lòng nhập chính xác "Tôi chốt" để xác nhận.');
+            return;
+        }
         setSubmittingChotKy(true);
         try {
             const res = await api.post(`/api/baocao/ky-truc/${selectedKyId}/chot`, {
+                tu_ngay: chotTuNgay || selectedKy?.tu_ngay,
                 den_ngay: chotDenNgay,
                 ghi_chu: chotGhiChu
             });
@@ -521,6 +535,7 @@ export default function BaoCao() {
                 alert(res.data.message || 'Đã chốt kỳ thành công!');
                 setShowChotKyModal(false);
                 setChotGhiChu('');
+                setConfirmChotKyText('');
                 await fetchKyList(res.data.closed_ky?.id || res.data.new_ky?.id);
             }
         } catch (err) {
@@ -2173,10 +2188,10 @@ body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;backgr
             });
             tbody += `<tr style="background:#ececec; font-weight:bold;">
         <td colspan="2" class="tc">TỔNG CỘNG</td>
-        <td class="tc">${totCaAn}</td>
-        <td class="tc">-</td>
-        <td class="tc">${totCaNgu}</td>
-        <td class="tc">-</td>
+        <td class="tc">${totCaAn || ''}</td>
+        <td class="tc"></td>
+        <td class="tc">${totCaNgu || ''}</td>
+        <td class="tc"></td>
         <td class="tr" style="font-size:10pt; font-weight:bold;">${totTien.toLocaleString('vi-VN')} đ</td>
         <td class="tc"></td>
       </tr>`;
@@ -2717,7 +2732,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     <td style="text-align:left; font-weight:600; padding-left:6px;">${s.ho_ten}</td>
                     <td style="text-align:center;">${gt}</td>
                     <td style="text-align:center; font-weight:bold;">${s.lop}</td>
-                    <td style="text-align:center;">${s.ma_phong_an_id || '-'}</td>
+                    <td style="text-align:center;">${s.ma_phong_an_id || ''}</td>
                     <td style="text-align:center;">${statusStr}</td>
                     <td style="text-align:left; font-size:9pt; font-style:italic; padding-left:4px;">${s.ghi_chu || ''}</td>
                 </tr>`;
@@ -2766,7 +2781,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                     <td style="text-align:left; font-weight:600; padding-left:6px;">${s.ho_ten}</td>
                     <td style="text-align:center;">${gt}</td>
                     <td style="text-align:center; font-weight:bold;">${s.lop}</td>
-                    <td style="text-align:center;">${s.ma_phong_ngu_id || '-'}</td>
+                    <td style="text-align:center;">${s.ma_phong_ngu_id || ''}</td>
                     <td style="text-align:center;">${statusStr}</td>
                     <td style="text-align:left; font-size:9pt; font-style:italic; padding-left:4px;">${s.ghi_chu || ''}</td>
                 </tr>`;
@@ -3279,15 +3294,8 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                         <span>Thống kê &amp; Báo cáo</span>
                     </div>
                     <h2><i className="fas fa-chart-bar" style={{ color: 'var(--primary)', marginRight: 8 }}></i>Thống kê &amp; Báo cáo</h2>
-                    <p>Báo cáo chuyên cần học sinh và thống kê lương ca trực giáo viên theo thời gian thực tế.</p>
+                    <p>Báo cáo chuyên cần học sinh và thống kê công trực giáo viên theo thời gian thực tế.</p>
                 </div>
-                {canExportGV && (
-                    <div className="page-header-actions">
-                        {activeTab === 'panel-gv' && (
-                            <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Xuất Excel Lương GV</button>
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* MAIN TABS */}
@@ -3297,7 +3305,7 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                 </button>
                 {canExportGV && (
                 <button className={`bc-main-tab${activeTab === 'panel-gv' ? ' active' : ''}`} onClick={() => setActiveTab('panel-gv')}>
-                    <i className="fas fa-chalkboard-teacher"></i> Thống kê Lương Giáo viên
+                    <i className="fas fa-chalkboard-teacher"></i> Thống kê Trực Giáo viên
                 </button>
                 )}
                 {canExportGV && (
@@ -3645,14 +3653,16 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
 
                                 {/* Nút thao tác chốt kỳ để reset qua tháng/kỳ tiếp theo */}
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                    {selectedKy?.trang_thai === 'dang_dien_ra' && (
+                                    {selectedKy?.trang_thai === 'dang_dien_ra' ? (
                                         <button
                                             type="button"
                                             className="btn btn-sm"
                                             onClick={() => {
+                                                setChotTuNgay(selectedKy.tu_ngay);
                                                 setChotDenNgay(today);
                                                 setChotGhiChu('');
-                                                fetchPreviewChot(today);
+                                                setConfirmChotKyText('');
+                                                fetchPreviewChot(today, selectedKy.tu_ngay);
                                                 setShowChotKyModal(true);
                                             }}
                                             style={{
@@ -3668,21 +3678,74 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         >
                                             <i className="fas fa-lock"></i> Chốt kỳ này
                                         </button>
+                                    ) : (
+                                        canExportGV && selectedKy?.id && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm"
+                                                onClick={async () => {
+                                                    if (!window.confirm(`Bạn có chắc muốn MỞ LẠI ${selectedKy.ten_ky}? Kỳ sẽ chuyển về "Đang diễn ra" và đồng bộ với phần Kế toán.`)) return;
+                                                    try {
+                                                        const res = await api.post(`/api/baocao/ky-truc/${selectedKy.id}/mo-lai`);
+                                                        if (res.data?.ok) {
+                                                            alert(res.data.message || 'Đã mở lại kỳ thành công!');
+                                                            await fetchKyList(selectedKy.id);
+                                                        }
+                                                    } catch (err) {
+                                                        alert(err.response?.data?.error || 'Có lỗi khi mở lại kỳ');
+                                                    }
+                                                }}
+                                                style={{
+                                                    background: '#dc2626',
+                                                    color: '#fff',
+                                                    fontWeight: 700,
+                                                    borderRadius: 8,
+                                                    boxShadow: '0 2px 6px rgba(220,38,38,0.25)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 6
+                                                }}
+                                                title="Mở lại kỳ để chỉnh sửa số liệu (đồng bộ với Kế toán)"
+                                            >
+                                                <i className="fas fa-lock-open"></i> Mở lại kỳ
+                                            </button>
+                                        )
                                     )}
                                 </div>
 
                                 {loadingGV && <span style={{ color: 'var(--primary)', fontSize: '0.88rem' }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</span>}
 
-                                {/* 4 nút xuất Báo cáo giữ nguyên */}
+                                {/* Nút Bảng Tổng Hợp mới + 4 nút xuất Báo cáo giữ nguyên */}
                                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        onClick={() => setShowTongHopModal(true)}
+                                        style={{
+                                            background: '#0284c7',
+                                            color: '#ffffff',
+                                            fontWeight: 700,
+                                            border: 'none',
+                                            boxShadow: '0 2px 6px rgba(2,132,199,0.3)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6
+                                        }}
+                                        title="Bảng tổng hợp CB-GV-NV tham gia bán trú và Bảng tính công ăn có Đơn giá"
+                                    >
+                                        <i className="fas fa-file-invoice-dollar"></i> Bảng Tổng Hợp & Công (Mới)
+                                    </button>
+                                    <div style={{ width: 1, background: '#cbd5e1', margin: '0 2px' }}></div>
                                     <button className="btn btn-sm" onClick={exportGvCongExcel} style={{ color: '#059669', border: '1.5px solid #34d399', backgroundColor: '#ecfdf5', fontWeight: 600, boxShadow: '0 2px 4px rgba(52,211,153,0.1)' }}><i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Bảng Công (Excel)</button>
                                     <button className="btn btn-sm" onClick={exportGvCongPDF} disabled={exportingGvCongPdf} style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600, boxShadow: '0 2px 4px rgba(248,113,113,0.1)' }}>
                                         {exportingGvCongPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>} Bảng Công (PDF)
                                     </button>
-                                    <div style={{ width: 1, background: '#cbd5e1', margin: '0 4px' }}></div>
-                                    <button className="btn btn-success btn-sm" onClick={exportGvExcel}><i className="fas fa-file-excel"></i> Bảng Lương (Excel)</button>
-                                    <button className="btn btn-primary btn-sm" onClick={exportGvPDF} disabled={exportingGvPdf} style={{ background: '#ef4444', borderColor: '#ef4444' }}>
-                                        {exportingGvPdf ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-pdf"></i>} Bảng Lương (PDF)
+                                    <div style={{ width: 1, background: '#cbd5e1', margin: '0 2px' }}></div>
+                                    <button className="btn btn-sm" onClick={exportGvExcel} style={{ color: '#16a34a', border: '1.5px solid #86efac', backgroundColor: '#f0fdf4', fontWeight: 600, boxShadow: '0 2px 4px rgba(22,163,74,0.1)' }} title="Xuất Bảng tính tiền trực GV ra Excel">
+                                        <i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Bảng Tiền (Excel)
+                                    </button>
+                                    <button className="btn btn-sm" onClick={exportGvPDF} disabled={exportingGvPdf} style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600, boxShadow: '0 2px 4px rgba(248,113,113,0.1)' }} title="Xuất Bảng tính tiền trực GV ra PDF">
+                                        {exportingGvPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>} Bảng Tiền (PDF)
                                     </button>
                                 </div>
                             </div>
@@ -5560,27 +5623,52 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                             </div>
                         </div>
                         <div className="export-modal-body" style={{ padding: 20 }}>
+                            {/* Khối khoảng ngày áp dụng */}
                             <div style={{ marginBottom: 16 }}>
                                 <label style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', marginBottom: 6, color: '#334155' }}>
                                     <i className="fas fa-calendar-day" style={{ color: '#4f46e5', marginRight: 6 }}></i>
-                                    Chọn ngày kết thúc kỳ:
+                                    Thời gian áp dụng chốt kỳ:
                                 </label>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <input
-                                        type="date"
-                                        value={chotDenNgay}
-                                        min={selectedKy.tu_ngay}
-                                        max={today}
-                                        onChange={e => {
-                                            setChotDenNgay(e.target.value);
-                                            fetchPreviewChot(e.target.value);
-                                        }}
-                                        style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: '0.95rem' }}
-                                    />
-                                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                                        ({formatDateDMY(chotDenNgay)})
-                                    </span>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1' }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: 2 }}>TỪ NGÀY:</div>
+                                        <input
+                                            type="date"
+                                            value={chotTuNgay}
+                                            max={chotDenNgay}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setChotTuNgay(val);
+                                                fetchPreviewChot(chotDenNgay, val);
+                                            }}
+                                            style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 700 }}
+                                        />
+                                        <div style={{ fontSize: '0.78rem', color: '#4f46e5', fontWeight: 700, marginTop: 2 }}>{formatDateDMY(chotTuNgay)}</div>
+                                    </div>
+                                    <div style={{ color: '#4f46e5', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                        <i className="fas fa-arrow-right"></i>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: 2 }}>ĐẾN NGÀY:</div>
+                                        <input
+                                            type="date"
+                                            value={chotDenNgay}
+                                            min={chotTuNgay}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setChotDenNgay(val);
+                                                fetchPreviewChot(val, chotTuNgay);
+                                            }}
+                                            style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 700 }}
+                                        />
+                                        <div style={{ fontSize: '0.78rem', color: '#4f46e5', fontWeight: 700, marginTop: 2 }}>{formatDateDMY(chotDenNgay)}</div>
+                                    </div>
                                 </div>
+                                {chotTuNgay && chotDenNgay && chotTuNgay > chotDenNgay && (
+                                    <div style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: 600, marginTop: 4 }}>
+                                        <i className="fas fa-exclamation-circle"></i> Từ ngày không được sau Đến ngày!
+                                    </div>
+                                )}
                             </div>
 
                             {/* Preview Box */}
@@ -5618,6 +5706,36 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 />
                             </div>
 
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: 6, color: '#1e293b' }}>
+                                    Vui lòng nhập chính xác cụm từ <span style={{ color: '#4f46e5', background: '#e0e7ff', padding: '2px 8px', borderRadius: 4, fontWeight: 800 }}>Tôi chốt</span> để mở khóa: *
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder='Nhập đúng "Tôi chốt"'
+                                    value={confirmChotKyText}
+                                    onChange={e => setConfirmChotKyText(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '9px 12px',
+                                        borderRadius: 8,
+                                        border: `2px solid ${confirmChotKyText.trim().toLowerCase() === 'tôi chốt' ? '#16a34a' : confirmChotKyText ? '#ef4444' : '#cbd5e1'}`,
+                                        fontSize: '0.95rem'
+                                    }}
+                                />
+                                {confirmChotKyText && confirmChotKyText.trim().toLowerCase() !== 'tôi chốt' && (
+                                    <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: 4 }}>
+                                        <i className="fas fa-times-circle"></i> Chưa đúng cụm từ "Tôi chốt"
+                                    </div>
+                                )}
+                                {confirmChotKyText.trim().toLowerCase() === 'tôi chốt' && (
+                                    <div style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: 4, fontWeight: 600 }}>
+                                        <i className="fas fa-check-circle"></i> Đã xác nhận chính xác!
+                                    </div>
+                                )}
+                            </div>
+
                             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', fontSize: '0.82rem', color: '#1e40af', lineHeight: 1.5 }}>
                                 <i className="fas fa-info-circle" style={{ marginRight: 6 }}></i>
                                 <strong>Quy trình tiếp theo:</strong> Sau khi chốt, kỳ mới (Kỳ {kyList.length + 1}) sẽ được tự động tạo và kích hoạt bắt đầu từ ngày <strong>{formatDateDMY(addDaysFrontend(chotDenNgay, 1))}</strong>. Kỳ cũ được lưu trữ để tra cứu, xuất file và thanh toán bất kỳ lúc nào.
@@ -5629,14 +5747,30 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 type="button"
                                 className="btn btn-primary"
                                 onClick={submitChotKy}
-                                disabled={submittingChotKy || !previewChotData}
-                                style={{ background: '#4f46e5', fontWeight: 700 }}
+                                disabled={submittingChotKy || !previewChotData || confirmChotKyText.trim().toLowerCase() !== 'tôi chốt'}
+                                style={{
+                                    background: confirmChotKyText.trim().toLowerCase() === 'tôi chốt' ? '#4f46e5' : '#cbd5e1',
+                                    fontWeight: 700,
+                                    cursor: confirmChotKyText.trim().toLowerCase() === 'tôi chốt' ? 'pointer' : 'not-allowed'
+                                }}
                             >
                                 {submittingChotKy ? <><i className="fas fa-spinner fa-spin"></i> Đang chốt...</> : <><i className="fas fa-check"></i> Xác nhận chốt kỳ</>}
                             </button>
                         </div>
                     </div>
                 </div>
+            )}
+            {showTongHopModal && (
+                <BaoCaoTongHopBanTruModal
+                    isOpen={showTongHopModal}
+                    onClose={() => setShowTongHopModal(false)}
+                    gvData={gvData}
+                    tuNgay={tuNgayGV}
+                    denNgay={denNgayGV}
+                    namHoc={selectedKy?.nam_hoc || '2026-2027'}
+                    quanLyName={quanLyName || 'Vũ Quốc Phong'}
+                    keToanName={keToanName || 'Trần Thị Hồng Cẩm'}
+                />
             )}
         </>
     );

@@ -148,7 +148,7 @@ export default function LichTruc() {
     const we2 = addDays(ws2, 4);
 
     let namHoc = '2026-2027';
-    let phuTrach = 'Tạ Thị Diệu Lê';
+    let phuTrach = 'Vũ Quốc Phong';
     let allRec = [];
     let allGv = gvList && gvList.length ? [...gvList] : [];
 

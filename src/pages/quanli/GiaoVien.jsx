@@ -23,7 +23,7 @@ function RanhGrid({ ranh }) {
   );
 }
 
-const EMPTY_FORM = { ho_ten: '', gioi_tinh: '', so_dien_thoai: '', nhiem_vu: 0, dang_lam: true, lich_ranh: [false, false, false, false, false] };
+const EMPTY_FORM = { ho_ten: '', gioi_tinh: '', so_dien_thoai: '', so_tai_khoan: '', nhiem_vu: 0, dang_lam: true, lich_ranh: [false, false, false, false, false] };
 
 export default function GiaoVien() {
   const { user } = useAuth();
@@ -158,7 +158,7 @@ export default function GiaoVien() {
   };
 
   const openAdd = () => { setForm({ ...EMPTY_FORM, ma_bao_mat: '' }); setModal('add'); };
-  const openEdit = (gv) => { setForm({ ...gv, so_dien_thoai: gv.so_dien_thoai || '', ma_bao_mat: gv.ma_bao_mat || '', nhiem_vu: gv.nhiem_vu ?? 0 }); setModal({ edit: gv }); };
+  const openEdit = (gv) => { setForm({ ...gv, so_dien_thoai: gv.so_dien_thoai || '', so_tai_khoan: gv.so_tai_khoan || '', ma_bao_mat: gv.ma_bao_mat || '', nhiem_vu: gv.nhiem_vu ?? 0 }); setModal({ edit: gv }); };
 
   // Hàm sinh mã 5 ký tự ngẫu nhiên duy nhất trên Client (đảm bảo không trùng với bất kỳ GV nào đang có)
   const generateUniqueClientCode = () => {
@@ -336,7 +336,15 @@ export default function GiaoVien() {
               ) : filtered.map((gv, idx) => (
                 <tr key={gv.id}>
                   <td>{idx + 1}</td>
-                  <td><b>{gv.ho_ten}</b><br /><small style={{ color: '#94a3b8' }}>{gv.so_dien_thoai || '—'}</small></td>
+                  <td>
+                    <b>{gv.ho_ten}</b>
+                    <br />
+                    <small style={{ color: '#64748b' }}>
+                      {gv.so_dien_thoai ? <span><i className="fas fa-phone-alt" style={{ fontSize: '0.68rem', marginRight: 3 }}></i>{gv.so_dien_thoai}</span> : null}
+                      {gv.so_tai_khoan ? <span style={{ color: '#0284c7', marginLeft: gv.so_dien_thoai ? 8 : 0, fontWeight: 500 }}><i className="fas fa-credit-card" style={{ fontSize: '0.68rem', marginRight: 3 }}></i>STK: {gv.so_tai_khoan}</span> : null}
+                      {!gv.so_dien_thoai && !gv.so_tai_khoan && '—'}
+                    </small>
+                  </td>
                   <td>
                     {gv.ma_bao_mat ? (
                       <div className="gv-code-badge" title="Mã bảo mật riêng dùng để điền vào Google Form">
@@ -409,6 +417,11 @@ export default function GiaoVien() {
                   <label className="form-label">Số điện thoại</label>
                   <input className="form-control" value={form.so_dien_thoai} onChange={(e) => setForm({ ...form, so_dien_thoai: e.target.value })} placeholder="090xxxx567" />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Số tài khoản ngân hàng</label>
+                <input className="form-control" value={form.so_tai_khoan || ''} onChange={(e) => setForm({ ...form, so_tai_khoan: e.target.value })} placeholder="VD: 060146415418" />
               </div>
 
               <div className="form-group">
