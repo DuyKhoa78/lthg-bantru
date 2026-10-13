@@ -57,7 +57,8 @@ const shiftDate = (baseIso, days) => {
 export default function DiemDanhAn() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const isDutyStaff = user?.role === 'giao_vien' || user?.role === 'hoc_vu';
+    const isAdmin = Boolean(user?.role === 'admin' || user?.is_admin || user?.is_superuser);
+    const isDutyStaff = Boolean(user?.role === 'giao_vien' || user?.role === 'hoc_vu');
     const isGiaoVien = isDutyStaff;
 
     // Lấy ngày hôm nay theo giờ máy (máy đặt đúng múi giờ Việt Nam)
@@ -440,29 +441,23 @@ export default function DiemDanhAn() {
 
     // Kiểm tra khung giờ điểm danh
     const isAllowedTime = useCallback(() => {
-        if (user?.is_admin || user?.is_superuser) return true;
+        if (isAdmin) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
-        if (user?.role === 'giao_vien') {
+        if (user?.role === 'giao_vien' || user?.role === 'hoc_vu') {
             return isDateToday && mins >= 655 && mins < 690; // 10:55 - 11:30
         }
-        if (user?.role === 'hoc_vu') {
-            return isDateToday && mins >= 655 && mins <= 840; // 10:55 - 14:00
-        }
         return true;
-    }, [user, currentTime, isDateToday]);
+    }, [isAdmin, user, currentTime, isDateToday]);
 
     // Quyền thao tác:
-    // Admin: chỉ được thao tác với ngày hiện tại và ngày quá khứ.
-    // Giáo viên & Học vụ: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ trong khung giờ cho phép.
+    // Admin: có toàn quyền thao tác và cập nhật điểm danh bất cứ lúc nào (ngày hiện tại và ngày quá khứ).
+    // Giáo viên & Học vụ: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ trong khung giờ ca trực.
     const canTeacherOperate = useMemo(() => {
         if (date > todayVN()) return false;
-        if (!isGiaoVien) return true;
+        if (isAdmin) return true;
         if (!hasTeacherDuty) return false;
-        if (user?.role === 'hoc_vu') {
-            return isDateToday && isAllowedTime();
-        }
         return isDateToday && shiftTiming.state === 'dang_dien_ra';
-    }, [isGiaoVien, hasTeacherDuty, isDateToday, shiftTiming.state, date, user, isAllowedTime]);
+    }, [isAdmin, hasTeacherDuty, isDateToday, shiftTiming.state, date]);
 
     // Toàn bộ học sinh thuộc tất cả các phòng phụ trách (chỉ dành cho GV khi có phân công)
     const allAssignedStudents = useMemo(() => {
@@ -992,6 +987,8 @@ export default function DiemDanhAn() {
             setChotting(false);
         }
     };
+
+
 
     // Chốt tất cả các phòng phụ trách của GV lên Tổng (cả 3 phòng)
     const handleChotAllRooms = async () => {
@@ -2296,11 +2293,11 @@ ${htmlPagesStr}
                                                 <strong>Chưa đến giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống mở quét QR lúc 10h55. Hiện tại: <b><LiveClock /></b>.
                                             </div>
                                         </div>
-                                    ) : (shiftTiming.state === 'da_qua_gio' && (user?.role !== 'hoc_vu' || !isAllowedTime())) ? (
+                                    ) : (shiftTiming.state === 'da_qua_gio' && !isAdmin) ? (
                                         <div className="dd-shift-notice-banner danger">
                                             <i className="fas fa-lock"></i>
                                             <div>
-                                                <strong>Đã hết khung giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống đã tự động khóa chỉnh sửa và thu thập dữ liệu về Tổng.
+                                                <strong>Đã hết khung giờ điểm danh ca ăn (10h55 – 11h30):</strong> Hệ thống đã tự động khóa chỉnh sửa đối với giáo viên trực.
                                             </div>
                                         </div>
                                     ) : (
@@ -2656,6 +2653,8 @@ ${htmlPagesStr}
                                             Tất cả đều có mặt
                                         </button>
 
+
+
                                         <button
                                             type="button"
                                             className="btn btn-primary"
@@ -2768,9 +2767,9 @@ ${htmlPagesStr}
                                                 <div className="dd-status-btns">
                                                     {['comat', 'vang', 'phep'].map(key => {
                                                         const val = STATUS[key];
-                                                        const isPhepForGv = isGiaoVien && key === 'phep';
+                                                        const isPhepForGv = !isAdmin && key === 'phep';
                                                         const isStudentPhep = s.trang_thai === 'phep';
-                                                        const isLockedForGv = isGiaoVien && isStudentPhep;
+                                                        const isLockedForGv = !isAdmin && isStudentPhep;
                                                         const isDisabled = !canTeacherOperate || isPhepForGv || isLockedForGv;
                                                         return (
                                                             <button key={key}
