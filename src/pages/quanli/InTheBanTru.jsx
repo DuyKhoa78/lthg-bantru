@@ -4,18 +4,18 @@ import api from '../../services/api';
 import { matchStudentSearch } from '../../utils/qrUtils';
 import './InTheBanTru.css';
 
-// Ảnh khung dán 3x4 tiêu chuẩn in ấn
-const pastePhotoAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 130'><rect width='100' height='130' fill='%23fafafa' stroke='%23cbd5e1' stroke-width='2' stroke-dasharray='4'/><text x='50' y='58' font-family='sans-serif' font-size='9' font-weight='bold' fill='%2394a3b8' text-anchor='middle'>ẢNH THẺ</text><text x='50' y='74' font-family='sans-serif' font-size='11' font-weight='900' fill='%2364748b' text-anchor='middle'>3 x 4 cm</text><text x='50' y='90' font-family='sans-serif' font-size='7' fill='%2394a3b8' text-anchor='middle'>(Dán tại đây)</text></svg>";
+// Ảnh khung dán 3x4 tiêu chuẩn in ấn (tỷ lệ 3:4 chuẩn)
+const pastePhotoAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 133'><rect width='100' height='133' fill='%23fafafa' stroke='%23cbd5e1' stroke-width='2' stroke-dasharray='4'/><text x='50' y='58' font-family='sans-serif' font-size='9' font-weight='bold' fill='%2394a3b8' text-anchor='middle'>ẢNH THẺ</text><text x='50' y='76' font-family='sans-serif' font-size='12' font-weight='900' fill='%2364748b' text-anchor='middle'>3 x 4 cm</text><text x='50' y='94' font-family='sans-serif' font-size='8' fill='%2394a3b8' text-anchor='middle'>(Dán tại đây)</text></svg>";
 
-// Bảng 3 màu cố định theo khối: Khối 10 Đỏ, Khối 11 Teal, Khối 12 Xanh Navy
+// Bảng màu truyền thống theo khối: Khối 10 đỏ đô, Khối 11 xanh ngọc, Khối 12 xanh navy.
 const colorThemes = {
-  red:  { navy: '#450a0a', blue: '#991b1b', gold: '#d97706', text: '#fef08a', name: 'Khối 10 (Đỏ)' },
-  teal: { navy: '#042f2e', blue: '#0f766e', gold: '#0d9488', text: '#bae6fd', name: 'Khối 11 (Teal)' },
-  navy: { navy: '#0a192f', blue: '#1e3a8a', gold: '#38bdf8', text: '#bae6fd', name: 'Khối 12 (Xanh Navy)' }
+  red:  { navy: '#450a0a', blue: '#991b1b', gold: '#d97706', text: '#fef08a' },
+  teal: { navy: '#042f2e', blue: '#0f766e', gold: '#0d9488', text: '#bae6fd' },
+  navy: { navy: '#0a192f', blue: '#1e3a8a', gold: '#38bdf8', text: '#bae6fd' }
 };
 
 // Component render mã QR chuẩn quang học 100% bằng QRCode.js
-function QRCodeView({ value, size = 58 }) {
+function QRCodeView({ value, size = 68 }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ function handleAvatarError(e) {
   }
 }
 
-// MẶT TRƯỚC THẺ BÁN TRÚ (Cố định: Khối 10 đỏ, 11 teal, 12 xanh navy | Khung dán 3x4 | Rõ dấu)
+// MẶT TRƯỚC THẺ BÁN TRÚ (Kích thước chuẩn 10.3 x 6.5 cm | Khung dán 3x4 | Rõ dấu)
 function CardFront({ student, namHoc }) {
   if (!student) return <div className="print-item-cell" style={{ border: 'none', background: 'transparent' }} />;
 
@@ -96,7 +96,7 @@ function CardFront({ student, namHoc }) {
   const displayName = (student.name || '').normalize('NFC');
   // Ảnh thẻ học sinh (nếu có ảnh đã nén thì load, nếu chưa có thì hiển thị khung dán ảnh 3x4 tiêu chuẩn)
   const avatarSrc = getStudentAvatarUrl(student);
-  const nameFontSize = displayName.length > 26 ? '9.6px' : (displayName.length > 18 ? '10.2px' : '10.8px');
+  const nameFontSize = displayName.length > 24 ? '10.5px' : (displayName.length > 17 ? '11.8px' : '13px');
 
   const cardStyle = {
     '--primary-navy': theme.navy,
@@ -109,7 +109,7 @@ function CardFront({ student, namHoc }) {
     <div className="smart-id-card card-horizontal-view" style={cardStyle}>
       {/* HEADER */}
       <div className="card-h-head">
-        <img src="/logo.png" alt="Logo" className="head-logo-img" onError={(e) => { e.target.src = '/icons.svg'; }} />
+        <img src="/logo.png" alt="Logo Trường THPT Lê Thị Hồng Gấm" className="head-logo-img" onError={(e) => { e.target.src = '/icons.svg'; }} />
         <div className="head-titles">
           <div className="title-sub">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</div>
           <div className="title-school">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
@@ -122,8 +122,10 @@ function CardFront({ student, namHoc }) {
         <img src="/trong-dong-user.png" alt="Trống đồng" />
       </div>
 
-      {/* TIÊU ĐỀ */}
-      <div className="card-main-title">THẺ BÁN TRÚ</div>
+      {/* TIÊU ĐỀ THẺ */}
+      <div className="card-main-title">
+        <span className="title-text">THẺ BÁN TRÚ</span>
+      </div>
 
       {/* THÔNG TIN CHI TIẾT */}
       <div className="card-h-content">
@@ -137,7 +139,7 @@ function CardFront({ student, namHoc }) {
 
         <div className="info-column">
           <div className="student-name-block">
-            <div className="name-label">Họ và tên</div>
+            <div className="name-label">HỌ VÀ TÊN</div>
             <div className="student-fullname-val" style={{ fontSize: nameFontSize }} title={displayName}>
               {displayName}
             </div>
@@ -157,8 +159,10 @@ function CardFront({ student, namHoc }) {
           </div>
         </div>
 
-        {/* MÃ QR CODE THẬT (Kéo sát vào trong để tránh bị viền dây đeo che) */}
-        <QRCodeView value={qrText} size={58} />
+        {/* MÃ QR ĐIỂM DANH */}
+        <div className="qr-wrapper-zone">
+          <QRCodeView value={qrText} size={68} />
+        </div>
       </div>
     </div>
   );
@@ -262,12 +266,15 @@ export default function InTheBanTru() {
   // ── Chế độ xuất in: 'a4' (Khổ A4 chuẩn tiệm in xén máy) hoặc 'phoi' (In trực tiếp trên phôi CR80) ──
   const [printMode, setPrintMode] = useState('a4');
 
+  // ── Tỉ lệ căn lề khổ A4 (Mặc định: 0.94 - Lề an toàn ~8mm hai bên chống tuyệt đối lỗi sát/mất mép phải) ──
+  const [a4Scale, setA4Scale] = useState(0.94);
+
   // Danh sách học sinh cần in
   const targetStudents = useMemo(() => {
     return activeTab === 'canhan' ? (currentIndividualStudent ? [currentIndividualStudent] : []) : classStudents;
   }, [activeTab, currentIndividualStudent, classStudents]);
 
-  // Chia nhóm 8 thẻ / tờ A4 (cho chế độ in A4 ghép)
+  // Chia nhóm 8 thẻ / tờ A4 (cho chế độ in A4 ghép khổ chuẩn 10.3 x 6.5 cm)
   const sheetChunks = useMemo(() => {
     const chunks = [];
     for (let i = 0; i < targetStudents.length; i += 8) {
@@ -287,7 +294,7 @@ export default function InTheBanTru() {
       {printMode === 'phoi' ? (
         <style>{`
           @page {
-            size: 85.60mm 53.98mm;
+            size: 103mm 65mm;
             margin: 0;
           }
         `}</style>
@@ -311,7 +318,7 @@ export default function InTheBanTru() {
             <span>In thẻ bán trú</span>
           </div>
           <h2><i className="fas fa-id-card" style={{ color: '#0284c7' }}></i> In Thẻ Bán Trú Học Sinh</h2>
-          <p>Bố cục dàn trang chuẩn tiệm in khổ A4 (giáp mép có vạch Crop-marks xén máy nhanh) &bull; Chuẩn CR80 85.60 x 53.98 mm &bull; Mã số 26xxx.</p>
+          <p>Bố cục dàn trang chuẩn tiệm in khổ A4 (có vạch Crop-marks xén máy nhanh - 8 thẻ/tờ) &bull; Kích thước thẻ chuẩn 10.3 x 6.5 cm (chừa 1mm lọt bao thẻ) &bull; Mã số 26xxx.</p>
         </div>
       </div>
 
@@ -356,7 +363,7 @@ export default function InTheBanTru() {
               </select>
             </div>
 
-            {/* Kiểu in: Khổ A4 chuẩn tiệm in hoặc Phôi thẻ CR80 */}
+            {/* Kiểu in: Khổ A4 chuẩn tiệm in hoặc Thẻ rời 10.3 x 6.5 cm */}
             <div className="in-the-group">
               <span className="in-the-label"><i className="fas fa-sliders-h"></i> Kiểu In:</span>
               <div className="in-the-segment">
@@ -364,20 +371,53 @@ export default function InTheBanTru() {
                   type="button"
                   className={`in-the-segment-btn ${printMode === 'a4' ? 'active' : ''}`}
                   onClick={() => setPrintMode('a4')}
-                  title="Khổ giấy A4 giáp mép có vạch Crop-marks - Chuyên dụng cho tiệm in giấy cứng Couche 300 xén máy"
+                  title="Khổ giấy A4 có vạch Crop-marks - 8 thẻ/tờ chuyên dụng cho tiệm in giấy cứng Couche 300 xén máy"
                 >
-                  <i className="fas fa-file-alt"></i> Khổ A4 (Chuẩn tiệm in xén máy)
+                  <i className="fas fa-file-alt"></i> Khổ A4 (8 thẻ/tờ)
                 </button>
                 <button
                   type="button"
                   className={`in-the-segment-btn ${printMode === 'phoi' ? 'active' : ''}`}
                   onClick={() => setPrintMode('phoi')}
-                  title="In trực tiếp lên phôi nhựa CR80 (máy in thẻ chuyên dụng)"
+                  title="In trực tiếp thẻ kích thước chuẩn 10.3 x 6.5 cm (máy in thẻ hoặc từng tờ rời)"
                 >
-                  <i className="fas fa-id-card"></i> In phôi thẻ (CR80)
+                  <i className="fas fa-id-card"></i> In thẻ rời (10.3 x 6.5 cm)
                 </button>
               </div>
             </div>
+
+            {/* Căn lề khổ A4: Lề an toàn chống mất mép / Lề rộng / Gốc 100% */}
+            {printMode === 'a4' && (
+              <div className="in-the-group">
+                <span className="in-the-label"><i className="fas fa-arrows-alt-h"></i> Căn Lề In:</span>
+                <div className="in-the-segment">
+                  <button
+                    type="button"
+                    className={`in-the-segment-btn ${a4Scale === 0.94 ? 'active' : ''}`}
+                    onClick={() => setA4Scale(0.94)}
+                    title="Căn đều 2 lề ~8mm, chống tuyệt đối máy in xén mất mép phải hay mã QR (Khuyên dùng)"
+                  >
+                    <i className="fas fa-shield-alt"></i> Lề an toàn (~8mm)
+                  </button>
+                  <button
+                    type="button"
+                    className={`in-the-segment-btn ${a4Scale === 0.91 ? 'active' : ''}`}
+                    onClick={() => setA4Scale(0.91)}
+                    title="Chừa lề rộng 10mm cho các loại máy in văn phòng có viền kẹp giấy lớn"
+                  >
+                    <i className="fas fa-compress-arrows-alt"></i> Lề rộng (10mm)
+                  </button>
+                  <button
+                    type="button"
+                    className={`in-the-segment-btn ${a4Scale === 1.0 ? 'active' : ''}`}
+                    onClick={() => setA4Scale(1.0)}
+                    title="Kích thước 100% gốc 10.3 x 6.5 cm (sát mép A4 dành cho tiệm in tràn viền)"
+                  >
+                    <i className="fas fa-ruler"></i> 100% (Gốc)
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Chip tổng số lượng */}
             <div
@@ -386,7 +426,7 @@ export default function InTheBanTru() {
             >
               <i className={printMode === 'a4' ? 'fas fa-file-alt' : 'fas fa-id-card'}></i>
               <span>
-                {classStudents.length} học sinh &bull; {printMode === 'a4' ? `${sheetChunks.length} tờ A4 (8 thẻ/tờ)` : `${classStudents.length} phôi thẻ CR80`}
+                {classStudents.length} học sinh &bull; {printMode === 'a4' ? `${sheetChunks.length} tờ A4 (8 thẻ/tờ)` : `${classStudents.length} thẻ (10.3 x 6.5 cm)`}
               </span>
             </div>
 
@@ -395,7 +435,7 @@ export default function InTheBanTru() {
               onClick={handlePrint}
               style={{ fontWeight: 700, gap: 6, marginLeft: 'auto' }}
             >
-              <i className="fas fa-print"></i> {printMode === 'a4' ? 'In / Lưu PDF Gửi Tiệm In' : 'In Phôi Thẻ Lớp Này'}
+              <i className="fas fa-print"></i> {printMode === 'a4' ? 'In / Lưu PDF Gửi Tiệm In' : 'In Thẻ Lớp Này'}
             </button>
           </div>
         </div>
@@ -482,19 +522,19 @@ export default function InTheBanTru() {
                 <div className="in-the-segment">
                   <button
                     type="button"
-                    className={`in-the-segment-btn ${printMode === 'a4' ? 'active' : ''}`}
-                    onClick={() => setPrintMode('a4')}
-                    title="Khổ giấy A4"
+                    className={`in-the-segment-btn ${printMode === 'phoi' ? 'active' : ''}`}
+                    onClick={() => setPrintMode('phoi')}
+                    title="In trực tiếp thẻ kích thước chuẩn 10.3 x 6.5 cm (chừa 1mm lọt bao thẻ)"
                   >
-                    <i className="fas fa-file-alt"></i> Khổ A4
+                    <i className="fas fa-id-card"></i> In thẻ rời (10.3 x 6.5 cm)
                   </button>
                   <button
                     type="button"
-                    className={`in-the-segment-btn ${printMode === 'phoi' ? 'active' : ''}`}
-                    onClick={() => setPrintMode('phoi')}
-                    title="In trực tiếp lên phôi nhựa CR80"
+                    className={`in-the-segment-btn ${printMode === 'a4' ? 'active' : ''}`}
+                    onClick={() => setPrintMode('a4')}
+                    title="In trên giấy A4 căn giữa kèm vạch cắt xén 10.3 x 6.5 cm"
                   >
-                    <i className="fas fa-id-card"></i> In phôi (CR80)
+                    <i className="fas fa-file-alt"></i> Khổ A4 (Có vạch cắt)
                   </button>
                 </div>
                 <button
@@ -502,7 +542,7 @@ export default function InTheBanTru() {
                   onClick={handlePrint}
                   style={{ fontWeight: 700, gap: 6 }}
                 >
-                  <i className="fas fa-print"></i> {printMode === 'a4' ? 'In / Lưu PDF Thẻ HS Này' : 'In Phôi Thẻ Học Sinh Này'}
+                  <i className="fas fa-print"></i> {printMode === 'a4' ? 'In Tờ A4 Có Vạch Cắt Thẻ' : 'In Thẻ Rời (10.3 x 6.5 cm)'}
                 </button>
               </div>
             </div>
@@ -523,7 +563,7 @@ export default function InTheBanTru() {
           <p style={{ color: '#94a3b8' }}>Vui lòng kiểm tra lại lớp học hoặc từ khóa tìm kiếm.</p>
         </div>
       ) : (
-        <div id="printSectionArea" className={`print-section-${printMode}`}>
+        <div id="printSectionArea" className={`print-section-${printMode}`} style={{ '--a4-scale': a4Scale }}>
           {/* Banner Hướng dẫn theo chế độ in */}
           {printMode === 'a4' ? (
             <div
@@ -556,11 +596,11 @@ export default function InTheBanTru() {
                 <i className="fas fa-print"></i>
               </div>
               <div style={{ flex: 1, fontSize: '0.88rem', color: '#1e293b', lineHeight: 1.55 }}>
-                <strong style={{ color: '#0369a1', fontSize: '0.95rem' }}>BỐ CỤC CHUẨN XÉN TIỆM IN (KHỔ A4 GIÁP MÉP CÓ VẠCH CROP-MARKS):</strong>
+                <strong style={{ color: '#0369a1', fontSize: '0.95rem' }}>BỐ CỤC CHUẨN XÉN TIỆM IN (KHỔ A4 CÓ VẠCH CROP-MARKS - 8 THẺ/TỜ):</strong>
                 <br />
-                • <strong>Cách gửi file ra tiệm in:</strong> Bấm <strong>In / Lưu PDF Gửi Tiệm In</strong> &rarr; Ở mục <em>Máy in (Destination)</em> chọn <strong>Lưu dưới dạng PDF (Save as PDF)</strong> &rarr; Khổ giấy: <strong>A4</strong> &rarr; Tỉ lệ (Scale): <strong>100% (Actual size)</strong> &rarr; Lề: <strong>None (Không có)</strong>.
+                • <strong>Chế độ Lề An Toàn (Đang bật - Khuyên dùng):</strong> Hệ thống đã tự động kích hoạt <strong>Lề an toàn (~8mm hai bên)</strong> giúp căn đều hai lề tuyệt đối, khắc phục triệt để lỗi sát mép phải hoặc bị máy in xén mất góc/mã QR. Thẻ xén ra kích thước (~9.7 x 6.1 cm) lọt vừa vặn và dễ dàng vào bao thẻ học sinh.
                 <br />
-                • <strong>Dặn thợ tiệm in:</strong> <em>"In giấy cứng Couche 300 (C300) cán màng bóng, xén máy theo các vạch crop-marks ở 4 mép"</em>. Tiệm in dập 4 nhát dao là xong toàn bộ thẻ phẳng phiu, đẹp tinh tươm!
+                • <strong>Cách in / lưu file gửi tiệm:</strong> Bấm <strong>In / Lưu PDF Gửi Tiệm In</strong> &rarr; Ở mục <em>Máy in</em> chọn <strong>Lưu dưới dạng PDF</strong> hoặc máy in vật lý &rarr; Khổ giấy: <strong>A4</strong> &rarr; Tỉ lệ: <strong>Mặc định (100%)</strong> &rarr; Lề: <strong>None (Không có)</strong> hoặc <strong>Mặc định</strong> đều vừa vặn hoàn hảo.
               </div>
             </div>
           ) : (
@@ -579,16 +619,33 @@ export default function InTheBanTru() {
             >
               <i className="fas fa-id-card" style={{ color: '#16a34a', fontSize: '1.4rem' }}></i>
               <div style={{ fontSize: '0.88rem', color: '#0f172a', lineHeight: 1.5 }}>
-                <strong>CHẾ ĐỘ IN TRỰC TIẾP TRÊN PHÔI THẺ (CR80):</strong> Dành riêng cho máy in thẻ nhựa chuyên dụng (Hiti, Zebra, Fargo...) hoặc khay in thẻ PVC máy Epson. Kích thước chuẩn <strong>85.60 x 53.98 mm</strong>.
+                <strong>CHẾ ĐỘ IN THẺ RỜI (10.3 x 6.5 cm):</strong> Kích thước chuẩn <strong>10.3 x 6.5 cm (103 x 65 mm)</strong> chừa 1mm giúp lọt lòng bao thẻ đeo học sinh dễ dàng. Phù hợp in trực tiếp phôi nhựa, giấy ảnh bìa dày hoặc máy in thẻ.
               </div>
             </div>
           )}
 
-          {/* DÀN TRANG: KHỔ A4 TIỆM IN HOẶC PHÔI THẺ CR80 */}
-          {printMode === 'a4' ? (
+          {/* DÀN TRANG: KHỔ A4 TIỆM IN (TAB LỚP) HOẶC IN CÁ NHÂN A4 HOẶC THẺ RỜI 10.3 x 6.5 cm */}
+          {activeTab === 'canhan' && printMode === 'a4' ? (
+            /* IN CÁ NHÂN TRÊN TỜ A4 CÓ VẠCH CẮT XÉN 10.3 x 6.5 cm */
+            <div className="a4-wrapper a4-single-card-wrapper">
+              <div className="a4-single-card-cut-zone">
+                <div className="single-card-cut-frame">
+                  {/* Crop marks cho thẻ cá nhân */}
+                  <span className="single-crop single-crop-tl-h" />
+                  <span className="single-crop single-crop-tl-v" />
+                  <span className="single-crop single-crop-tr-h" />
+                  <span className="single-crop single-crop-tr-v" />
+                  <span className="single-crop single-crop-bl-h" />
+                  <span className="single-crop single-crop-bl-v" />
+                  <span className="single-crop single-crop-br-h" />
+                  <span className="single-crop single-crop-br-v" />
+
+                  <CardFront student={currentIndividualStudent} namHoc={namHoc} />
+                </div>
+              </div>
+            </div>
+          ) : printMode === 'a4' ? (
             sheetChunks.map((chunk, sheetIdx) => {
-              const sheetNum = sheetIdx + 1;
-              const totalSheets = sheetChunks.length;
               const frontCells = [];
               for (let i = 0; i < 8; i++) {
                 frontCells.push(chunk[i] || null);
@@ -596,22 +653,12 @@ export default function InTheBanTru() {
 
               return (
                 <div key={`sheet_front_${sheetIdx}`} className="a4-wrapper">
-                  {/* Header tờ in cho tiệm in */}
-                  <div className="a4-top-meta">
-                    <div className="a4-meta-school">
-                      <strong>TRƯỜNG THPT LÊ THỊ HỒNG GẤM</strong> — BẢNG IN THẺ BÁN TRÚ [TỜ {sheetNum}/{totalSheets}]
-                    </div>
-                    <div className="a4-meta-guide">
-                      Khổ: <strong>A4</strong> (100% Actual size) &bull; Giấy: <strong>Couche 300 / Bìa cứng</strong> &bull; Xén máy theo <strong>Vạch Crop-marks</strong>
-                    </div>
-                  </div>
-
-                  {/* Vùng cắt xén chứa 8 thẻ giáp mép và vạch xén công nghiệp */}
+                  {/* Vùng cắt xén chứa 8 thẻ và vạch xén công nghiệp */}
                   <div className="a4-cutting-area">
                     {/* Vạch xén đỉnh (Top Crop Marks) */}
-                    <span className="crop-mark-v crop-mark-top crop-col-0" title="Vạch xén mép trái" />
-                    <span className="crop-mark-v crop-mark-top crop-col-1" title="Vạch xén dọc chính giữa" />
-                    <span className="crop-mark-v crop-mark-top crop-col-2" title="Vạch xén mép phải" />
+                    <span className="crop-mark-v crop-mark-top crop-col-0" title="Vạch xén mép trái (0mm)" />
+                    <span className="crop-mark-v crop-mark-top crop-col-1" title="Vạch xén dọc chính giữa (103mm)" />
+                    <span className="crop-mark-v crop-mark-top crop-col-2" title="Vạch xén mép phải (206mm)" />
 
                     {/* Vạch xén đáy (Bottom Crop Marks) */}
                     <span className="crop-mark-v crop-mark-bottom crop-col-0" />
@@ -619,11 +666,11 @@ export default function InTheBanTru() {
                     <span className="crop-mark-v crop-mark-bottom crop-col-2" />
 
                     {/* Vạch xén mép trái (Left Crop Marks) */}
-                    <span className="crop-mark-h crop-mark-left crop-row-0" title="Vạch xén mép trên" />
-                    <span className="crop-mark-h crop-mark-left crop-row-1" title="Vạch xén ngang 1" />
-                    <span className="crop-mark-h crop-mark-left crop-row-2" title="Vạch xén ngang 2" />
-                    <span className="crop-mark-h crop-mark-left crop-row-3" title="Vạch xén ngang 3" />
-                    <span className="crop-mark-h crop-mark-left crop-row-4" title="Vạch xén mép dưới" />
+                    <span className="crop-mark-h crop-mark-left crop-row-0" title="Vạch xén mép trên (0mm)" />
+                    <span className="crop-mark-h crop-mark-left crop-row-1" title="Vạch xén ngang 1 (65mm)" />
+                    <span className="crop-mark-h crop-mark-left crop-row-2" title="Vạch xén ngang 2 (130mm)" />
+                    <span className="crop-mark-h crop-mark-left crop-row-3" title="Vạch xén ngang 3 (195mm)" />
+                    <span className="crop-mark-h crop-mark-left crop-row-4" title="Vạch xén mép dưới (260mm)" />
 
                     {/* Vạch xén mép phải (Right Crop Marks) */}
                     <span className="crop-mark-h crop-mark-right crop-row-0" />
@@ -632,26 +679,25 @@ export default function InTheBanTru() {
                     <span className="crop-mark-h crop-mark-right crop-row-3" />
                     <span className="crop-mark-h crop-mark-right crop-row-4" />
 
-                    {/* Lưới 8 thẻ giáp mép liền mạch */}
+                    {/* Vạch xén giữa rãnh 2 cột (Center Crop Marks) */}
+                    <span className="crop-mark-h crop-mark-center crop-row-0" />
+                    <span className="crop-mark-h crop-mark-center crop-row-1" />
+                    <span className="crop-mark-h crop-mark-center crop-row-2" />
+                    <span className="crop-mark-h crop-mark-center crop-row-3" />
+                    <span className="crop-mark-h crop-mark-center crop-row-4" />
+
+                    {/* Lưới 8 thẻ liền mạch chuẩn 103mm x 65mm */}
                     <div className="a4-grid-flush">
                       {frontCells.map((hs, i) => (
                         <div key={i} className="print-item-cell-flush">
                           {hs ? (
                             <CardFront student={hs} namHoc={namHoc} />
                           ) : (
-                            <div className="empty-cell-placeholder">
-                              <span>Ô trống</span>
-                            </div>
+                            <div className="empty-cell-placeholder" />
                           )}
                         </div>
                       ))}
                     </div>
-                  </div>
-
-                  {/* Chân trang ghi chú cho tiệm in */}
-                  <div className="a4-bottom-meta">
-                    <span>Xưởng in: Đặt dao xén theo các vạch crop-marks ở 4 mép (chỉ cần 4 nhát dao xén thẳng là hoàn thành 8 thẻ)</span>
-                    <span>Lớp: {selectedLop === 'all' ? 'Toàn trường' : selectedLop} &bull; Năm học: {namHoc}</span>
                   </div>
                 </div>
               );
@@ -660,10 +706,10 @@ export default function InTheBanTru() {
             <div className="phoi-print-container">
               <div className="phoi-preview-meta-bar no-print">
                 <span className="phoi-meta-title">
-                  <i className="fas fa-check-circle" style={{ color: '#16a34a' }}></i> Xem trước danh sách in ({targetStudents.length} phôi thẻ CR80)
+                  <i className="fas fa-check-circle" style={{ color: '#16a34a' }}></i> Xem trước danh sách in ({targetStudents.length} thẻ 10.3 x 6.5 cm)
                 </span>
                 <span className="phoi-meta-hint">
-                  Kích thước chuẩn: 85.60 x 53.98 mm &bull; In tràn viền phôi nhựa &bull; Mỗi thẻ in trên 1 phôi riêng biệt
+                  Kích thước chuẩn: 10.3 x 6.5 cm (103 x 65 mm) &bull; Chừa 1mm lọt bao thẻ &bull; Mỗi thẻ in trên 1 trang riêng biệt
                 </span>
               </div>
 
