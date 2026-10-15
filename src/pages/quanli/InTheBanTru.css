@@ -1,7 +1,7 @@
 /* ============================================================
    CHỨC NĂNG IN THẺ BÁN TRÚ - THPT LÊ THỊ HỒNG GẤM
    Hỗ trợ 2 chế độ: 1. In theo lớp | 2. In cá nhân
-   Kích thước chuẩn: 10.3 cm x 6.5 cm (103 mm x 65 mm) - Chừa 1mm lọt bao thẻ
+   Kích thước chuẩn: 9.5 cm x 6.0 cm (95 mm x 60 mm) - Nhỏ gọn < 10cm, tỉ lệ cân đối lọt bao thẻ
    ============================================================ */
 
 /* ── TAB CHUYỂN ĐỔI CHẾ ĐỘ IN ── */
@@ -254,16 +254,16 @@
   letter-spacing: 0.5px;
 }
 
-/* ── MẪU THẺ THỰC TẾ (10.3 x 6.5 cm = 103 x 65 mm) ── */
+/* ── MẪU THẺ THỰC TẾ (9.5 x 6.0 cm = 95 x 60 mm) ── */
 .smart-id-card {
-  width: 390px;
-  min-width: 390px;
-  max-width: 390px;
-  height: 246px;
-  min-height: 246px;
-  max-height: 246px;
+  width: 360px;
+  min-width: 360px;
+  max-width: 360px;
+  height: 228px;
+  min-height: 228px;
+  max-height: 228px;
   background: #ffffff;
-  border-radius: 9px;
+  border-radius: 8px;
   box-shadow: 0 7px 22px rgba(15, 23, 42, 0.14);
   border: 1px solid #cbd5e1;
   position: relative;
@@ -277,23 +277,23 @@
 .card-h-head {
   background: linear-gradient(135deg, var(--primary-navy, #0a192f) 0%, var(--primary-blue, #1e3a8a) 100%);
   color: #ffffff;
-  height: 54px;
-  min-height: 54px;
-  max-height: 54px;
-  padding: 5px 12px;
+  height: 50px;
+  min-height: 50px;
+  max-height: 50px;
+  padding: 4px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   position: relative;
-  border-bottom: 3px solid var(--gold-accent, #d97706);
+  border-bottom: 2.5px solid var(--gold-accent, #d97706);
   flex-shrink: 0;
   box-sizing: border-box;
   width: 100% !important;
 }
 .head-logo-img {
-  height: 40px;
-  width: 40px;
+  height: 36px;
+  width: 36px;
   object-fit: contain;
   border: none !important;
 }
@@ -303,48 +303,48 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
 }
 .title-sub {
-  font-size: 7.7px;
+  font-size: 7.2px;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.78);
   text-transform: uppercase;
-  letter-spacing: 0.35px;
+  letter-spacing: 0.3px;
   line-height: 1.2;
 }
 .title-school {
   font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 11.6px;
+  font-size: 10.8px;
   font-weight: 900;
   color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.25px;
+  letter-spacing: 0.2px;
   line-height: 1.2;
 }
 .year-tag {
-  font-size: 9px;
+  font-size: 8.2px;
   font-weight: 850;
   background: rgba(0, 0, 0, 0.2);
-  border: 1.5px solid var(--gold-accent, #d97706);
+  border: 1.2px solid var(--gold-accent, #d97706);
   color: var(--gold-text, #fef08a);
-  padding: 4px 8px;
-  border-radius: 8px;
+  padding: 3px 7px;
+  border-radius: 7px;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  letter-spacing: 0.35px;
+  letter-spacing: 0.3px;
   flex-shrink: 0;
 }
 /* Watermark Trống Đồng */
 .card-watermark-trongdong {
   position: absolute;
-  top: 152px;
+  top: 140px;
   left: 52%;
   transform: translate(-50%, -50%);
-  width: 210px;
-  height: 210px;
+  width: 192px;
+  height: 192px;
   pointer-events: none;
   z-index: 0;
   opacity: 0.085;
@@ -364,9 +364,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 42px;
-  min-height: 42px;
-  max-height: 42px;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
   width: 100%;
   position: relative;
   z-index: 1;
@@ -375,33 +375,33 @@
 .title-wing-left,
 .title-wing-right {
   flex: 1;
-  max-width: 42px;
+  max-width: 36px;
   height: 1.5px;
   background: linear-gradient(90deg, transparent, var(--gold-accent, #d97706), transparent);
   border-radius: 2px;
   opacity: 0.85;
 }
 .title-text {
-  font-size: 18px;
+  font-size: 16.5px;
   font-weight: 900;
   color: var(--primary-blue, #991b1b);
   text-transform: uppercase;
-  letter-spacing: 2.3px;
-  text-indent: 2.3px;
+  letter-spacing: 2px;
+  text-indent: 2px;
   line-height: 1;
   white-space: nowrap;
-  transform: translateY(1mm);
+  transform: translateY(0.8mm);
 }
 
 /* Thân thẻ */
 .card-h-content {
   flex: 1;
   display: flex;
-  height: 150px;
-  min-height: 150px;
-  max-height: 150px;
-  padding: 0 12px 10px;
-  gap: 8px;
+  height: 140px;
+  min-height: 140px;
+  max-height: 140px;
+  padding: 0 10px 8px;
+  gap: 7px;
   align-items: center;
   position: relative;
   z-index: 1;
@@ -411,13 +411,13 @@
 
 /* Khung ảnh 3x4 tiêu chuẩn tỉ lệ 3:4 */
 .avatar-frame {
-  width: 93px;
-  min-width: 93px;
-  max-width: 93px;
-  height: 124px;
-  min-height: 124px;
-  max-height: 124px;
-  border-radius: 7px;
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+  height: 112px;
+  min-height: 112px;
+  max-height: 112px;
+  border-radius: 6px;
   overflow: hidden;
   border: 1.5px solid #cbd5e1;
   outline: none;
@@ -435,13 +435,13 @@
 .info-column {
   flex: 1;
   min-width: 0;
-  height: 124px;
+  height: 112px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   box-sizing: border-box;
-  padding: 2px 0;
+  padding: 1px 0;
 }
 .student-name-block {
   display: flex;
@@ -451,14 +451,14 @@
   margin-top: 0;
 }
 .name-label {
-  font-size: 8px;
+  font-size: 7.5px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.9px;
+  letter-spacing: 0.8px;
   line-height: 1;
   margin-bottom: 1px;
-  transform: translateY(-6pt);
+  transform: translateY(-5pt);
 }
 .student-fullname-val {
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -476,27 +476,27 @@
 .meta-row-clean {
   display: flex;
   align-items: baseline;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: 4px;
+  font-size: 10.5px;
   white-space: nowrap;
 }
 .meta-lbl {
   color: #64748b;
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: 10.5px;
   flex-shrink: 0;
 }
 .meta-val {
   color: #1e293b;
   font-weight: 800;
-  font-size: 13.5px;
+  font-size: 12.2px;
 }
 .meta-val.blue {
   color: var(--primary-blue, #1e3a8a);
 }
 .meta-val-lop {
   font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 16.5px;
+  font-size: 15px;
   font-weight: 900;
   color: var(--primary-blue, #1e3a8a);
   line-height: 1;
@@ -505,14 +505,14 @@
 .meta-sep {
   color: #cbd5e1;
   margin: 0 2px;
-  font-size: 11px;
+  font-size: 10px;
 }
 .meta-row-id {
   margin-top: 1px;
-  gap: 6px;
+  gap: 5px;
 }
 .meta-lbl-id {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #475569;
   text-transform: none;
@@ -521,29 +521,29 @@
 }
 .meta-id-highlight {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 21.5px;
+  font-size: 19.5px;
   font-weight: 900;
   color: #dc2626;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   line-height: 1;
 }
 
 /* Ghi chú chân thẻ chính quy sang trọng lấp đầy khoảng trống phía dưới */
 .card-sub-footer-note {
-  font-size: 8px;
+  font-size: 7.4px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.7px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   margin-top: 2px;
   line-height: 1;
 }
 .note-star {
   color: var(--gold-accent, #d97706);
-  font-size: 8px;
+  font-size: 7.4px;
 }
 
 /* Khối bao bọc mã QR có kèm nhãn chú thích */
@@ -553,20 +553,20 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  flex: 0 0 72px;
-  margin: 0 10px 0 0;
+  flex: 0 0 65px;
+  margin: 0 8px 0 0;
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 .qr-scan-zone {
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
-  height: 72px;
-  min-height: 72px;
-  max-height: 72px;
+  width: 65px;
+  min-width: 65px;
+  max-width: 65px;
+  height: 65px;
+  min-height: 65px;
+  max-height: 65px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -579,12 +579,12 @@
   margin-right: 0 !important;
 }
 .qr-scan-zone img, .qr-scan-zone canvas {
-  width: 68px !important;
-  height: 68px !important;
+  width: 62px !important;
+  height: 62px !important;
   display: block;
 }
 .qr-caption-text {
-  font-size: 6.2px;
+  font-size: 5.8px;
   font-weight: 750;
   color: #475569;
   text-transform: none;
@@ -595,14 +595,14 @@
 
 /* Mặt sau thẻ */
 .card-back-view {
-  padding: 12px 16px 10px;
+  padding: 10px 14px 8px;
   display: flex;
   flex-direction: column;
   background: #ffffff;
 }
 .card-back-title {
   font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 11.2px;
+  font-size: 10.2px;
   font-weight: 800;
   color: var(--primary-blue, #1e3a8a);
   text-align: center;
@@ -620,7 +620,7 @@
   list-style: decimal;
   padding-left: 16px;
   margin: 0;
-  font-size: 8.6px;
+  font-size: 7.8px;
   color: #1e293b;
   line-height: 1.4;
   font-weight: 500;
@@ -685,13 +685,13 @@
   font-style: italic;
 }
 
-/* KHỐI 8 THẺ (10.3 x 6.5 cm) VÀ VẠCH XÉN (CROP MARKS) */
+/* KHỐI 8 THẺ (9.5 x 6.0 cm) VÀ VẠCH XÉN (CROP MARKS) */
 .a4-cutting-area {
   position: relative;
-  width: 784px; /* 390px * 2 + 4px (1mm rãnh chừa) */
-  height: 996px; /* 246px * 4 + 4px * 3 (1mm rãnh chừa) */
+  width: 724px; /* 360px * 2 + 4px (1mm rãnh chừa) */
+  height: 924px; /* 228px * 4 + 4px * 3 (1mm rãnh chừa) */
   margin: 0 auto;
-  transform: scale(var(--a4-scale, 0.94));
+  transform: scale(var(--a4-scale, 1.0));
   transform-origin: center center;
   transition: transform 0.2s ease;
 }
@@ -738,25 +738,25 @@
   width: 4px;
 }
 .crop-row-0 { top: 0; }
-.crop-row-1 { top: 248px; transform: translateY(-50%); } /* Tâm rãnh hàng 1 - hàng 2 (chừa 1mm) */
-.crop-row-2 { top: 498px; transform: translateY(-50%); } /* Tâm rãnh hàng 2 - hàng 3 (chừa 1mm) */
-.crop-row-3 { top: 748px; transform: translateY(-50%); } /* Tâm rãnh hàng 3 - hàng 4 (chừa 1mm) */
+.crop-row-1 { top: 230px; transform: translateY(-50%); } /* Tâm rãnh hàng 1 - hàng 2 (chừa 1mm) */
+.crop-row-2 { top: 462px; transform: translateY(-50%); } /* Tâm rãnh hàng 2 - hàng 3 (chừa 1mm) */
+.crop-row-3 { top: 694px; transform: translateY(-50%); } /* Tâm rãnh hàng 3 - hàng 4 (chừa 1mm) */
 .crop-row-4 { bottom: 0; }
 
 /* Lưới 8 thẻ chừa khoảng cách rãnh 1mm */
 .a4-grid-flush {
   display: grid;
-  grid-template-columns: 390px 390px;
-  grid-template-rows: 246px 246px 246px 246px;
+  grid-template-columns: 360px 360px;
+  grid-template-rows: 228px 228px 228px 228px;
   column-gap: 4px; /* Chừa 1mm giữa 2 cột */
   row-gap: 4px;    /* Chừa 1mm giữa các hàng */
-  width: 784px;
-  height: 996px;
+  width: 724px;
+  height: 924px;
   box-sizing: border-box;
 }
 .print-item-cell-flush {
-  width: 390px;
-  height: 246px;
+  width: 360px;
+  height: 228px;
   box-sizing: border-box;
   position: relative;
   border: 1px solid #cbd5e1;
@@ -782,7 +782,7 @@
   box-sizing: border-box;
 }
 
-/* ── BỐ CỤC IN CÁ NHÂN TRÊN KHỔ A4 (KÈM VẠCH CẮT XÉN 10.3 x 6.5 cm) ── */
+/* ── BỐ CỤC IN CÁ NHÂN TRÊN KHỔ A4 (KÈM VẠCH CẮT XÉN 9.5 x 6.0 cm) ── */
 .a4-single-card-wrapper {
   display: flex;
   flex-direction: column;
@@ -909,7 +909,7 @@
   box-sizing: border-box;
 }
 
-/* ── KHI IN THẬT (PRINT MEDIA CSS CHUẨN 10.3 x 6.5 cm) ── */
+/* ── KHI IN THẬT (PRINT MEDIA CSS CHUẨN 9.5 x 6.0 cm - NHỎ GỌN < 10CM) ── */
 @media print {
   @page {
     size: A4 portrait;
@@ -937,52 +937,52 @@
     display: none !important;
   }
 
-  /* Định cỡ các thành phần con của thẻ chuẩn 103 x 65 mm (chừa 1mm lọt bao thẻ) */
+  /* Định cỡ các thành phần con của thẻ chuẩn 95 x 60 mm (< 10cm, lọt bao thẻ) */
   .smart-id-card {
-    width: 103mm !important;
-    min-width: 103mm !important;
-    max-width: 103mm !important;
-    height: 65mm !important;
-    min-height: 65mm !important;
-    max-height: 65mm !important;
+    width: 95mm !important;
+    min-width: 95mm !important;
+    max-width: 95mm !important;
+    height: 60mm !important;
+    min-height: 60mm !important;
+    max-height: 60mm !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     border: none !important;
-    border-radius: 3mm !important;
+    border-radius: 2.5mm !important;
     box-shadow: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .card-h-head {
-    height: 14.2mm !important;
-    min-height: 14.2mm !important;
-    max-height: 14.2mm !important;
+    height: 13.1mm !important;
+    min-height: 13.1mm !important;
+    max-height: 13.1mm !important;
     width: 100% !important;
-    padding: 1.3mm 3.2mm !important;
+    padding: 1.1mm 2.8mm !important;
     box-sizing: border-box !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .head-logo-img {
-    height: 10.5mm !important;
-    width: 10.5mm !important;
+    height: 9.6mm !important;
+    width: 9.6mm !important;
   }
   .title-sub {
-    font-size: 2.05mm !important;
+    font-size: 1.9mm !important;
   }
   .title-school {
-    font-size: 3mm !important;
+    font-size: 2.75mm !important;
   }
   .year-tag {
-    font-size: 2.35mm !important;
-    padding: 1mm 2.1mm !important;
-    border-radius: 2.1mm !important;
+    font-size: 2.15mm !important;
+    padding: 0.8mm 1.8mm !important;
+    border-radius: 1.8mm !important;
   }
   .card-watermark-trongdong {
-    top: 40mm !important;
+    top: 37mm !important;
     left: 52% !important;
-    width: 55mm !important;
-    height: 55mm !important;
+    width: 50mm !important;
+    height: 50mm !important;
     opacity: 0.085 !important;
   }
   .card-watermark-trongdong img {
@@ -991,9 +991,9 @@
     print-color-adjust: exact !important;
   }
   .card-main-title {
-    height: 11mm !important;
-    min-height: 11mm !important;
-    max-height: 11mm !important;
+    height: 10mm !important;
+    min-height: 10mm !important;
+    max-height: 10mm !important;
     width: 100% !important;
     display: flex !important;
     align-items: center !important;
@@ -1004,95 +1004,95 @@
   .title-wing-left,
   .title-wing-right {
     flex: 1 !important;
-    max-width: 11mm !important;
+    max-width: 10mm !important;
     height: 0.3mm !important;
     background: linear-gradient(90deg, transparent, var(--gold-accent, #d97706), transparent) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .title-text {
-    font-size: 4.7mm !important;
+    font-size: 4.2mm !important;
     line-height: 1 !important;
-    letter-spacing: 0.6mm !important;
-    text-indent: 0.6mm !important;
-    transform: translateY(1mm) !important;
+    letter-spacing: 0.55mm !important;
+    text-indent: 0.55mm !important;
+    transform: translateY(0.8mm) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .card-h-content {
-    height: 39.8mm !important;
-    min-height: 39.8mm !important;
-    max-height: 39.8mm !important;
+    height: 36.9mm !important;
+    min-height: 36.9mm !important;
+    max-height: 36.9mm !important;
     width: 100% !important;
-    padding: 0 3.2mm 2.4mm !important;
-    gap: 2.2mm !important;
+    padding: 0 2.8mm 2mm !important;
+    gap: 2mm !important;
     box-sizing: border-box !important;
   }
   .avatar-frame {
-    width: 24.5mm !important;
-    min-width: 24.5mm !important;
-    max-width: 24.5mm !important;
-    height: 32.6mm !important;
-    min-height: 32.6mm !important;
-    max-height: 32.6mm !important;
-    border-width: 0.4mm !important;
+    width: 22.5mm !important;
+    min-width: 22.5mm !important;
+    max-width: 22.5mm !important;
+    height: 30mm !important;
+    min-height: 30mm !important;
+    max-height: 30mm !important;
+    border-width: 0.35mm !important;
     outline: none !important;
-    border-radius: 1.8mm !important;
+    border-radius: 1.6mm !important;
   }
   .info-column {
-    height: 32.6mm !important;
-    padding: 0.5mm 0 !important;
+    height: 30mm !important;
+    padding: 0.4mm 0 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
-    gap: 2.6mm !important;
+    gap: 2.2mm !important;
   }
   .student-name-block {
-    gap: 0.5mm !important;
+    gap: 0.4mm !important;
     margin-top: 0 !important;
   }
   .name-label {
-    font-size: 2.1mm !important;
+    font-size: 1.95mm !important;
     margin-bottom: 0.15mm !important;
-    transform: translateY(-2mm) !important;
+    transform: translateY(-1.8mm) !important;
   }
   .student-fullname-val {
-    font-size: 3.1mm !important;
+    font-size: 2.85mm !important;
     line-height: 1.22 !important;
   }
   .meta-lbl-id {
-    font-size: 3.2mm !important;
+    font-size: 2.95mm !important;
     letter-spacing: 0 !important;
   }
   .meta-row-clean {
-    font-size: 3.0mm !important;
-    gap: 1.3mm !important;
+    font-size: 2.75mm !important;
+    gap: 1.1mm !important;
     white-space: nowrap !important;
   }
   .meta-lbl {
-    font-size: 3.0mm !important;
+    font-size: 2.75mm !important;
   }
   .meta-val {
-    font-size: 3.5mm !important;
+    font-size: 3.2mm !important;
     font-weight: 800 !important;
   }
   .meta-val-lop {
-    font-size: 4.5mm !important;
+    font-size: 4.1mm !important;
   }
   .meta-id-highlight {
-    font-size: 5.7mm !important;
-    letter-spacing: 0.25mm !important;
+    font-size: 5.2mm !important;
+    letter-spacing: 0.22mm !important;
   }
   .card-sub-footer-note {
-    font-size: 2.0mm !important;
-    letter-spacing: 0.4px !important;
-    margin-top: 0.6mm !important;
+    font-size: 1.85mm !important;
+    letter-spacing: 0.35px !important;
+    margin-top: 0.5mm !important;
     line-height: 1 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .note-star {
-    font-size: 2.0mm !important;
+    font-size: 1.85mm !important;
     color: var(--gold-accent, #d97706) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -1103,8 +1103,8 @@
     align-items: center !important;
     justify-content: center !important;
     gap: 0 !important;
-    flex: 0 0 19mm !important;
-    margin: 0 2.4mm 0 0 !important;
+    flex: 0 0 17.5mm !important;
+    margin: 0 2mm 0 0 !important;
     padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -1112,12 +1112,12 @@
     box-shadow: none !important;
   }
   .qr-scan-zone {
-    width: 19mm !important;
-    min-width: 19mm !important;
-    max-width: 19mm !important;
-    height: 19mm !important;
-    min-height: 19mm !important;
-    max-height: 19mm !important;
+    width: 17.5mm !important;
+    min-width: 17.5mm !important;
+    max-width: 17.5mm !important;
+    height: 17.5mm !important;
+    min-height: 17.5mm !important;
+    max-height: 17.5mm !important;
     padding: 0.5mm !important;
     border-radius: 1mm !important;
     border: none !important;
@@ -1125,11 +1125,11 @@
     margin-right: 0 !important;
   }
   .qr-scan-zone img, .qr-scan-zone canvas {
-    width: 18mm !important;
-    height: 18mm !important;
+    width: 16.5mm !important;
+    height: 16.5mm !important;
   }
   .qr-caption-text {
-    font-size: 1.55mm !important;
+    font-size: 1.45mm !important;
     font-weight: 750 !important;
     color: #475569 !important;
     letter-spacing: 0 !important;
@@ -1171,20 +1171,20 @@
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
-    width: 103mm !important;
-    height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
     box-sizing: border-box !important;
     position: relative !important;
   }
   .single-card-cut-frame .smart-id-card {
-    width: 103mm !important;
-    height: 65mm !important;
-    min-width: 103mm !important;
-    max-width: 103mm !important;
-    min-height: 65mm !important;
-    max-height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
+    min-width: 95mm !important;
+    max-width: 95mm !important;
+    min-height: 60mm !important;
+    max-height: 60mm !important;
     border: none !important;
-    border-radius: 2.2mm !important;
+    border-radius: 2mm !important;
     box-shadow: none !important;
   }
   .single-crop {
@@ -1237,11 +1237,11 @@
   }
 
   .a4-cutting-area {
-    width: 207mm !important; /* 103mm * 2 + 1mm rãnh chừa */
-    height: 263mm !important; /* 65mm * 4 + 1mm * 3 rãnh chừa */
+    width: 191mm !important; /* 95mm * 2 + 1mm rãnh chừa */
+    height: 243mm !important; /* 60mm * 4 + 1mm * 3 rãnh chừa */
     margin: 0 auto !important;
     position: relative !important;
-    transform: scale(var(--a4-scale, 0.94)) !important;
+    transform: scale(var(--a4-scale, 1.0)) !important;
     transform-origin: center center !important;
   }
 
@@ -1288,35 +1288,35 @@
     width: 1mm !important;
   }
   .crop-row-0 { top: 0 !important; }
-  .crop-row-1 { top: 65.5mm !important; transform: translateY(-50%) !important; }  /* Ranh giới hàng 1 - hàng 2 (chừa 1mm) */
-  .crop-row-2 { top: 131.5mm !important; transform: translateY(-50%) !important; } /* Ranh giới hàng 2 - hàng 3 (chừa 1mm) */
-  .crop-row-3 { top: 197.5mm !important; transform: translateY(-50%) !important; } /* Ranh giới hàng 3 - hàng 4 (chừa 1mm) */
+  .crop-row-1 { top: 60.5mm !important; transform: translateY(-50%) !important; }  /* Ranh giới hàng 1 - hàng 2 (chừa 1mm) */
+  .crop-row-2 { top: 121.5mm !important; transform: translateY(-50%) !important; } /* Ranh giới hàng 2 - hàng 3 (chừa 1mm) */
+  .crop-row-3 { top: 182.5mm !important; transform: translateY(-50%) !important; } /* Ranh giới hàng 3 - hàng 4 (chừa 1mm) */
   .crop-row-4 { bottom: 0 !important; }
 
   .a4-grid-flush {
     display: grid !important;
-    grid-template-columns: 103mm 103mm !important;
-    grid-template-rows: 65mm 65mm 65mm 65mm !important;
+    grid-template-columns: 95mm 95mm !important;
+    grid-template-rows: 60mm 60mm 60mm 60mm !important;
     column-gap: 1mm !important; /* Chừa 1mm giữa các cột thẻ */
     row-gap: 1mm !important;    /* Chừa 1mm giữa các hàng thẻ */
-    width: 207mm !important;
-    height: 263mm !important;
+    width: 191mm !important;
+    height: 243mm !important;
     margin: 0 auto !important;
     padding: 0 !important;
     box-sizing: border-box !important;
   }
 
   .print-item-cell-flush {
-    width: 103mm !important;
-    height: 65mm !important;
-    min-width: 103mm !important;
-    max-width: 103mm !important;
-    min-height: 65mm !important;
-    max-height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
+    min-width: 95mm !important;
+    max-width: 95mm !important;
+    min-height: 60mm !important;
+    max-height: 60mm !important;
     box-sizing: border-box !important;
     position: relative !important;
     border: 0.2mm solid #cbd5e1 !important; /* Viền ranh giới thẻ để xén bo góc */
-    border-radius: 2.2mm !important;        /* Bo góc đều cả 4 góc thẻ khi in (trên và dưới) */
+    border-radius: 2mm !important;          /* Bo góc đều cả 4 góc thẻ khi in (trên và dưới) */
     outline: none !important;
     overflow: hidden !important;
     page-break-inside: avoid !important;
@@ -1333,15 +1333,15 @@
     transform: none !important;
     box-shadow: none !important;
     border: none !important;
-    border-radius: 2.2mm !important; /* Bo góc cả 4 góc thẻ 2.2mm khi in */
+    border-radius: 2mm !important; /* Bo góc cả 4 góc thẻ 2mm khi in */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* ── 3. NẾU IN TỪNG THẺ RỜI (10.3 x 6.5 cm) ── */
+  /* ── 3. NẾU IN TỪNG THẺ RỜI (9.5 x 6.0 cm) ── */
   .print-mode-phoi {
-    width: 103mm !important;
-    height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
     margin: 0 !important;
     padding: 0 !important;
   }
@@ -1350,15 +1350,15 @@
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: 103mm !important;
+    width: 95mm !important;
   }
   .print-mode-phoi .phoi-card-page {
-    width: 103mm !important;
-    height: 65mm !important;
-    min-width: 103mm !important;
-    max-width: 103mm !important;
-    min-height: 65mm !important;
-    max-height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
+    min-width: 95mm !important;
+    max-width: 95mm !important;
+    min-height: 60mm !important;
+    max-height: 60mm !important;
     margin: 0 !important;
     padding: 0 !important;
     box-sizing: border-box !important;
@@ -1375,12 +1375,12 @@
     break-after: auto !important;
   }
   .print-mode-phoi .phoi-card-wrapper {
-    width: 103mm !important;
-    height: 65mm !important;
-    min-width: 103mm !important;
-    max-width: 103mm !important;
-    min-height: 65mm !important;
-    max-height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
+    min-width: 95mm !important;
+    max-width: 95mm !important;
+    min-height: 60mm !important;
+    max-height: 60mm !important;
     margin: 0 !important;
     padding: 0 !important;
     box-sizing: border-box !important;
@@ -1390,16 +1390,16 @@
     left: 0 !important;
   }
   .print-mode-phoi .phoi-card-wrapper .smart-id-card {
-    width: 103mm !important;
-    height: 65mm !important;
-    min-width: 103mm !important;
-    max-width: 103mm !important;
-    min-height: 65mm !important;
-    max-height: 65mm !important;
+    width: 95mm !important;
+    height: 60mm !important;
+    min-width: 95mm !important;
+    max-width: 95mm !important;
+    min-height: 60mm !important;
+    max-height: 60mm !important;
     transform: none !important;
     box-shadow: none !important;
     border: none !important;
-    border-radius: 2.2mm !important; /* Bo góc thẻ 2.2mm khi in */
+    border-radius: 2mm !important; /* Bo góc thẻ 2mm khi in */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
