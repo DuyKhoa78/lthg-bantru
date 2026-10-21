@@ -64,12 +64,7 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 // Lấy đường dẫn ảnh thẻ học sinh (hỗ trợ cả production Vercel/Azure và local dev)
 function getStudentAvatarUrl(student) {
-  if (!student) return pastePhotoAvatar;
-  const lop = (student.lop || '').trim();
-  // Khối 11 (và toàn bộ thẻ HS bán trú) sử dụng khung dán ảnh 3x4 tiêu chuẩn
-  if (lop.startsWith('11') || !student.avatar_url) {
-    return pastePhotoAvatar;
-  }
+  if (!student || !student.avatar_url) return pastePhotoAvatar;
   let url = student.avatar_url;
   if (url.startsWith('/uploads') && API_BASE) {
     return `${API_BASE}${url}`;
