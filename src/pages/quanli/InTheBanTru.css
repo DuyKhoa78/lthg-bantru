@@ -347,16 +347,17 @@
   height: 172px;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.085;
+  opacity: 0.18;
   display: flex;
   align-items: center;
   justify-content: center;
+  mix-blend-mode: multiply;
 }
 .card-watermark-trongdong img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: sepia(100%) saturate(520%) hue-rotate(8deg) brightness(1.18);
+  filter: sepia(100%) saturate(260%) hue-rotate(8deg) brightness(0.96) contrast(1.15);
 }
 
 /* Tiêu đề chính sang trọng kèm cánh viền vàng đồng */
@@ -985,10 +986,11 @@
     left: 52% !important;
     width: 44mm !important;
     height: 44mm !important;
-    opacity: 0.085 !important;
+    opacity: 0.18 !important;
+    mix-blend-mode: multiply !important;
   }
   .card-watermark-trongdong img {
-    filter: sepia(100%) saturate(520%) hue-rotate(8deg) brightness(1.18) !important;
+    filter: sepia(100%) saturate(260%) hue-rotate(8deg) brightness(0.96) contrast(1.15) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
