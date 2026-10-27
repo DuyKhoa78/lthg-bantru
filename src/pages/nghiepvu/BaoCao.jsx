@@ -1867,47 +1867,43 @@ ${htmlPages}
 
         const buildWorksheet = (hsList, titleText) => {
             const sortedHs = sortStudentsByABC(hsList);
-            const dataRows = sortedHs.map((h, i) => [
-                i + 1,
-                h.lop || '',
-                h.id || '',
-                h.ho_ten || '',
-                h.tong_buoi_ngu || 0,
-                h.buoi_ngu_thuc_te || 0,
-                h.vang_ngu || 0,
-                h.phep_ngu || 0,
-                h.tong_buoi_an || 0,
-                h.buoi_an_thuc_te || 0,
-                h.vang_an || 0,
-                h.phep_an || 0,
-                calcHsThanhTien(h, currentDonGiaAn)
-            ]);
+            const dataRows = sortedHs.map((h, i) => {
+                const anTinhTien = (h.buoi_an_tinh_tien !== undefined)
+                    ? h.buoi_an_tinh_tien
+                    : Math.max(0, (h.tong_buoi_an || 0) - (h.phep_an || 0));
+                return [
+                    i + 1,
+                    h.lop || '',
+                    h.id || '',
+                    h.ho_ten || '',
+                    h.tong_buoi_an || 0,
+                    anTinhTien,
+                    h.phep_an || 0,
+                    calcHsThanhTien(h, currentDonGiaAn),
+                    h.ghi_chu || ''
+                ];
+            });
 
-            const sumTongBuoiNgu = sortedHs.reduce((s, h) => s + (h.tong_buoi_ngu || 0), 0);
-            const sumNguThucTe = sortedHs.reduce((s, h) => s + (h.buoi_ngu_thuc_te || 0), 0);
-            const sumVangNgu = sortedHs.reduce((s, h) => s + (h.vang_ngu || 0), 0);
-            const sumPhepNgu = sortedHs.reduce((s, h) => s + (h.phep_ngu || 0), 0);
             const sumTongBuoiAn = sortedHs.reduce((s, h) => s + (h.tong_buoi_an || 0), 0);
-            const sumAnThucTe = sortedHs.reduce((s, h) => s + (h.buoi_an_thuc_te || 0), 0);
-            const sumVangAn = sortedHs.reduce((s, h) => s + (h.vang_an || 0), 0);
+            const sumAnThucTe = sortedHs.reduce((s, h) => s + ((h.buoi_an_tinh_tien !== undefined) ? h.buoi_an_tinh_tien : Math.max(0, (h.tong_buoi_an || 0) - (h.phep_an || 0))), 0);
             const sumPhepAn = sortedHs.reduce((s, h) => s + (h.phep_an || 0), 0);
             const sumThanhTien = sortedHs.reduce((s, h) => s + calcHsThanhTien(h, currentDonGiaAn), 0);
 
             const totalRow = [
                 'TỔNG CỘNG', '', '', '',
-                sumTongBuoiNgu, sumNguThucTe, sumVangNgu, sumPhepNgu,
-                sumTongBuoiAn, sumAnThucTe, sumVangAn, sumPhepAn,
-                sumThanhTien
+                sumTongBuoiAn, sumAnThucTe, sumPhepAn,
+                sumThanhTien,
+                ''
             ];
 
             const aoa = [
-                ['SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH', '', '', '', '', '', '', '', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', '', '', '', ''],
-                ['TRƯỜNG THPT LÊ THỊ HỒNG GẤM', '', '', '', '', '', '', '', 'Độc lập - Tự do - Hạnh phúc', '', '', '', ''],
-                ['BỘ PHẬN BÁN TRÚ', '', '', '', '', '', '', '', '', '', '', '', ''],
+                ['SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH', '', '', '', '', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', '', '', ''],
+                ['TRƯỜNG THPT LÊ THỊ HỒNG GẤM', '', '', '', '', 'Độc lập - Tự do - Hạnh phúc', '', '', ''],
+                ['BỘ PHẬN BÁN TRÚ', '', '', '', '', '', '', '', ''],
                 [],
                 [titleText + rangeText],
-                ['STT', 'LỚP', 'MÃ BT', 'HỌ TÊN ABC', 'NGỦ BÁN TRÚ', '', '', '', headerAnText, '', '', '', ''],
-                ['', '', '', '', 'TỔNG SỐ BUỔI', 'SỐ NGÀY THỰC TẾ', 'VẮNG', 'PHÉP', 'TỔNG SỐ BUỔI', 'SỐ NGÀY THỰC TẾ', 'VẮNG', 'PHÉP', 'THÀNH TIỀN'],
+                ['STT', 'LỚP', 'MÃ BT', 'HỌ TÊN ABC', headerAnText, '', '', '', 'GHI CHÚ'],
+                ['', '', '', '', 'TỔNG SỐ BUỔI', 'SỐ NGÀY THỰC TẾ', 'PHÉP', 'THÀNH TIỀN', ''],
                 ...dataRows,
                 totalRow
             ];
@@ -1916,17 +1912,17 @@ ${htmlPages}
             const totalRowIdx = 7 + sortedHs.length;
             ws['!merges'] = [
                 { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },  // SỞ GD
-                { s: { r: 0, c: 8 }, e: { r: 0, c: 12 } }, // CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                { s: { r: 0, c: 5 }, e: { r: 0, c: 8 } },  // CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },  // TRƯỜNG THPT LÊ THỊ HỒNG GẤM
-                { s: { r: 1, c: 8 }, e: { r: 1, c: 12 } }, // Độc lập - Tự do - Hạnh phúc
+                { s: { r: 1, c: 5 }, e: { r: 1, c: 8 } },  // Độc lập - Tự do - Hạnh phúc
                 { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },  // BỘ PHẬN BÁN TRÚ
-                { s: { r: 4, c: 0 }, e: { r: 4, c: 12 } }, // Tiêu đề bảng
+                { s: { r: 4, c: 0 }, e: { r: 4, c: 8 } },  // Tiêu đề bảng
                 { s: { r: 5, c: 0 }, e: { r: 6, c: 0 } },  // STT
                 { s: { r: 5, c: 1 }, e: { r: 6, c: 1 } },  // LỚP
                 { s: { r: 5, c: 2 }, e: { r: 6, c: 2 } },  // MÃ BT
                 { s: { r: 5, c: 3 }, e: { r: 6, c: 3 } },  // HỌ TÊN ABC
-                { s: { r: 5, c: 4 }, e: { r: 5, c: 7 } },  // NGỦ BÁN TRÚ (4 cột)
-                { s: { r: 5, c: 8 }, e: { r: 5, c: 12 } }, // ĂN BÁN TRÚ (5 cột)
+                { s: { r: 5, c: 4 }, e: { r: 5, c: 7 } },  // ĂN BÁN TRÚ (4 cột)
+                { s: { r: 5, c: 8 }, e: { r: 6, c: 8 } },  // GHI CHÚ
                 { s: { r: totalRowIdx, c: 0 }, e: { r: totalRowIdx, c: 3 } } // TỔNG CỘNG (4 cột đầu)
             ];
 
@@ -1935,15 +1931,11 @@ ${htmlPages}
                 { wch: 8 },   // LỚP
                 { wch: 10 },  // MÃ BT
                 { wch: 28 },  // HỌ TÊN ABC
-                { wch: 15 },  // TỔNG SỐ BUỔI ngủ
-                { wch: 18 },  // SỐ NGÀY THỰC TẾ ngủ
-                { wch: 8 },   // VẮNG ngủ
-                { wch: 8 },   // PHÉP ngủ
-                { wch: 15 },  // TỔNG SỐ BUỔI ăn
-                { wch: 18 },  // SỐ NGÀY THỰC TẾ ăn
-                { wch: 8 },   // VẮNG ăn
-                { wch: 8 },   // PHÉP ăn
-                { wch: 16 }   // THÀNH TIỀN
+                { wch: 15 },  // TỔNG SỐ BUỔI
+                { wch: 20 },  // SỐ NGÀY THỰC TẾ (tính ăn)
+                { wch: 10 },  // PHÉP
+                { wch: 16 },  // THÀNH TIỀN
+                { wch: 18 }   // GHI CHÚ
             ];
             return ws;
         };
@@ -2012,32 +2004,26 @@ ${htmlPages}
 
         const htmlPages = Object.entries(lopMap).sort(([a], [b]) => a.localeCompare(b, 'vi', { numeric: true })).map(([lop, hsArr]) => {
             const sortedHs = sortStudentsByABC(hsArr);
-            const sumTongBuoiNgu = sortedHs.reduce((s, h) => s + (h.tong_buoi_ngu || 0), 0);
-            const sumNguThucTe = sortedHs.reduce((s, h) => s + (h.buoi_ngu_thuc_te || 0), 0);
-            const sumVangNgu = sortedHs.reduce((s, h) => s + (h.vang_ngu || 0), 0);
-            const sumPhepNgu = sortedHs.reduce((s, h) => s + (h.phep_ngu || 0), 0);
             const sumTongBuoiAn = sortedHs.reduce((s, h) => s + (h.tong_buoi_an || 0), 0);
-            const sumAnThucTe = sortedHs.reduce((s, h) => s + (h.buoi_an_thuc_te || 0), 0);
-            const sumVangAn = sortedHs.reduce((s, h) => s + (h.vang_an || 0), 0);
+            const sumAnThucTe = sortedHs.reduce((s, h) => s + ((h.buoi_an_tinh_tien !== undefined) ? h.buoi_an_tinh_tien : Math.max(0, (h.tong_buoi_an || 0) - (h.phep_an || 0))), 0);
             const sumPhepAn = sortedHs.reduce((s, h) => s + (h.phep_an || 0), 0);
             const sumThanhTien = sortedHs.reduce((s, h) => s + calcHsThanhTien(h, currentDonGiaAn), 0);
 
             const rows = sortedHs.map((h, i) => {
                 const tt = calcHsThanhTien(h, currentDonGiaAn);
+                const anTinhTien = (h.buoi_an_tinh_tien !== undefined)
+                    ? h.buoi_an_tinh_tien
+                    : Math.max(0, (h.tong_buoi_an || 0) - (h.phep_an || 0));
                 return `<tr>
         <td class="c">${i + 1}</td>
         <td class="c">${h.lop || ''}</td>
         <td class="c b">${h.id || ''}</td>
         <td class="l">${h.ho_ten || ''}</td>
-        <td class="c">${h.tong_buoi_ngu || 0}</td>
-        <td class="c hl">${h.buoi_ngu_thuc_te || 0}</td>
-        <td class="c">${h.vang_ngu || 0}</td>
-        <td class="c">${h.phep_ngu || 0}</td>
         <td class="c">${h.tong_buoi_an || 0}</td>
-        <td class="c hl">${h.buoi_an_thuc_te || 0}</td>
-        <td class="c">${h.vang_an || 0}</td>
+        <td class="c hl">${anTinhTien}</td>
         <td class="c">${h.phep_an || 0}</td>
         <td class="r b total-cell">${fmtM(tt)}</td>
+        <td class="c" style="font-size:7.5pt; color:#475569;">${h.ghi_chu || ''}</td>
       </tr>`;
             }).join('');
 
@@ -2067,42 +2053,33 @@ ${htmlPages}
 <table class="dt">
 <thead>
   <tr>
-    <th rowspan="2" class="c" style="width:30px">STT</th>
-    <th rowspan="2" class="c" style="width:45px">LỚP</th>
-    <th rowspan="2" class="c" style="width:60px">MÃ BT</th>
-    <th rowspan="2" class="l" style="width:180px">HỌ TÊN ABC</th>
-    <th colspan="4" class="c ngu-hdr">NGỦ BÁN TRÚ</th>
-    <th colspan="5" class="c an-hdr">ĂN BÁN TRÚ <span class="price-tag">(${currentDonGiaAn > 0 ? (fmtM(currentDonGiaAn) + ' Đ/NGÀY') : 'GIÁ TIỀN/NGÀY '})</span></th>
+    <th rowspan="2" class="c" style="width:35px">STT</th>
+    <th rowspan="2" class="c" style="width:50px">LỚP</th>
+    <th rowspan="2" class="c" style="width:65px">MÃ BT</th>
+    <th rowspan="2" class="l" style="width:200px">HỌ TÊN ABC</th>
+    <th colspan="4" class="c an-hdr">ĂN BÁN TRÚ <span class="price-tag">(${currentDonGiaAn > 0 ? (fmtM(currentDonGiaAn) + ' Đ/NGÀY') : 'GIÁ TIỀN/NGÀY '})</span></th>
+    <th rowspan="2" class="c" style="width:95px">GHI CHÚ</th>
   </tr>
   <tr>
-    <th class="c" style="width:65px">TỔNG SỐ BUỔI</th>
-    <th class="c" style="width:70px">SỐ NGÀY THỰC TẾ</th>
-    <th class="c" style="width:40px">VẮNG</th>
-    <th class="c" style="width:40px">PHÉP</th>
-    <th class="c" style="width:65px">TỔNG SỐ BUỔI</th>
-    <th class="c" style="width:70px">SỐ NGÀY THỰC TẾ</th>
-    <th class="c" style="width:40px">VẮNG</th>
-    <th class="c" style="width:40px">PHÉP</th>
-    <th class="c" style="width:85px">THÀNH TIỀN</th>
+    <th class="c" style="width:85px">TỔNG SỐ BUỔI</th>
+    <th class="c" style="width:100px">SỐ NGÀY THỰC TẾ</th>
+    <th class="c" style="width:55px">PHÉP</th>
+    <th class="c" style="width:110px">THÀNH TIỀN</th>
   </tr>
 </thead>
 <tbody>
   ${rows}
   <tr class="tr-total">
     <td colspan="4" class="c b">TỔNG CỘNG</td>
-    <td class="c b">${sumTongBuoiNgu}</td>
-    <td class="c b hl">${sumNguThucTe}</td>
-    <td class="c b">${sumVangNgu}</td>
-    <td class="c b">${sumPhepNgu}</td>
     <td class="c b">${sumTongBuoiAn}</td>
     <td class="c b hl">${sumAnThucTe}</td>
-    <td class="c b">${sumVangAn}</td>
     <td class="c b">${sumPhepAn}</td>
     <td class="r b total-cell">${fmtM(sumThanhTien)}</td>
+    <td></td>
   </tr>
 </tbody>
 </table>
-<div style="margin-top: 6px; margin-bottom: 8px; font-size: 8pt; line-height: 1.35; text-align: left;">
+<div style="margin-top: 6px; margin-bottom: 8px; font-size: 8.5pt; line-height: 1.35; text-align: left;">
   * Lớp ${lop}: <strong>${hsArr.length} học sinh</strong> | Tổng thành tiền: <strong>${fmtM(sumThanhTien)} đồng</strong>
 </div>
 <div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10px; page-break-inside: avoid;">
@@ -2125,15 +2102,15 @@ ${htmlPages}
         }).join('');
 
         const css = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Times New Roman',Times,serif;font-size:8.2pt;color:#000;background:#fff}
+body{font-family:'Times New Roman',Times,serif;font-size:8.8pt;color:#000;background:#fff}
 .page{page-break-before:always;padding:5mm 8mm}.page:first-of-type{page-break-before:auto}
 .hdr td{border:none!important;padding:0}
 .main-title{text-align:center;margin-bottom:6px}
-.main-title h1{font-size:12.5pt;font-weight:bold;text-transform:uppercase}
-.main-title h2{font-size:9.5pt;font-weight:bold;margin-top:2px}
+.main-title h1{font-size:13pt;font-weight:bold;text-transform:uppercase}
+.main-title h2{font-size:10pt;font-weight:bold;margin-top:2px}
 .dt{width:100%;border-collapse:collapse;margin-top:4px;border:1.2px solid #000}
-.dt th,.dt td{border:1px solid #000;padding:2.5px 2px;vertical-align:middle;font-size:7.8pt;line-height:1.15}
-.dt th{text-align:center;background:#f2f2f2;font-size:7.5pt;font-weight:bold;padding:3px 2px}
+.dt th,.dt td{border:1px solid #000;padding:3.5px 3px;vertical-align:middle;font-size:8.5pt;line-height:1.2}
+.dt th{text-align:center;background:#f2f2f2;font-size:8.5pt;font-weight:bold;padding:4px 3px}
 .c{text-align:center}.l{text-align:left;padding-left:4px}.r{text-align:right;padding-right:4px}.b{font-weight:bold}
 .hl{font-weight:bold;color:#059669}
 .ngu-hdr{background:#eef2ff!important}.an-hdr{background:#fefce8!important}
@@ -4827,30 +4804,30 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                 <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid #bbf7d0', borderRadius: 12, padding: '12px 16px' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, textAlign: 'center' }}>
                                         <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Buổi ăn</div>
+                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Số buổi ăn</div>
                                             <div style={{ color: '#0ea5e9', fontSize: '1.1rem', fontWeight: 800 }}>{thLopData.tong_buoi_an}</div>
                                         </div>
                                         <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Buổi ngủ</div>
-                                            <div style={{ color: '#6366f1', fontSize: '1.1rem', fontWeight: 800 }}>{thLopData.tong_buoi_ngu}</div>
-                                        </div>
-                                        <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                                             <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Đơn giá ăn</div>
-                                            <div style={{ color: '#f59e0b', fontSize: '1.1rem', fontWeight: 800 }}>{(thLopDonGiaAn || 0).toLocaleString('vi-VN')}đ</div>
+                                            <div style={{ color: '#059669', fontSize: '1.1rem', fontWeight: 800 }}>{(thLopDonGiaAn || 0).toLocaleString('vi-VN')}đ</div>
                                         </div>
                                         <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                                             <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Tổng HS</div>
                                             <div style={{ color: '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>{thLopData.data?.length || 0}</div>
                                         </div>
+                                        <div style={{ background: '#fff', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                                            <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Tiền/HS (chu kỳ)</div>
+                                            <div style={{ color: '#dc2626', fontSize: '1.1rem', fontWeight: 800 }}>{((thLopData.tong_buoi_an || 0) * (thLopDonGiaAn || 0)).toLocaleString('vi-VN')}đ</div>
+                                        </div>
                                     </div>
                                     <div style={{ marginTop: 8, fontSize: '0.8rem', color: '#059669', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                                        <i className="fas fa-check-circle" style={{ color: '#10b981' }}></i> Dữ liệu sẵn sàng — chuẩn bị xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data || []).map(h => h.lop))].length} lớp`} (Mẫu 13 cột chuẩn)
+                                        <i className="fas fa-check-circle" style={{ color: '#10b981' }}></i> Dữ liệu sẵn sàng — chuẩn bị xuất {thLopSelected ? `Lớp ${thLopSelected}` : `${[...new Set((thLopData.data || []).map(h => h.lop))].length} lớp`} (Mẫu thu tiền ăn bán trú)
                                     </div>
                                 </div>
                             )}
 
                             <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <i className="fas fa-info-circle" style={{ color: '#10b981' }}></i> Mẫu xuất theo chuẩn thống kê 13 cột (STT, Lớp, Mã BT, Họ tên ABC, Ngủ bán trú 4 cột, Ăn bán trú 5 cột kèm Thành tiền).
+                                <i className="fas fa-info-circle" style={{ color: '#10b981' }}></i> Mẫu xuất bảng thống kê thu tiền ăn bán trú (STT, Lớp, Mã BT, Họ tên ABC, Tổng số buổi, Số ngày thực tế tính ăn, Phép, Thành tiền, Ghi chú).
                             </div>
                         </div>
                         <div className="export-modal-footer" style={{ padding: '14px 22px', background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
