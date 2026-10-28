@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { cachedFetch } from '../../utils/cache';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../hooks/useAlert.jsx';
-import { formatLopList, sortStudentsForRoom, splitStudentsByTeachers, isHTARoom } from '../../utils/stringUtils';
+import { formatLopList, sortStudentsForRoom, splitStudentsByTeachers, isHTARoom, getHTAGroupNumber, HTA_DS_CONFIG } from '../../utils/stringUtils';
 import { matchStudentSearch } from '../../utils/qrUtils';
 import BaoPhepModal from '../../components/BaoPhepModal';
 import QRScannerModal from '../../components/QRScannerModal';
@@ -99,6 +99,9 @@ export default function DiemDanhAn() {
         setIsGopMode(false);
         setSaved(false);
         setOverrides({}); // Xóa overrides phòng cũ để tránh lẫn lộn dữ liệu
+        if (p?.ma_phong && /^SANH_[123]$/i.test(p.ma_phong)) {
+            try { localStorage.setItem('bantru_preferred_sanh_sub', p.ma_phong.toUpperCase()); } catch { /* ignore */ }
+        }
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('phong', p.ma_phong);
@@ -352,6 +355,11 @@ export default function DiemDanhAn() {
         Object.keys(map).forEach(r => {
             sortedMap[r] = sortStudentsForRoom(map[r], r);
         });
+        // Tách danh sách ảo SANH_1, SANH_2, SANH_3 phục vụ giao diện điểm danh của GV
+        const sanhAll = sortedMap['SANH'] || [];
+        sortedMap['SANH_1'] = sanhAll.filter(s => getHTAGroupNumber(s.lop) === 1);
+        sortedMap['SANH_2'] = sanhAll.filter(s => getHTAGroupNumber(s.lop) === 2);
+        sortedMap['SANH_3'] = sanhAll.filter(s => getHTAGroupNumber(s.lop) === 3);
         return sortedMap;
     }, [hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb, phongList]);
 
@@ -359,8 +367,12 @@ export default function DiemDanhAn() {
         if (targetDate === date && studentsByRoomMap[ma_phong] !== undefined) {
             return studentsByRoomMap[ma_phong];
         }
+        const sanhMatch = String(ma_phong || '').match(/^SANH_([123])$/i);
+        const queryPhong = sanhMatch ? 'SANH' : ma_phong;
+        const sanhGroup = sanhMatch ? parseInt(sanhMatch[1], 10) : null;
+
         const overridedElsewhere = new Set(
-            extraHsList.filter(x => x.phong_an && x.phong_an !== ma_phong).map(x => x.id)
+            extraHsList.filter(x => x.phong_an && x.phong_an !== queryPhong).map(x => x.id)
         );
         const base = hsList.filter(hs => {
             if (hs.ngay_vao && targetDate < hs.ngay_vao) return false;
@@ -370,10 +382,10 @@ export default function DiemDanhAn() {
             if (overridedElsewhere.has(hs.id)) return false;
 
             const groupPhong = cauhinhNgay?.lop_phong_an?.[hs.lop];
-            if (groupPhong) return groupPhong === ma_phong;
-            if (phongTamAn) return phongTamAn === ma_phong;
-            const effectivePhong = roomSnapshotDb[hs.id] || hs.phong_an;
-            return effectivePhong === ma_phong;
+            const effectivePhong = groupPhong || phongTamAn || roomSnapshotDb[hs.id] || hs.phong_an;
+            if (effectivePhong !== queryPhong) return false;
+            if (sanhGroup && getHTAGroupNumber(hs.lop) !== sanhGroup) return false;
+            return true;
         });
 
         const extraFiltered = extraHsList.filter(x => {
@@ -383,13 +395,15 @@ export default function DiemDanhAn() {
             if (baseHs.ngay_rut && targetDate >= baseHs.ngay_rut) return false;
             if (!baseHs.dang_hoc && (!baseHs.ngay_rut || targetDate >= baseHs.ngay_rut)) return false;
             const effectivePhong = x.phong_an || cauhinhNgay?.lop_phong_an?.[baseHs.lop] || phongTamAn || roomSnapshotDb[baseHs.id] || baseHs.phong_an;
-            return effectivePhong === ma_phong;
+            if (effectivePhong !== queryPhong) return false;
+            if (sanhGroup && getHTAGroupNumber(baseHs.lop) !== sanhGroup) return false;
+            return true;
         }).filter(x => !base.find(s => s.id === x.id))
             .map(x => {
                 const baseHs = hsList.find(h => h.id === x.id);
                 return { ...(baseHs || {}), ...x, phong_an: ma_phong };
             });
-        return sortStudentsForRoom([...base, ...extraFiltered], ma_phong);
+        return sortStudentsForRoom([...base, ...extraFiltered], queryPhong);
     }, [studentsByRoomMap, hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb]);
 
     const visiblePhongList = useMemo(() => {
@@ -407,10 +421,28 @@ export default function DiemDanhAn() {
                 list = filtered.length > 0 ? filtered : phongList;
             }
         }
-        // Đối với Giáo viên & Học vụ: Khóa chỉ hiển thị phòng được phân công trực (đang nạp thì trả về rỗng)
+        // Đối với Giáo viên & Học vụ: Khóa chỉ hiển thị phòng được phân công trực
+        // Riêng phòng SANH tách thành SANH_1, SANH_2, SANH_3 ngay trên giao diện GV (Admin giữ nguyên SANH)
         if (isGiaoVien) {
             if (!Array.isArray(assignedRoomCodes)) return [];
-            list = list.filter(p => assignedRoomCodes.includes(p.ma_phong));
+            const filtered = list.filter(p => assignedRoomCodes.includes(p.ma_phong));
+            const expanded = [];
+            filtered.forEach(p => {
+                if (p.ma_phong === 'SANH') {
+                    HTA_DS_CONFIG.forEach(cfg => {
+                        expanded.push({
+                            ...p,
+                            ma_phong: `SANH_${cfg.ds}`,
+                            base_phong: 'SANH',
+                            ds_group: cfg.ds,
+                            ds_classes: cfg.classes.join(', '),
+                        });
+                    });
+                } else {
+                    expanded.push(p);
+                }
+            });
+            return expanded;
         }
         return list;
     }, [phongList, phongTamAn, cauhinhNgay, extraHsList, getStudentsForRoom, isGiaoVien, assignedRoomCodes]);
@@ -434,7 +466,8 @@ export default function DiemDanhAn() {
             return Boolean(myDutyRooms && myDutyRooms.length > 0);
         }
         if (selectedPhong) {
-            return Boolean(myDutyRooms && myDutyRooms.includes(selectedPhong.ma_phong));
+            const basePhong = selectedPhong.base_phong || (String(selectedPhong.ma_phong).startsWith('SANH_') ? 'SANH' : selectedPhong.ma_phong);
+            return Boolean(myDutyRooms && (myDutyRooms.includes(selectedPhong.ma_phong) || myDutyRooms.includes(basePhong)));
         }
         return false;
     }, [isGiaoVien, isGopMode, myDutyRooms, selectedPhong]);
@@ -464,14 +497,28 @@ export default function DiemDanhAn() {
         if (!isGiaoVien || myDutyRooms.length === 0) return [];
         const list = [];
         myDutyRooms.forEach(maPhong => {
-            const roomHs = getStudentsForRoom(maPhong);
-            roomHs.forEach(hs => {
-                list.push({
-                    ...hs,
-                    phong_hien_thi: maPhong,
-                    ma_phong_target: maPhong,
+            if (maPhong === 'SANH') {
+                [1, 2, 3].forEach(dsNum => {
+                    const subCode = `SANH_${dsNum}`;
+                    const roomHs = getStudentsForRoom(subCode);
+                    roomHs.forEach(hs => {
+                        list.push({
+                            ...hs,
+                            phong_hien_thi: subCode,
+                            ma_phong_target: subCode,
+                        });
+                    });
                 });
-            });
+            } else {
+                const roomHs = getStudentsForRoom(maPhong);
+                roomHs.forEach(hs => {
+                    list.push({
+                        ...hs,
+                        phong_hien_thi: maPhong,
+                        ma_phong_target: maPhong,
+                    });
+                });
+            }
         });
         return sortStudentsForRoom(list, 'ALL');
     }, [isGiaoVien, myDutyRooms, getStudentsForRoom]);
@@ -505,20 +552,52 @@ export default function DiemDanhAn() {
             return;
         }
 
-        if (urlPhong && urlPhong !== 'ALL' && visiblePhongList.some(p => p.ma_phong === urlPhong)) {
-            setSelectedPhong(visiblePhongList.find(p => p.ma_phong === urlPhong));
+        // Helper xác định phân nhánh SANH_1 / SANH_2 / SANH_3 mặc định cho GV trực Sảnh
+        const pickDefaultSanhRoom = () => {
+            try {
+                const savedSub = localStorage.getItem('bantru_preferred_sanh_sub');
+                if (savedSub && visiblePhongList.some(p => p.ma_phong === savedSub)) {
+                    return visiblePhongList.find(p => p.ma_phong === savedSub);
+                }
+            } catch { /* ignore */ }
+            const nameLower = String(user?.fullname || user?.username || '').toLowerCase();
+            let targetCode = 'SANH_1';
+            if (nameLower.includes('cẩm hạnh') || nameLower.includes('cam hanh')) targetCode = 'SANH_2';
+            else if (nameLower.includes('thanh nhật') || nameLower.includes('thanh nhat')) targetCode = 'SANH_3';
+            else if (nameLower.includes('công thành') || nameLower.includes('cong thanh')) targetCode = 'SANH_1';
+            return visiblePhongList.find(p => p.ma_phong === targetCode) || visiblePhongList[0];
+        };
+
+        if (urlPhong && urlPhong !== 'ALL') {
+            if (visiblePhongList.some(p => p.ma_phong === urlPhong)) {
+                setSelectedPhong(visiblePhongList.find(p => p.ma_phong === urlPhong));
+                setIsGopMode(false);
+                return;
+            }
+            if (urlPhong.toUpperCase() === 'SANH' && visiblePhongList.some(p => p.base_phong === 'SANH')) {
+                setSelectedPhong(pickDefaultSanhRoom());
+                setIsGopMode(false);
+                return;
+            }
+        }
+
+        // Chỉ vào chế độ gộp nếu GV thực sự được phân công từ 2 phòng CSDL khác nhau trở lên (VD: P6, P7, P8)
+        // Nếu GV chỉ trực phòng SANH (được tách thành SANH_1, SANH_2, SANH_3 trên giao diện), chọn thẳng 1 danh sách để điểm danh!
+        const hasMultipleBaseRooms = Array.isArray(assignedRoomCodes) && assignedRoomCodes.length >= 2 && !assignedRoomCodes.includes('SANH');
+
+        if (urlGop && hasMultipleBaseRooms) {
+            setIsGopMode(true);
+            setSelectedPhong(null);
+            return;
+        }
+
+        if (hasMultipleBaseRooms && !urlPhong) {
+            setIsGopMode(true);
+            setSelectedPhong(null);
+        } else if (visiblePhongList.some(p => p.base_phong === 'SANH')) {
+            const isCurrentValid = selectedPhong && visiblePhongList.some(p => p.ma_phong === selectedPhong.ma_phong);
+            if (!isCurrentValid) setSelectedPhong(pickDefaultSanhRoom());
             setIsGopMode(false);
-            return;
-        }
-        if (urlGop && visiblePhongList.length >= 2) {
-            setIsGopMode(true);
-            setSelectedPhong(null);
-            return;
-        }
-        // Trường hợp ban đầu vào trang chưa có query param hoặc URL không khớp phòng phân công:
-        if (visiblePhongList.length >= 2 && !urlPhong) {
-            setIsGopMode(true);
-            setSelectedPhong(null);
         } else if (visiblePhongList.length === 1) {
             setSelectedPhong(visiblePhongList[0]);
             setIsGopMode(false);
@@ -760,7 +839,7 @@ export default function DiemDanhAn() {
             return hasAttendanceDuty ? 0 : 1;
         }
         if (!selectedPhong) return 0;
-        const pc = myAssignments.find(a => a.ma_phong_id === selectedPhong.ma_phong);
+        const pc = myAssignments.find(a => a.ma_phong_id === selectedPhong.ma_phong || (selectedPhong.base_phong && a.ma_phong_id === selectedPhong.base_phong));
         return pc ? pc.nhiem_vu : 0;
     }, [isGiaoVien, myAssignments, selectedPhong, isGopMode]);
 
@@ -2193,7 +2272,7 @@ ${htmlPagesStr}
                                         {isGopMode 
                                             ? `Chế độ gộp ${myDutyRooms.length} phòng — Ngày: ${fmtDate(date)} — Tổng cộng: ${students.length} học sinh` 
                                             : selectedPhong 
-                                                ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh` 
+                                                ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh${selectedPhong.ds_classes ? ` (Các lớp: ${selectedPhong.ds_classes})` : ''}` 
                                                 : 'Nhấn vào phòng bên trái để bắt đầu điểm danh'}
                                     </p>
                                 </div>
@@ -2221,6 +2300,73 @@ ${htmlPagesStr}
                                     </div>
                                 )}
                             </div>
+
+                            {/* ── THANH CHỌN DANH SÁCH SANH_1 / SANH_2 / SANH_3 DÀNH CHO GIÁO VIÊN TRỰC SẢNH ── */}
+                            {isGiaoVien && !isGopMode && (selectedPhong?.base_phong === 'SANH' || String(selectedPhong?.ma_phong || '').startsWith('SANH_')) && (
+                                <div className="dd-subroom-filter-bar" style={{ background: '#f0f9ff', borderColor: '#bae6fd', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <span className="filter-label" style={{ color: '#0369a1', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                        <i className="fas fa-list-ol" style={{ color: '#0284c7' }}></i> Chọn DS Sảnh:
+                                    </span>
+                                    {HTA_DS_CONFIG.map(cfg => {
+                                        const subCode = `SANH_${cfg.ds}`;
+                                        const count = getStudentsForRoom(subCode).length;
+                                        const pStat = phongStatuses.find(ps => ps.ma_phong_id === subCode);
+                                        const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
+                                        const isRoomAutoChot = Boolean(
+                                            isRoomChot && (
+                                                pStat?.is_auto_chot ||
+                                                pStat?.ma_gv_chot_id == null ||
+                                                pStat?.ten_nguoi_chot === 'Hệ thống' ||
+                                                pStat?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                            )
+                                        );
+                                        const isRoomGvChot = Boolean(isRoomChot && !isRoomAutoChot);
+                                        const isActive = selectedPhong?.ma_phong === subCode;
+                                        return (
+                                            <button
+                                                key={subCode}
+                                                type="button"
+                                                className={`subroom-chip ${isActive ? 'active' : ''}`}
+                                                style={{ whiteSpace: 'nowrap', padding: '4px 12px', fontSize: '0.82rem' }}
+                                                onClick={() => {
+                                                    const matched = visiblePhongList.find(p => p.ma_phong === subCode) || {
+                                                        ma_phong: subCode,
+                                                        base_phong: 'SANH',
+                                                        ds_group: cfg.ds,
+                                                        ds_classes: cfg.classes.join(', ')
+                                                    };
+                                                    handleSelectRoom(matched);
+                                                }}
+                                                title={`Danh sách ${cfg.ds} (${count} HS): Các lớp ${cfg.classes.join(', ')}`}
+                                            >
+                                                <strong>{subCode}</strong>
+                                                <span style={{ fontSize: '0.78rem', opacity: 0.9, marginLeft: 4 }}>({count} HS)</span>
+                                                {isRoomGvChot && <i className="fas fa-check-circle" style={{ marginLeft: 5, color: isActive ? '#fff' : '#16a34a' }} title={`Đã chốt${pStat?.ten_nguoi_chot ? ` bởi ${pStat.ten_nguoi_chot}` : ''}`}></i>}
+                                                {isRoomAutoChot && <i className="fas fa-exclamation-circle" style={{ marginLeft: 5, color: isActive ? '#fde047' : '#ef4444' }} title="Hệ thống tự động chốt (GV chưa chốt)"></i>}
+                                            </button>
+                                        );
+                                    })}
+                                    {selectedPhong && (
+                                        <div style={{
+                                            marginLeft: 'auto',
+                                            fontSize: '0.78rem',
+                                            color: '#0369a1',
+                                            background: '#e0f2fe',
+                                            border: '1px solid #bae6fd',
+                                            padding: '3px 10px',
+                                            borderRadius: 6,
+                                            fontWeight: 600,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            <i className="fas fa-users" style={{ color: '#0284c7' }}></i>
+                                            <span>Lớp: <b>{selectedPhong.ds_classes || HTA_DS_CONFIG.find(c => `SANH_${c.ds}` === selectedPhong.ma_phong)?.classes.join(', ')}</b></span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* ── BỘ LỌC NHANH THEO PHÒNG TRONG CHẾ ĐỘ GỘP ── */}
                             {isGopMode && myDutyRooms.length > 1 && (
@@ -2495,13 +2641,19 @@ ${htmlPagesStr}
                                             const isRoomReported = (roomCode) => {
                                                 const code = String(roomCode).toUpperCase().trim();
                                                 if (!code) return false;
+                                                const isSanhCode = code === 'SANH' || code.startsWith('SANH_');
+                                                const myName = String(user?.fullname || user?.username || '').trim();
                                                 return Boolean(
                                                     baoCaoRecords && baoCaoRecords.length > 0 &&
                                                     baoCaoRecords.some(bc => {
                                                         const bcPhong = String(bc.ma_phong || '').toUpperCase().trim();
-                                                        if (bcPhong === code) return true;
                                                         const parts = bcPhong.split(',').map(s => s.trim());
-                                                        return parts.includes(code);
+                                                        const matchPhong = bcPhong === code || parts.includes(code) || (isSanhCode && (bcPhong === 'SANH' || parts.includes('SANH')));
+                                                        if (!matchPhong) return false;
+                                                        if (isGiaoVien && isSanhCode && myName) {
+                                                            return String(bc.ho_ten_gv || '').trim() === myName;
+                                                        }
+                                                        return true;
                                                     })
                                                 );
                                             };

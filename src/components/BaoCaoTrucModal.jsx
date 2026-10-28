@@ -168,7 +168,15 @@ export default function BaoCaoTrucModal({
         if (isOpen) {
             const currentCa = initialCaTruc !== undefined ? initialCaTruc : 0;
             const currentNgay = initialNgay || new Date().toISOString().split('T')[0];
-            const currentPhong = initialMaPhong || (roomList[0]?.ma_phong || roomList[0]?.ma_phong_id || '');
+            let currentPhong = initialMaPhong || (roomList[0]?.ma_phong || roomList[0]?.ma_phong_id || '');
+            if (currentCa === 0 && String(currentPhong).toUpperCase().trim() === 'SANH') {
+                try {
+                    const pref = localStorage.getItem('bantru_preferred_sanh_sub');
+                    currentPhong = (pref && /^SANH_[123]$/i.test(pref)) ? pref.toUpperCase() : 'SANH_1';
+                } catch {
+                    currentPhong = 'SANH_1';
+                }
+            }
 
             setCaTruc(currentCa);
             setNgay(currentNgay);
@@ -423,14 +431,35 @@ export default function BaoCaoTrucModal({
                                     <label className="bct-field-label">
                                         <span>Phòng ăn <span className="text-danger">*</span></span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        className="bct-input-text bg-locked font-bold text-indigo text-center"
-                                        value={maPhong}
-                                        readOnly
-                                        title="Phòng ăn theo phân công trực"
-                                        required
-                                    />
+                                    {(maPhong === 'SANH' || String(maPhong).startsWith('SANH_')) ? (
+                                        <select
+                                            className="bct-input-text font-bold text-indigo"
+                                            value={maPhong}
+                                            onChange={(e) => {
+                                                const nextPhong = e.target.value;
+                                                setMaPhong(nextPhong);
+                                                try {
+                                                    localStorage.setItem('bantru_preferred_sanh_sub', nextPhong);
+                                                } catch { /* ignore */ }
+                                                loadAutoInfo(ngay, caTruc, nextPhong);
+                                            }}
+                                            disabled={isInputsDisabled}
+                                            title="Chọn danh sách Sảnh (SANH_1, SANH_2, SANH_3) mà Thầy/Cô phụ trách điểm danh"
+                                        >
+                                            <option value="SANH_1">SANH_1 (10A10, 12A2, 12A5, 12A7)</option>
+                                            <option value="SANH_2">SANH_2 (10A9, 12A4, 12A9, 12A10)</option>
+                                            <option value="SANH_3">SANH_3 (11A9, 12A1, 12A3, 12A6, 12A8)</option>
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            className="bct-input-text bg-locked font-bold text-indigo text-center"
+                                            value={maPhong}
+                                            readOnly
+                                            title="Phòng ăn theo phân công trực"
+                                            required
+                                        />
+                                    )}
                                 </div>
                             </div>
 
