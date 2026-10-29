@@ -9,9 +9,9 @@ const pastePhotoAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/
 
 // Bảng màu truyền thống theo khối: Khối 10 đỏ đô, Khối 11 xanh ngọc, Khối 12 xanh navy.
 const colorThemes = {
-  red:  { navy: '#450a0a', blue: '#991b1b', gold: '#d97706', text: '#fef08a' },
-  teal: { navy: '#042f2e', blue: '#0f766e', gold: '#0d9488', text: '#bae6fd' },
-  navy: { navy: '#0a192f', blue: '#1e3a8a', gold: '#38bdf8', text: '#bae6fd' }
+  red:  { navy: '#450a0a', blue: '#991b1b', gold: '#d97706', text: '#fef08a', label: 'Khối 10 (Đỏ đô)' },
+  teal: { navy: '#042f2e', blue: '#0f766e', gold: '#0d9488', text: '#bae6fd', label: 'Khối 11 (Xanh ngọc)' },
+  navy: { navy: '#0a192f', blue: '#1e3a8a', gold: '#38bdf8', text: '#bae6fd', label: 'Khối 12 (Xanh navy)' }
 };
 
 // Component render mã QR chuẩn quang học 100% bằng QRCode.js
@@ -76,6 +76,86 @@ function getStudentAvatarUrl(student) {
 function handleAvatarError(e) {
   e.target.onerror = null;
   e.target.src = pastePhotoAvatar;
+}
+
+
+// MẶT SAU THẺ BÁN TRÚ (Kích thước chuẩn 8.8 x 5.5 cm | Đồng bộ màu sắc | Độc lập 1 trang)
+function CardBack({ themeKey = 'red', namHoc }) {
+  const theme = colorThemes[themeKey] || colorThemes.red;
+  const cardStyle = {
+    '--primary-navy': theme.navy,
+    '--primary-blue': theme.blue,
+    '--gold-accent': theme.gold,
+    '--gold-text': theme.text,
+  };
+
+  return (
+    <div className="smart-id-card card-horizontal-view card-back-view" style={cardStyle}>
+      {/* HEADER ĐỒNG BỘ VỚI MẶT TRƯỚC */}
+      <div className="card-h-head card-back-head">
+        <img
+          src="/logo.png"
+          alt="Logo Trường THPT Lê Thị Hồng Gấm"
+          className="head-logo-img"
+          onError={(e) => { e.target.src = '/icons.svg'; }}
+        />
+        <div className="head-titles">
+          <div className="title-sub">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</div>
+          <div className="title-school">TRƯỜNG THPT LÊ THI HỒNG GẤM</div>
+        </div>
+        <div className="year-tag">{namHoc || '2026 - 2027'}</div>
+      </div>
+
+      {/* WATERMARK TRỐNG ĐỒNG BẢO MẬT CHÌM */}
+      <div className="card-watermark-trongdong">
+        <img src="/trong-dong-user.png" alt="Trống đồng" />
+      </div>
+
+      {/* BANNER TIÊU ĐỀ MẶT SAU */}
+      <div className="card-back-banner">
+        <span className="card-back-banner-text">
+          <i className="fas fa-shield-alt"></i> QUY ĐỊNH SỬ DỤNG THẺ BÁN TRÚ
+        </span>
+      </div>
+
+      {/* NỘI DUNG QUY ĐỊNH 5 ĐIỀU */}
+      <div className="card-back-content">
+        <ul className="card-back-rules">
+          <li>
+            <span className="rule-num">1.</span>
+            <span>Thẻ được cấp cho học sinh bán trú năm học {namHoc || '2026 - 2027'}, có giá trị sử dụng trong phạm vi nhà trường.</span>
+          </li>
+          <li>
+            <span className="rule-num">2.</span>
+            <span>Học sinh phải luôn mang/đeo thẻ khi vào khu vực phòng ăn và phòng ngủ bán trú để điểm danh.</span>
+          </li>
+          <li>
+            <span className="rule-num">3.</span>
+            <span>Tuyệt đối không cho người khác mượn thẻ hoặc sử dụng thẻ của học sinh khác.</span>
+          </li>
+          <li>
+            <span className="rule-num">4.</span>
+            <span>Bảo quản thẻ sạch sẽ, không bẻ gãy, dán đè hoặc làm trầy xước mã QR quang học.</span>
+          </li>
+          <li>
+            <span className="rule-num">5.</span>
+            <span>Trường hợp làm mất hoặc hư hỏng thẻ, học sinh cần báo ngay cho Ban Bán trú để được cấp lại.</span>
+          </li>
+        </ul>
+
+        {/* FOOTER LIÊN HỆ */}
+        <div className="card-back-footer">
+          <div className="card-back-footer-left">
+            <i className="fas fa-map-marker-alt"></i>
+            <span>147 Pasteur, P. Võ Thị Sáu, Q.3, TP.HCM</span>
+          </div>
+          <div className="card-back-footer-right">
+            <span>Hotline: (028) 3829 7460</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // MẶT TRƯỚC THẺ BÁN TRÚ (Kích thước chuẩn 8.8 x 5.5 cm | Khung dán 3x4 | Rõ dấu)
@@ -260,6 +340,26 @@ export default function InTheBanTru() {
   // ── Tỉ lệ căn lề khổ A4 (Mặc định: 1.0 - Chuẩn gốc 8.8 x 5.5 cm, lề an toàn đều 16.5mm hai bên) ──
   const [a4Scale, setA4Scale] = useState(1.0);
 
+  // ── Mặt in: 'front' (Mặt trước - theo từng HS) hoặc 'back' (Mặt sau - nội quy chung, đúng 1 trang) ──
+  const [cardSide, setCardSide] = useState('front');
+  const [backThemeOverride, setBackThemeOverride] = useState(null);
+
+  // Xác định màu sắc mặt sau đồng bộ với mặt trước
+  const currentBackThemeKey = useMemo(() => {
+    if (backThemeOverride) return backThemeOverride;
+    if (activeTab === 'canhan') {
+      const lop = currentIndividualStudent?.lop || '';
+      if (lop.startsWith('10')) return 'red';
+      if (lop.startsWith('11')) return 'teal';
+      if (lop.startsWith('12')) return 'navy';
+      return 'red';
+    }
+    if (selectedLop.startsWith('10') || selectedLop === 'khoi_10') return 'red';
+    if (selectedLop.startsWith('11') || selectedLop === 'khoi_11') return 'teal';
+    if (selectedLop.startsWith('12') || selectedLop === 'khoi_12') return 'navy';
+    return 'red';
+  }, [activeTab, currentIndividualStudent, selectedLop, backThemeOverride]);
+
   // Danh sách học sinh cần in
   const targetStudents = useMemo(() => {
     return activeTab === 'canhan' ? (currentIndividualStudent ? [currentIndividualStudent] : []) : classStudents;
@@ -333,6 +433,65 @@ export default function InTheBanTru() {
       {activeTab === 'lop' && (
         <div className="in-the-control-card no-print">
           <div className="in-the-row" style={{ marginBottom: 16 }}>
+            {/* Chọn Mặt Thẻ: Mặt Trước (Học sinh) hoặc Mặt Sau (Nội quy 1 trang) */}
+            <div className="in-the-group">
+              <span className="in-the-label"><i className="fas fa-layer-group"></i> Mặt In:</span>
+              <div className="in-the-segment">
+                <button
+                  type="button"
+                  className={`in-the-segment-btn ${cardSide === 'front' ? 'active' : ''}`}
+                  onClick={() => setCardSide('front')}
+                  title="In mặt trước: Thông tin chi tiết từng học sinh, ảnh thẻ, mã QR"
+                >
+                  <i className="fas fa-id-badge"></i> Mặt Trước (Học sinh)
+                </button>
+                <button
+                  type="button"
+                  className={`in-the-segment-btn ${cardSide === 'back' ? 'active' : ''}`}
+                  onClick={() => setCardSide('back')}
+                  title="In mặt sau: Nội quy chung giống nhau tất cả HS - Chỉ in đúng 1 trang duy nhất"
+                >
+                  <i className="fas fa-shield-alt"></i> Mặt Sau (Nội quy - 1 trang)
+                </button>
+              </div>
+            </div>
+
+            {/* Nếu đang chọn Mặt Sau: Cho phép chọn màu khối đồng bộ */}
+            {cardSide === 'back' && (
+              <div className="in-the-group">
+                <span className="in-the-label"><i className="fas fa-palette"></i> Màu Khối:</span>
+                <div className="in-the-segment">
+                  <button
+                    type="button"
+                    className={`in-the-segment-btn ${currentBackThemeKey === 'red' ? 'active' : ''}`}
+                    onClick={() => setBackThemeOverride('red')}
+                    style={currentBackThemeKey === 'red' ? { background: '#991b1b', color: '#fff' } : {}}
+                    title="Màu đỏ đô truyền thống Khối 10"
+                  >
+                    🔴 Khối 10
+                  </button>
+                  <button
+                    type="button"
+                    className={`in-the-segment-btn ${currentBackThemeKey === 'teal' ? 'active' : ''}`}
+                    onClick={() => setBackThemeOverride('teal')}
+                    style={currentBackThemeKey === 'teal' ? { background: '#0f766e', color: '#fff' } : {}}
+                    title="Màu xanh ngọc Khối 11"
+                  >
+                    🟢 Khối 11
+                  </button>
+                  <button
+                    type="button"
+                    className={`in-the-segment-btn ${currentBackThemeKey === 'navy' ? 'active' : ''}`}
+                    onClick={() => setBackThemeOverride('navy')}
+                    style={currentBackThemeKey === 'navy' ? { background: '#1e3a8a', color: '#fff' } : {}}
+                    title="Màu xanh navy Khối 12"
+                  >
+                    🔵 Khối 12
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Chọn lớp */}
             <div className="in-the-group">
               <span className="in-the-label"><i className="fas fa-filter"></i> Lớp Học:</span>
@@ -413,20 +572,29 @@ export default function InTheBanTru() {
             {/* Chip tổng số lượng */}
             <div
               className="in-the-counter-chip"
-              style={printMode === 'a4' ? { background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' } : { background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}
+              style={cardSide === 'back'
+                ? { background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }
+                : (printMode === 'a4' ? { background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' } : { background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' })
+              }
             >
-              <i className={printMode === 'a4' ? 'fas fa-file-alt' : 'fas fa-id-card'}></i>
+              <i className={cardSide === 'back' ? 'fas fa-shield-alt' : (printMode === 'a4' ? 'fas fa-file-alt' : 'fas fa-id-card')}></i>
               <span>
-                {classStudents.length} học sinh &bull; {printMode === 'a4' ? `${sheetChunks.length} tờ A4 (8 thẻ/tờ)` : `${classStudents.length} thẻ (8.8 x 5.5 cm)`}
+                {cardSide === 'back'
+                  ? `Mặt sau nội quy &bull; ĐÚNG 1 TRANG DUY NHẤT &bull; ${colorThemes[currentBackThemeKey]?.label || 'Khối 10'}`
+                  : `${classStudents.length} học sinh &bull; ${printMode === 'a4' ? `${sheetChunks.length} tờ A4 (8 thẻ/tờ)` : `${classStudents.length} thẻ (8.8 x 5.5 cm)`}`
+                }
               </span>
             </div>
 
             <button
               className="btn btn-primary"
               onClick={handlePrint}
-              style={{ fontWeight: 700, gap: 6, marginLeft: 'auto' }}
+              style={{ fontWeight: 700, gap: 6, marginLeft: 'auto', background: cardSide === 'back' ? 'linear-gradient(135deg, #d97706, #b45309)' : undefined }}
             >
-              <i className="fas fa-print"></i> {printMode === 'a4' ? 'In / Lưu PDF Gửi Tiệm In' : 'In Thẻ Lớp Này'}
+              <i className="fas fa-print"></i> {cardSide === 'back'
+                ? (printMode === 'a4' ? 'In Mặt Sau (1 Tờ A4 Duy Nhất)' : 'In 1 Thẻ Mặt Sau')
+                : (printMode === 'a4' ? 'In / Lưu PDF Mặt Trước' : 'In Thẻ Lớp Này')
+              }
             </button>
           </div>
         </div>
@@ -436,6 +604,27 @@ export default function InTheBanTru() {
       {activeTab === 'canhan' && (
         <div className="in-the-control-card no-print">
           <div className="in-the-row" style={{ marginBottom: 16 }}>
+            {/* Chọn Mặt Thẻ: Mặt Trước / Mặt Sau */}
+            <div className="in-the-group">
+              <span className="in-the-label"><i className="fas fa-layer-group"></i> Mặt In:</span>
+              <div className="in-the-segment">
+                <button
+                  type="button"
+                  className={`in-the-segment-btn ${cardSide === 'front' ? 'active' : ''}`}
+                  onClick={() => setCardSide('front')}
+                >
+                  <i className="fas fa-id-badge"></i> Mặt Trước
+                </button>
+                <button
+                  type="button"
+                  className={`in-the-segment-btn ${cardSide === 'back' ? 'active' : ''}`}
+                  onClick={() => setCardSide('back')}
+                >
+                  <i className="fas fa-shield-alt"></i> Mặt Sau (1 trang)
+                </button>
+              </div>
+            </div>
+
             {/* Lọc theo lớp */}
             <div className="in-the-group">
               <span className="in-the-label"><i className="fas fa-filter"></i> Lọc Lớp:</span>
@@ -531,9 +720,12 @@ export default function InTheBanTru() {
                 <button
                   className="btn btn-primary"
                   onClick={handlePrint}
-                  style={{ fontWeight: 700, gap: 6 }}
+                  style={{ fontWeight: 700, gap: 6, background: cardSide === 'back' ? 'linear-gradient(135deg, #d97706, #b45309)' : undefined }}
                 >
-                  <i className="fas fa-print"></i> {printMode === 'a4' ? 'In Tờ A4 Có Vạch Cắt Thẻ' : 'In Thẻ Rời (8.8 x 5.5 cm)'}
+                  <i className="fas fa-print"></i> {cardSide === 'back'
+                    ? (printMode === 'a4' ? 'In Mặt Sau (1 Tờ A4 Duy Nhất)' : 'In 1 Thẻ Mặt Sau')
+                    : (printMode === 'a4' ? 'In Tờ A4 Có Vạch Cắt Thẻ' : 'In Thẻ Rời (8.8 x 5.5 cm)')
+                  }
                 </button>
               </div>
             </div>
@@ -555,8 +747,46 @@ export default function InTheBanTru() {
         </div>
       ) : (
         <div id="printSectionArea" className={`print-section-${printMode}`} style={{ '--a4-scale': a4Scale }}>
-          {/* Banner Hướng dẫn theo chế độ in */}
-          {printMode === 'a4' ? (
+          {/* Banner Hướng dẫn theo chế độ in và mặt in */}
+          {cardSide === 'back' ? (
+            <div
+              className="print-guide-banner no-print"
+              style={{
+                background: '#fffbeb',
+                border: '1.5px solid #d97706',
+                borderRadius: 10,
+                padding: '14px 20px',
+                margin: '0 0 22px',
+                display: 'flex',
+                gap: 16,
+                alignItems: 'center'
+              }}
+            >
+              <div
+                style={{
+                  background: '#d97706',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: 44,
+                  height: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  fontSize: '1.3rem'
+                }}
+              >
+                <i className="fas fa-shield-alt"></i>
+              </div>
+              <div style={{ flex: 1, fontSize: '0.88rem', color: '#1e293b', lineHeight: 1.55 }}>
+                <strong style={{ color: '#b45309', fontSize: '0.95rem' }}>MẶT SAU THẺ BÁN TRÚ (NỘI QUY CHUNG — ĐÚNG 1 TRANG DUY NHẤT):</strong>
+                <br />
+                • <strong>Nội dung giống nhau cho tất cả học sinh:</strong> Hệ thống chỉ xuất <strong>1 trang duy nhất</strong> ({printMode === 'a4' ? '1 tờ A4 gồm 8 thẻ mặt sau liền kề' : '1 thẻ mặt sau 8.8 x 5.5 cm'}). Khi in tiệm hoặc in 2 mặt, chỉ cần in trang này với số lượng bản (copies) tùy ý để lật ghép với mặt trước.
+                <br />
+                • <strong>Màu sắc đồng bộ với mặt trước:</strong> Đang chọn <strong>{colorThemes[currentBackThemeKey]?.label}</strong>. Thầy/Cô có thể đổi màu khối nhanh ở thanh điều khiển phía trên.
+              </div>
+            </div>
+          ) : printMode === 'a4' ? (
             <div
               className="print-guide-banner no-print"
               style={{
@@ -591,7 +821,7 @@ export default function InTheBanTru() {
                 <br />
                 • <strong>Kích thước chuẩn vừa vặn:</strong> Thẻ đã được tinh chỉnh kích thước chuẩn <strong>8.8 x 5.5 cm (88 x 55 mm)</strong> (tăng đồng bộ cả chiều dài &gt; 8.6cm và &lt; 9.0cm lẫn chiều rộng &gt; 5.4cm theo đúng tỉ lệ chuẩn).
                 <br />
-                • <strong>LƯU Ý QUAN TRỌNG KHI IN:</strong> Bấm <strong>In / Lưu PDF Gửi Tiệm In</strong> &rarr; Khổ giấy: <strong>A4</strong> &rarr; Mục <strong>Tỉ lệ (Scale): CHỌN "Mặc định (100%)"</strong> (KHÔNG chọn "Vừa với vùng có thể in / Fit to printable area" để tránh bị phóng to sai kích thước) &rarr; Lề: <strong>None (Không có)</strong> hoặc <strong>Mặc định</strong>.
+                • <strong>LƯU Ý QUAN TRỌNG KHI IN:</strong> Bấm <strong>In / Lưu PDF Gửi Tiệm In</strong> &rarr; Khổ giấy: <strong>A4</strong> &rarr; Mục <strong>Tỉ lệ (Scale): CHỌN "Mặc định (100%)"</strong> &rarr; Lề: <strong>None (Không có)</strong> hoặc <strong>Mặc định</strong>.
               </div>
             </div>
           ) : (
@@ -610,14 +840,85 @@ export default function InTheBanTru() {
             >
               <i className="fas fa-id-card" style={{ color: '#16a34a', fontSize: '1.4rem' }}></i>
               <div style={{ fontSize: '0.88rem', color: '#0f172a', lineHeight: 1.5 }}>
-                <strong>CHẾ ĐỘ IN THẺ RỜI (8.8 x 5.5 cm):</strong> Kích thước chuẩn <strong>8.8 x 5.5 cm (88 x 55 mm)</strong>, tăng đồng bộ cả chiều dài (8.8 cm) lẫn chiều rộng (5.5 cm) theo đúng tỉ lệ chuẩn. Phù hợp in trực tiếp phôi nhựa, giấy ảnh bìa dày hoặc máy in thẻ.
+                <strong>CHẾ ĐỘ IN THẺ RỜI (8.8 x 5.5 cm):</strong> Kích thước chuẩn <strong>8.8 x 5.5 cm (88 x 55 mm)</strong>. Phù hợp in trực tiếp phôi nhựa, giấy ảnh bìa dày hoặc máy in thẻ.
               </div>
             </div>
           )}
 
           {/* DÀN TRANG: KHỔ A4 TIỆM IN (TAB LỚP) HOẶC IN CÁ NHÂN A4 HOẶC THẺ RỜI 8.8 x 5.5 cm */}
-          {activeTab === 'canhan' && printMode === 'a4' ? (
-            /* IN CÁ NHÂN TRÊN TỜ A4 CÓ VẠCH CẮT XÉN 8.8 x 5.5 cm */
+          {/* TRƯỜNG HỢP 1: IN MẶT SAU (NỘI QUY CHUNG — ĐÚNG 1 TRANG DUY NHẤT) */}
+          {cardSide === 'back' ? (
+            printMode === 'a4' ? (
+              /* ĐÚNG 1 TỜ A4 DUY NHẤT CHỨA 8 THẺ MẶT SAU */
+              <div className="a4-wrapper">
+                <div className="a4-cutting-area">
+                  {/* Vạch xén đỉnh (Top Crop Marks) */}
+                  <span className="crop-mark-v crop-mark-top crop-col-0" title="Vạch xén mép trái (0mm)" />
+                  <span className="crop-mark-v crop-mark-top crop-col-1" title="Vạch xén dọc chính giữa (88mm)" />
+                  <span className="crop-mark-v crop-mark-top crop-col-2" title="Vạch xén mép phải (190mm)" />
+
+                  {/* Vạch xén đáy (Bottom Crop Marks) */}
+                  <span className="crop-mark-v crop-mark-bottom crop-col-0" />
+                  <span className="crop-mark-v crop-mark-bottom crop-col-1" />
+                  <span className="crop-mark-v crop-mark-bottom crop-col-2" />
+
+                  {/* Vạch xén mép trái (Left Crop Marks) */}
+                  <span className="crop-mark-h crop-mark-left crop-row-0" title="Vạch xén mép trên (0mm)" />
+                  <span className="crop-mark-h crop-mark-left crop-row-1" title="Vạch xén ngang 1 (60mm)" />
+                  <span className="crop-mark-h crop-mark-left crop-row-2" title="Vạch xén ngang 2 (120mm)" />
+                  <span className="crop-mark-h crop-mark-left crop-row-3" title="Vạch xén ngang 3 (180mm)" />
+                  <span className="crop-mark-h crop-mark-left crop-row-4" title="Vạch xén mép dưới (240mm)" />
+
+                  {/* Vạch xén mép phải (Right Crop Marks) */}
+                  <span className="crop-mark-h crop-mark-right crop-row-0" />
+                  <span className="crop-mark-h crop-mark-right crop-row-1" />
+                  <span className="crop-mark-h crop-mark-right crop-row-2" />
+                  <span className="crop-mark-h crop-mark-right crop-row-3" />
+                  <span className="crop-mark-h crop-mark-right crop-row-4" />
+
+                  {/* Vạch xén giữa rãnh 2 cột (Center Crop Marks) */}
+                  <span className="crop-mark-h crop-mark-center crop-row-0" />
+                  <span className="crop-mark-h crop-mark-center crop-row-1" />
+                  <span className="crop-mark-h crop-mark-center crop-row-2" />
+                  <span className="crop-mark-h crop-mark-center crop-row-3" />
+                  <span className="crop-mark-h crop-mark-center crop-row-4" />
+
+                  {/* Lưới 8 thẻ mặt sau liền mạch chuẩn 88mm x 55mm */}
+                  <div className="a4-grid-flush">
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                      <div key={i} className="print-item-cell-flush">
+                        <CardBack themeKey={currentBackThemeKey} namHoc={namHoc} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ĐÚNG 1 THẺ MẶT SAU RỜI (8.8 x 5.5 cm) */
+              <div className="phoi-print-container">
+                <div className="phoi-preview-meta-bar no-print">
+                  <span className="phoi-meta-title">
+                    <i className="fas fa-shield-alt" style={{ color: '#d97706' }}></i> Xem trước Mặt Sau Thẻ (1 thẻ 8.8 x 5.5 cm &bull; {colorThemes[currentBackThemeKey]?.label})
+                  </span>
+                  <span className="phoi-meta-hint">
+                    Nội quy chung giống nhau cho tất cả học sinh &bull; In trực tiếp phôi nhựa hoặc máy in thẻ
+                  </span>
+                </div>
+                <div className="phoi-cards-grid">
+                  <div className="phoi-card-page">
+                    <div className="phoi-card-item-tag no-print">
+                      <span className="phoi-tag-num">MẶT SAU</span>
+                      <span className="phoi-tag-info">Nội quy bán trú &bull; {colorThemes[currentBackThemeKey]?.label}</span>
+                    </div>
+                    <div className="phoi-card-wrapper">
+                      <CardBack themeKey={currentBackThemeKey} namHoc={namHoc} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : activeTab === 'canhan' && printMode === 'a4' ? (
+            /* TRƯỜNG HỢP 2: IN CÁ NHÂN MẶT TRƯỚC TRÊN TỜ A4 CÓ VẠCH CẮT XÉN 8.8 x 5.5 cm */
             <div className="a4-wrapper a4-single-card-wrapper">
               <div className="a4-single-card-cut-zone">
                 <div className="single-card-cut-frame">
@@ -636,6 +937,7 @@ export default function InTheBanTru() {
               </div>
             </div>
           ) : printMode === 'a4' ? (
+            /* TRƯỜNG HỢP 3: IN MẶT TRƯỚC THEO LỚP (CÁC TỜ A4 - 8 THẺ/TỜ) */
             sheetChunks.map((chunk, sheetIdx) => {
               const frontCells = [];
               for (let i = 0; i < 8; i++) {
@@ -694,6 +996,7 @@ export default function InTheBanTru() {
               );
             })
           ) : (
+            /* TRƯỜNG HỢP 4: IN MẶT TRƯỚC THẺ RỜI (PHÔI 8.8 x 5.5 cm) */
             <div className="phoi-print-container">
               <div className="phoi-preview-meta-bar no-print">
                 <span className="phoi-meta-title">

@@ -596,40 +596,112 @@
   line-height: 1;
 }
 
-/* Mặt sau thẻ */
+/* ── MẶT SAU THẺ BÁN TRÚ (ĐỒNG BỘ 8.8 x 5.5 CM, ĐỘC LẬP 1 TRANG) ── */
 .card-back-view {
-  padding: 10px 14px 8px;
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #ffffff !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
 }
-.card-back-title {
-  font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 10.2px;
-  font-weight: 800;
-  color: var(--primary-blue, #1e3a8a);
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 5px;
-  margin-bottom: 8px;
+
+.card-back-banner {
+  height: 23px;
+  min-height: 23px;
+  max-height: 23px;
+  background: linear-gradient(90deg, var(--primary-navy, #0a192f) 0%, var(--primary-blue, #1e3a8a) 50%, var(--primary-navy, #0a192f) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  border-bottom: 1.5px solid var(--gold-accent, #d97706);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
-.rules-list {
-  list-style: decimal;
-  padding-left: 16px;
+
+.card-back-banner-text {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 9.2px;
+  font-weight: 900;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.card-back-banner-text i {
+  color: var(--gold-text, #fef08a);
+  font-size: 8.5px;
+}
+
+.card-back-content {
+  flex: 1;
+  padding: 5px 12px 5px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+.card-back-rules {
+  list-style: none;
+  padding: 0;
   margin: 0;
-  font-size: 7.8px;
-  color: #1e293b;
-  line-height: 1.4;
-  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 3.5px;
 }
-.rules-list li {
-  margin-bottom: 4px;
+
+.card-back-rules li {
+  font-size: 7.7px;
+  color: #1e293b;
+  line-height: 1.34;
+  font-weight: 550;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: justify;
+}
+
+.card-back-rules .rule-num {
+  font-weight: 900;
+  color: var(--primary-blue, #1e3a8a);
+  flex-shrink: 0;
+  min-width: 11px;
+}
+
+.card-back-footer {
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 3.5px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 6.8px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.card-back-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-back-footer-left i {
+  color: var(--primary-blue, #1e3a8a);
+  font-size: 6.5px;
+}
+
+.card-back-footer-right {
+  font-weight: 800;
+  color: var(--primary-blue, #1e3a8a);
+  text-transform: uppercase;
+  letter-spacing: 0.25px;
 }
 
 /* ── KHỔ GIẤY IN A4 TRÊN MÀN HÌNH ── */
@@ -1142,6 +1214,57 @@
     line-height: 1 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* ── IN MẶT SAU THẺ (88 x 55 mm) ── */
+  .card-back-view {
+    display: flex !important;
+    flex-direction: column !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .card-back-banner {
+    height: 6.0mm !important;
+    min-height: 6.0mm !important;
+    max-height: 6.0mm !important;
+    border-bottom: 0.35mm solid var(--gold-accent, #d97706) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .card-back-banner-text {
+    font-size: 2.35mm !important;
+    letter-spacing: 0.15mm !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .card-back-content {
+    height: 37.2mm !important;
+    min-height: 37.2mm !important;
+    max-height: 37.2mm !important;
+    padding: 1.5mm 3.0mm 1.5mm 3.0mm !important;
+    box-sizing: border-box !important;
+  }
+  .card-back-rules {
+    gap: 0.9mm !important;
+  }
+  .card-back-rules li {
+    font-size: 2.05mm !important;
+    line-height: 1.34 !important;
+    gap: 1.0mm !important;
+  }
+  .card-back-rules .rule-num {
+    font-size: 2.05mm !important;
+    min-width: 2.8mm !important;
+  }
+  .card-back-footer {
+    padding-top: 1.0mm !important;
+    margin-top: 0.5mm !important;
+    border-top: 0.25mm dashed #94a3b8 !important;
+    font-size: 1.75mm !important;
+  }
+  .card-back-footer-right {
+    font-size: 1.8mm !important;
   }
 
   /* ── 1. NẾU IN CÁ NHÂN TRÊN KHỔ A4 (1 THẺ CÓ VẠCH CẮT) ── */
