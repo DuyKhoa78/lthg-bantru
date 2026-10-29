@@ -633,7 +633,7 @@
 
 .card-back-banner-text {
   font-family: 'Be Vietnam Pro', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
   color: #ffffff;
   text-transform: uppercase;
@@ -646,12 +646,12 @@
 
 .card-back-banner-text i {
   color: var(--gold-text, #fef08a);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .card-back-content {
   flex: 1;
-  padding: 12px 18px 12px 18px;
+  padding: 14px 20px 14px 20px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -666,25 +666,26 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 9.5px;
+  gap: 11.5px;
 }
 
 .card-back-rules li {
-  font-size: 9.6px;
+  font-size: 11.2px;
   color: #1e293b;
-  line-height: 1.45;
+  line-height: 1.5;
   font-weight: 600;
   display: flex;
   align-items: flex-start;
-  gap: 7px;
-  text-align: justify;
+  gap: 8px;
+  text-align: left;
 }
 
 .card-back-rules .rule-num {
   font-weight: 900;
+  font-size: 11.6px;
   color: var(--primary-blue, #1e3a8a);
   flex-shrink: 0;
-  min-width: 14px;
+  min-width: 16px;
 }
 
 /* ── KHỔ GIẤY IN A4 TRÊN MÀN HÌNH ── */
@@ -1228,37 +1229,38 @@
     print-color-adjust: exact !important;
   }
   .card-back-banner-text {
-    font-size: 3.5mm !important;
+    font-size: 3.8mm !important;
     letter-spacing: 0.3mm !important;
-    gap: 2.0mm !important;
+    gap: 2.2mm !important;
     justify-content: center !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .card-back-banner-text i {
-    font-size: 3.0mm !important;
+    font-size: 3.3mm !important;
   }
   .card-back-content {
     height: 44.5mm !important;
     min-height: 44.5mm !important;
     max-height: 44.5mm !important;
-    padding: 3.5mm 4.5mm 3.5mm 4.5mm !important;
+    padding: 3.5mm 5.0mm 3.5mm 5.0mm !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     box-sizing: border-box !important;
   }
   .card-back-rules {
-    gap: 2.5mm !important;
+    gap: 3.2mm !important;
   }
   .card-back-rules li {
-    font-size: 2.6mm !important;
-    line-height: 1.45 !important;
-    gap: 1.8mm !important;
+    font-size: 3.1mm !important;
+    line-height: 1.5 !important;
+    gap: 2.2mm !important;
+    text-align: left !important;
   }
   .card-back-rules .rule-num {
-    font-size: 2.6mm !important;
-    min-width: 3.8mm !important;
+    font-size: 3.2mm !important;
+    min-width: 4.5mm !important;
   }
 
   /* ── 1. NẾU IN CÁ NHÂN TRÊN KHỔ A4 (1 THẺ CÓ VẠCH CẮT) ── */
