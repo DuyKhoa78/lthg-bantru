@@ -54,7 +54,7 @@ export const formatLopList = (lopList) => {
 export const isHTARoom = (roomCode) => {
   if (!roomCode) return false;
   const clean = String(roomCode).replace(/[.\s_-]/g, '').toUpperCase();
-  return clean === 'HTA' || clean === 'SANH' || clean === 'SANHAN' || clean.includes('SANH') || clean.includes('HTA');
+  return clean === 'HTA' || clean === 'SANH' || clean === 'SANHAN' || clean.startsWith('SANH');
 };
 
 // Nhóm danh sách lớp theo yêu cầu:
