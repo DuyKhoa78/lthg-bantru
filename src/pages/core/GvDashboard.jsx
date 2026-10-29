@@ -53,7 +53,7 @@ export default function GvDashboard() {
 
     // Hàm kiểm tra điều kiện mở Báo Cáo thời gian thực (real-time):
     // 1. Phải chốt điểm danh (trang_thai_chot === 'da_chot' || da_diem_danh || is_chot)
-    // 2. Phải trong khung giờ quy định (Ăn: 11h15 - 11h45, Ngủ: 11h40 - 12h45)
+    // 2. Phải trong khung giờ quy định (Ăn: 11h15 - 11h45, Ngủ: 11h35 - 12h45)
     const checkCanReport = useCallback((loaiTruc, roomCodes = []) => {
         const isAdmin = user?.role === 'admin' || user?.role === 'quan_ly' || user?.is_superuser;
 
@@ -62,9 +62,9 @@ export default function GvDashboard() {
         const curMins = h * 60 + m;
 
         const isAn = loaiTruc === 0 || loaiTruc === 2;
-        const startMins = isAn ? 675 : 700; // 11:15 or 11:40
+        const startMins = isAn ? 675 : 695; // 11:15 or 11:35
         const endMins = isAn ? 705 : 765;   // 11:45 or 12:45
-        const startStr = isAn ? '11:15' : '11:40';
+        const startStr = isAn ? '11:15' : '11:35';
         const endStr = isAn ? '11:45' : '12:45';
         const timeRange = `${startStr} – ${endStr}`;
 
@@ -1360,7 +1360,7 @@ export default function GvDashboard() {
                                         <div className="gv-bm-time-strip">
                                             <div className="time-strip-item">
                                                 <span className="strip-title"><i className="fas fa-calendar-check"></i> Khung giờ:</span>
-                                                <strong className="strip-val">{reportBlockedInfo.check?.timeRange || (reportBlockedInfo.ca_truc === 0 ? '11:15 – 11:45' : '11:40 – 12:45')}</strong>
+                                                <strong className="strip-val">{reportBlockedInfo.check?.timeRange || (reportBlockedInfo.ca_truc === 0 ? '11:15 – 11:45' : '11:35 – 12:45')}</strong>
                                             </div>
                                             <div className="time-strip-item live">
                                                 <span className="strip-title"><span className="pulse-dot"></span> Hiện tại:</span>
