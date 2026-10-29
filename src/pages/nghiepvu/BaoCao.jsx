@@ -404,11 +404,14 @@ export default function BaoCao() {
         }
     };
 
-    const getTimeRangeLabel = (start, end) => {
+    const getTimeRangeLabel = (start, end, isFromKyTruc = true) => {
         if (!start || !end) return '';
-        if (selectedKy && selectedKy.ten_ky) {
+        if (isFromKyTruc && selectedKy && selectedKy.ten_ky) {
             return selectedKy.ten_ky;
         }
+        const matchedKy = (kyList || []).find(k => k.tu_ngay === start && k.den_ngay === end);
+        if (matchedKy && matchedKy.ten_ky) return matchedKy.ten_ky;
+
         const matchedDot = dotThanhToanConfig.find(d => d.start === start && d.end === end);
         if (matchedDot) return `Đợt ${matchedDot.dot} (${matchedDot.weeks || ''})`;
 
@@ -547,6 +550,7 @@ export default function BaoCao() {
     };
 
     // ── Thống kê tiền trực theo khoảng ngày tùy chọn ──
+    const [exportingTkCongPdf, setExportingTkCongPdf] = useState(false);
     const fetchThongKe = async (tu = tkTuNgay, den = tkDenNgay) => {
         if (!tu || !den || tu > den) {
             alert('Vui lòng chọn khoảng ngày hợp lệ (Từ ngày ≤ Đến ngày)!');
@@ -565,6 +569,8 @@ export default function BaoCao() {
                     if (cmp !== 0) return cmp;
                     return nameA.middle.localeCompare(nameB.middle, 'vi');
                 });
+                if (res.data.quan_ly_name && !quanLyName) setQuanLyName(res.data.quan_ly_name);
+                if (res.data.ke_toan_name && !keToanName) setKeToanName(res.data.ke_toan_name);
                 const fullResult = {
                     ...res.data,
                     tu_ngay: tu,
@@ -584,7 +590,326 @@ export default function BaoCao() {
         }
     };
 
-    // Xuất Excel Thống kê tổng hợp
+    // Xuất Excel Bảng Công (Khung nằm ngang) cho Thống kê theo khoảng ngày
+    const exportThongKeCongExcel = async () => {
+        let currentData = thongKeData;
+        if (!currentData || currentData.tu_ngay !== tkTuNgay || currentData.den_ngay !== tkDenNgay) {
+            currentData = await fetchThongKe(tkTuNgay, tkDenNgay);
+        }
+        const listGv = currentData?.data || [];
+        if (listGv.length === 0) {
+            return alert('Không có dữ liệu công trực trong khoảng ngày này để xuất!');
+        }
+        const startStr = currentData.tu_ngay || tkTuNgay;
+        const endStr = currentData.den_ngay || tkDenNgay;
+        const tuNgayDMY = formatDateDMY(startStr);
+        const denNgayDMY = formatDateDMY(endStr);
+        const timeLabel = getTimeRangeLabel(startStr, endStr, false);
+        const [yStart, mStart] = startStr.split('-');
+        const year = parseInt(yStart, 10);
+        const month = parseInt(mStart, 10);
+
+        const activeDates = new Set();
+        listGv.forEach(g => {
+            (g.ngay_an || []).forEach(d => activeDates.add(d));
+            (g.ngay_ngu || []).forEach(d => activeDates.add(d));
+        });
+        const workDays = Array.from(activeDates).sort().map(dateStr => {
+            const d = new Date(dateStr);
+            const dow = d.getDay();
+            return {
+                dateStr,
+                dayNum: d.getDate(),
+                dowStr: (dow === 1) ? '2' : (dow === 2) ? '3' : (dow === 3) ? '4' : (dow === 4) ? '5' : (dow === 5) ? '6' : (dow === 6) ? '7' : 'CN'
+            };
+        });
+
+        const listAn = listGv.filter(g => (g.so_ca_an || 0) > 0);
+        const listNgu = listGv.filter(g => (g.so_ca_ngu || 0) > 0);
+
+        const daysAn = workDays.filter(wd => listGv.some(g => (g.ngay_an || []).includes(wd.dateStr)));
+        const activeDaysAn = daysAn.length > 0 ? daysAn : workDays;
+
+        const daysNgu = workDays.filter(wd => listGv.some(g => (g.ngay_ngu || []).includes(wd.dateStr)));
+        const activeDaysNgu = daysNgu.length > 0 ? daysNgu : workDays;
+
+        const sumCaAn = currentData.summary?.totCaAn ?? listGv.reduce((s, g) => s + (g.so_ca_an || 0), 0);
+        const sumCaNgu = currentData.summary?.totCaNgu ?? listGv.reduce((s, g) => s + (g.so_ca_ngu || 0), 0);
+
+        const headerRowAn = ['STT', 'Giáo viên', ...activeDaysAn.map(d => {
+            const parts = d.dateStr.split('-');
+            return `T${d.dowStr} (${parts[2]}/${parts[1]})`;
+        }), 'Tổng', 'Ký tên'];
+        const renderAn = listAn.length > 0 ? listAn : listGv;
+        const dataRowsAn = renderAn.map((g, i) => {
+            const row = [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : '')];
+            activeDaysAn.forEach(wd => {
+                row.push((g.ngay_an || []).includes(wd.dateStr) ? 1 : '');
+            });
+            row.push(g.so_ca_an || 0);
+            row.push('');
+            return row;
+        });
+        const totalRowAn = ['', 'TỔNG CỘNG', ...activeDaysAn.map(wd => renderAn.filter(g => (g.ngay_an || []).includes(wd.dateStr)).length || ''), sumCaAn, ''];
+        dataRowsAn.push(totalRowAn);
+
+        const headerRowNgu = ['STT', 'Giáo viên', ...activeDaysNgu.map(d => {
+            const parts = d.dateStr.split('-');
+            return `T${d.dowStr} (${parts[2]}/${parts[1]})`;
+        }), 'Tổng', 'Ký tên'];
+        const renderNgu = listNgu.length > 0 ? listNgu : listGv;
+        const dataRowsNgu = renderNgu.map((g, i) => {
+            const row = [i + 1, g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : '')];
+            activeDaysNgu.forEach(wd => {
+                row.push((g.ngay_ngu || []).includes(wd.dateStr) ? 1 : '');
+            });
+            row.push(g.so_ca_ngu || 0);
+            row.push('');
+            return row;
+        });
+        const totalRowNgu = ['', 'TỔNG CỘNG', ...activeDaysNgu.map(wd => renderNgu.filter(g => (g.ngay_ngu || []).includes(wd.dateStr)).length || ''), sumCaNgu, ''];
+        dataRowsNgu.push(totalRowNgu);
+
+        const wb = XLSX.utils.book_new();
+        const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+        const wsAn = XLSX.utils.aoa_to_sheet([
+            [`BẢNG TÍNH CÔNG BÁN TRÚ ĂN${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''} - NĂM HỌC ${namHoc}`],
+            [`(Từ ngày ${tuNgayDMY} đến ${denNgayDMY})`],
+            [],
+            headerRowAn,
+            ...dataRowsAn
+        ]);
+        wsAn['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRowAn.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headerRowAn.length - 1 } }];
+        XLSX.utils.book_append_sheet(wb, wsAn, 'Công Ăn');
+
+        const wsNgu = XLSX.utils.aoa_to_sheet([
+            [`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''} - NĂM HỌC ${namHoc}`],
+            [`(Từ ngày ${tuNgayDMY} đến ${denNgayDMY})`],
+            [],
+            headerRowNgu,
+            ...dataRowsNgu
+        ]);
+        wsNgu['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRowNgu.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headerRowNgu.length - 1 } }];
+        XLSX.utils.book_append_sheet(wb, wsNgu, 'Công Ngủ');
+
+        XLSX.writeFile(wb, `bang-cong-gv_${startStr}_den_${endStr}.xlsx`);
+    };
+
+    // Xuất PDF Bảng Công (Khung nằm ngang A4 Landscape - giống Kỳ chốt tiền trực, tự động co giãn vừa trang)
+    const exportThongKeCongPDF = async () => {
+        let currentData = thongKeData;
+        if (!currentData || currentData.tu_ngay !== tkTuNgay || currentData.den_ngay !== tkDenNgay) {
+            currentData = await fetchThongKe(tkTuNgay, tkDenNgay);
+        }
+        const listGv = currentData?.data || [];
+        if (listGv.length === 0) {
+            return alert('Không có dữ liệu công trực trong khoảng ngày này để xuất!');
+        }
+        setExportingTkCongPdf(true);
+        try {
+            const startStr = currentData.tu_ngay || tkTuNgay;
+            const endStr = currentData.den_ngay || tkDenNgay;
+            const tuNgayDMY = formatDateDMY(startStr);
+            const denNgayDMY = formatDateDMY(endStr);
+            const timeLabel = getTimeRangeLabel(startStr, endStr, false);
+            const [yStart, mStart] = startStr.split('-');
+            const year = parseInt(yStart, 10);
+            const month = parseInt(mStart, 10);
+
+            const activeDates = new Set();
+            listGv.forEach(g => {
+                (g.ngay_an || []).forEach(d => activeDates.add(d));
+                (g.ngay_ngu || []).forEach(d => activeDates.add(d));
+            });
+            const workDays = Array.from(activeDates).sort().map(dateStr => {
+                const d = new Date(dateStr);
+                const dow = d.getDay();
+                return {
+                    dateStr,
+                    dayNum: d.getDate(),
+                    dowStr: (dow === 1) ? '2' : (dow === 2) ? '3' : (dow === 3) ? '4' : (dow === 4) ? '5' : (dow === 5) ? '6' : (dow === 6) ? '7' : 'CN'
+                };
+            });
+
+            const listAn = listGv.filter(g => (g.so_ca_an || 0) > 0);
+            const daysAn = workDays.filter(wd => listGv.some(g => (g.ngay_an || []).includes(wd.dateStr)));
+            const activeDaysAn = daysAn.length > 0 ? daysAn : workDays;
+
+            const listNgu = listGv.filter(g => (g.so_ca_ngu || 0) > 0);
+            const daysNgu = workDays.filter(wd => listGv.some(g => (g.ngay_ngu || []).includes(wd.dateStr)));
+            const activeDaysNgu = daysNgu.length > 0 ? daysNgu : workDays;
+
+            const sumCaAn = currentData.summary?.totCaAn ?? listGv.reduce((s, g) => s + (g.so_ca_an || 0), 0);
+            const sumCaNgu = currentData.summary?.totCaNgu ?? listGv.reduce((s, g) => s + (g.so_ca_ngu || 0), 0);
+
+            const maxDays = Math.max(activeDaysAn.length, activeDaysNgu.length);
+            const isVeryWide = maxDays > 26;
+            const isWide = maxDays > 20 && maxDays <= 26;
+
+            const pageMargin = isVeryWide ? '6mm 6mm' : (isWide ? '7mm 8mm' : '8mm 10mm');
+            const tableFontSize = isVeryWide ? '8pt' : (isWide ? '8.8pt' : '9.5pt');
+            const cellPad = isVeryWide ? '3px 1px' : (isWide ? '3px 2px' : '4px 3px');
+            const dayMinWidth = isVeryWide ? '18px' : (isWide ? '23px' : '30px');
+            const daySubFont = isVeryWide ? '6.5pt' : (isWide ? '7pt' : '7.5pt');
+            const sttWidth = isVeryWide ? '26px' : (isWide ? '30px' : '36px');
+            const tongWidth = isVeryWide ? '38px' : (isWide ? '45px' : '55px');
+            const kyTenWidth = isVeryWide ? '56px' : (isWide ? '70px' : '85px');
+            const namePad = isVeryWide ? '4px' : '8px';
+
+            const namHoc = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+            const subtitle = `${timeLabel ? timeLabel + ' - ' : ''}Năm học ${namHoc} (Từ ngày ${tuNgayDMY} đến ${denNgayDMY})`;
+
+            const css = `*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Times New Roman',Times,serif;font-size:10.5pt;color:#000;padding:15px;}
+.page{page-break-after:always; break-after:page;}
+.page:last-child{page-break-after:auto; break-after:auto;}
+h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;margin-bottom:4px;color:#000;}
+.sub{font-size:10.5pt;text-align:center;font-style:italic;margin-bottom:12px;color:#333;}
+.dt{width:100%;border-collapse:collapse;margin-bottom:15px;border:1px solid #000;font-size:${tableFontSize};}
+.dt th,.dt td{border:1px solid #000;padding:${cellPad};text-align:center;vertical-align:middle;color:#000;}
+.dt th{font-weight:bold;background:#ececec;}
+.dt .name{text-align:left;padding-left:${namePad};padding-right:4px;white-space:nowrap;}
+.dt th.name-hdr{text-align:left;padding-left:${namePad};}
+.c{text-align:center}
+.hdr-inner-an { margin-bottom: 12px; }
+.ft-wrap-an { width:100%; margin-top:15px; font-size:10.5pt; display:flex; justify-content:space-between; page-break-inside:avoid; break-inside:avoid; }
+.ft-left-an { flex:1; text-align:center; } .ft-right-an { flex:1; text-align:center; } .sig-space-an { height:55px; }
+@page{size:A4 landscape;margin:${pageMargin};}
+@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}*{color:#000!important}.dt th{background:#ececec!important}}`;
+
+            let thAn = `<tr><th class="c" style="width:${sttWidth};">STT</th><th class="name-hdr">Giáo viên</th>`;
+            activeDaysAn.forEach(wd => {
+                const parts = wd.dateStr.split('-');
+                thAn += `<th class="c" style="min-width:${dayMinWidth}; padding:3px 1px; line-height:1.15;">
+                    <div>T${wd.dowStr}</div>
+                    <div style="font-size:${daySubFont}; font-weight:normal; margin-top:2px;">${parts[2]}/${parts[1]}</div>
+                </th>`;
+            });
+            thAn += `<th class="c" style="width:${tongWidth}; font-weight:bold; color:#059669;">Tổng</th><th class="c" style="width:${kyTenWidth}; font-weight:bold;">Ký tên</th></tr>`;
+
+            let tbodyAn = '';
+            const renderListAn = listAn.length > 0 ? listAn : listGv;
+            renderListAn.forEach((g, idx) => {
+                let tr = `<tr><td class="c">${idx + 1}</td><td class="name">${g.ho_ten}${g.is_ngoai ? ' <span style="font-size:8pt;font-style:italic;color:#92400e;">(Ngoài DS)</span>' : ''}</td>`;
+                activeDaysAn.forEach(wd => {
+                    const hasAn = (g.ngay_an || []).includes(wd.dateStr);
+                    tr += `<td class="c">${hasAn ? '✓' : ''}</td>`;
+                });
+                tr += `<td class="c" style="font-weight:bold; color:#059669;">${g.so_ca_an || 0}</td><td class="c" style="height:26px;"></td></tr>`;
+                tbodyAn += tr;
+            });
+            if (renderListAn.length === 0) {
+                tbodyAn = `<tr><td colspan="${activeDaysAn.length + 4}" class="c" style="padding:14px; font-style:italic; color:#64748b;">Không có dữ liệu công trực ăn</td></tr>`;
+            } else {
+                tbodyAn += `<tr style="font-weight:bold; background:#f9fafb;">
+                    <td class="c" colspan="2">TỔNG CỘNG</td>
+                    ${activeDaysAn.map(wd => {
+                        const cnt = renderListAn.filter(g => (g.ngay_an || []).includes(wd.dateStr)).length;
+                        return `<td class="c">${cnt || ''}</td>`;
+                    }).join('')}
+                    <td class="c" style="font-weight:bold; color:#059669; font-size:10.5pt;">${sumCaAn}</td>
+                    <td class="c"></td>
+                </tr>`;
+            }
+
+            let thNgu = `<tr><th class="c" style="width:${sttWidth};">STT</th><th class="name-hdr">Giáo viên</th>`;
+            activeDaysNgu.forEach(wd => {
+                const parts = wd.dateStr.split('-');
+                thNgu += `<th class="c" style="min-width:${dayMinWidth}; padding:3px 1px; line-height:1.15;">
+                    <div>T${wd.dowStr}</div>
+                    <div style="font-size:${daySubFont}; font-weight:normal; margin-top:2px;">${parts[2]}/${parts[1]}</div>
+                </th>`;
+            });
+            thNgu += `<th class="c" style="width:${tongWidth}; font-weight:bold; color:#4f46e5;">Tổng</th><th class="c" style="width:${kyTenWidth}; font-weight:bold;">Ký tên</th></tr>`;
+
+            let tbodyNgu = '';
+            const renderListNgu = listNgu.length > 0 ? listNgu : listGv;
+            renderListNgu.forEach((g, idx) => {
+                let tr = `<tr><td class="c">${idx + 1}</td><td class="name">${g.ho_ten}${g.is_ngoai ? ' <span style="font-size:8pt;font-style:italic;color:#92400e;">(Ngoài DS)</span>' : ''}</td>`;
+                activeDaysNgu.forEach(wd => {
+                    const hasNgu = (g.ngay_ngu || []).includes(wd.dateStr);
+                    tr += `<td class="c">${hasNgu ? '✓' : ''}</td>`;
+                });
+                tr += `<td class="c" style="font-weight:bold; color:#4f46e5;">${g.so_ca_ngu || 0}</td><td class="c" style="height:26px;"></td></tr>`;
+                tbodyNgu += tr;
+            });
+            if (renderListNgu.length === 0) {
+                tbodyNgu = `<tr><td colspan="${activeDaysNgu.length + 4}" class="c" style="padding:14px; font-style:italic; color:#64748b;">Không có dữ liệu công trực ngủ</td></tr>`;
+            } else {
+                tbodyNgu += `<tr style="font-weight:bold; background:#f9fafb;">
+                    <td class="c" colspan="2">TỔNG CỘNG</td>
+                    ${activeDaysNgu.map(wd => {
+                        const cnt = renderListNgu.filter(g => (g.ngay_ngu || []).includes(wd.dateStr)).length;
+                        return `<td class="c">${cnt || ''}</td>`;
+                    }).join('')}
+                    <td class="c" style="font-weight:bold; color:#4f46e5; font-size:10.5pt;">${sumCaNgu}</td>
+                    <td class="c"></td>
+                </tr>`;
+            }
+
+            const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+            const managerName = currentData.quan_ly_name || quanLyName || (user?.fullname?.trim() ? user.fullname : (user?.username || ''));
+
+            const renderPage = (title, theadHtml, tbodyHtml) => `
+            <div class="page">
+                <div class="hdr-inner-an">
+                    <table style="width:100%; border:none;">
+                    <tr>
+                        <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+                        <div style="font-size:10pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>THÀNH PHỐ HỒ CHÍ MINH</div>
+                        <div style="font-size:10pt; font-weight:bold;">TRUNG TÂM GIÁO DỤC KỸ THUẬT<br>TỔNG HỢP VÀ HƯỚNG NGHIỆP<br><span style="text-decoration:underline;">LÊ THỊ HỒNG GẤM</span></div>
+                        </td>
+                        <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+                        <div style="font-size:10pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                        <div style="font-size:10pt; font-weight:bold; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</div>
+                        </td>
+                    </tr>
+                    </table>
+                </div>
+                <h1>${title}</h1>
+                <div class="sub">${subtitle}</div>
+                <table class="dt">
+                    <thead>
+                        ${theadHtml}
+                    </thead>
+                    <tbody>
+                        ${tbodyHtml}
+                    </tbody>
+                </table>
+                <div class="ft-wrap-an">
+                    <div class="ft-left-an">
+                        <div style="height: 20px;"></div>
+                        <div style="font-weight:bold; margin-top:2px;">${(user?.role === 'ke_toan' || user?.is_ke_toan) ? 'KẾ TOÁN' : 'NGƯỜI LẬP BẢNG'}</div>
+                        <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
+                        <div class="sig-space-an" style="height: 55px;"></div>
+                        <div style="font-weight:bold; font-style:italic; font-size:11pt;">${user?.fullname?.trim() || user?.username || ''}</div>
+                    </div>
+                    <div class="ft-right-an">
+                        <div style="font-style:italic; height: 20px; line-height: 20px;">${todayStr}</div>
+                        <div style="font-weight:bold; margin-top:2px;">GIÁM ĐỐC</div>
+                        <div style="font-style:italic; font-size:10pt;">(Ký, ghi rõ họ tên)</div>
+                        <div class="sig-space-an" style="height: 55px;"></div>
+                        <div style="font-weight:bold; font-style:italic; font-size:11pt;">${managerName || 'Vũ Quốc Phong'}</div>
+                    </div>
+                </div>
+            </div>`;
+
+            const pageAn = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ ĂN${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''}`, thAn, tbodyAn);
+            const pageNgu = renderPage(`BẢNG TÍNH CÔNG BÁN TRÚ NGỦ${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''}`, thNgu, tbodyNgu);
+            const htmlPages = `${pageAn}\n${pageNgu}`;
+
+            const w = window.open('', '_blank');
+            if (!w) return alert('Trình duyệt chặn popup!');
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng tính công bán trú (${tuNgayDMY} đến ${denNgayDMY})</title><style>${css}</style></head><body>${htmlPages}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.close();
+        } catch (err) {
+            alert('Lỗi: ' + err.message);
+        } finally {
+            setExportingTkCongPdf(false);
+        }
+    };
+
+    // Xuất Excel Bảng Tiền trực GV theo khoảng ngày (đồng bộ chuẩn với Kỳ chốt tiền trực)
     const exportThongKeExcel = async () => {
         let currentData = thongKeData;
         if (!currentData || currentData.tu_ngay !== tkTuNgay || currentData.den_ngay !== tkDenNgay) {
@@ -594,68 +919,50 @@ export default function BaoCao() {
             alert('Không có dữ liệu thống kê để xuất!');
             return;
         }
+        const startStr = currentData.tu_ngay || tkTuNgay;
+        const endStr = currentData.den_ngay || tkDenNgay;
+        const tuDMY = formatDateDMY(startStr);
+        const denDMY = formatDateDMY(endStr);
+        const timeLabel = getTimeRangeLabel(startStr, endStr, false);
+        const dgAn = currentData.don_gia_an || giaAn || 100000;
+        const dgNgu = currentData.don_gia_ngu || giaNgu || 180000;
+        const sumCaAn = currentData.summary?.totCaAn || 0;
+        const sumCaNgu = currentData.summary?.totCaNgu || 0;
+        const sumTien = currentData.summary?.totTienPhatSinh || 0;
+
+        const rows = [
+            [`BẢNG TỔNG HỢP TIỀN TRỰC BÁN TRÚ GIÁO VIÊN${timeLabel ? ' - ' + timeLabel.toUpperCase() : ''}`],
+            [`Thời gian: Từ ngày ${tuDMY} đến ngày ${denDMY}  |  Đơn giá ăn: ${dgAn.toLocaleString('vi-VN')}đ  |  Ngủ: ${dgNgu.toLocaleString('vi-VN')}đ`], [],
+            ['STT', 'Họ tên GV / Nhân sự trực', 'Số ca ăn', 'Đơn giá ăn', 'Số ca ngủ', 'Đơn giá ngủ', 'Tổng số ca', 'Trong đó trực thay', 'Tổng thành tiền (VNĐ)', 'Ký nhận', 'Ghi chú'],
+            ...currentData.data.map((g, i) => {
+                let ghiChu = '';
+                if (g.is_ngoai) ghiChu += 'Nhân sự ngoài DS. ';
+                if (g.so_ca_truc_thay > 0) ghiChu += `Gồm ${g.so_ca_truc_thay} ca trực thay. `;
+                if (g.so_ca_bi_thay > 0) ghiChu += `Có ${g.so_ca_bi_thay} ca người khác trực thay. `;
+                return [
+                    i + 1,
+                    g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : ''),
+                    g.so_ca_an || 0,
+                    dgAn,
+                    g.so_ca_ngu || 0,
+                    dgNgu,
+                    (g.so_ca_an || 0) + (g.so_ca_ngu || 0),
+                    g.so_ca_truc_thay || 0,
+                    g.tong_tien || 0,
+                    '',
+                    ghiChu.trim()
+                ];
+            }),
+            [],
+            ['', 'TỔNG CỘNG', sumCaAn, '', sumCaNgu, '', sumCaAn + sumCaNgu, '', sumTien, '', '']
+        ];
+
         const wb = XLSX.utils.book_new();
-
-        const tuDMY = formatDateDMY(currentData.tu_ngay || tkTuNgay);
-        const denDMY = formatDateDMY(currentData.den_ngay || tkDenNgay);
-
-        const rows = [];
-        rows.push(['BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN']);
-        rows.push([`Khoảng thời gian: Từ ngày ${tuDMY} đến ngày ${denDMY}`]);
-        rows.push([`Ngày lập: ${formatDateDMY(today)}`]);
-        rows.push([]);
-        rows.push(['TỔNG QUAN SỐ LIỆU TRONG KHOẢNG NGÀY:']);
-        rows.push(['Tổng GV tham gia:', currentData.summary?.tong_so_gv || 0]);
-        rows.push(['Tổng ca ăn:', currentData.summary?.totCaAn || 0]);
-        rows.push(['Tổng ca ngủ:', currentData.summary?.totCaNgu || 0]);
-        rows.push(['Tổng tiền trực phát sinh (đ):', (currentData.summary?.totTienPhatSinh || 0)]);
-        rows.push([]);
-        rows.push(['CHI TIẾT THEO GIÁO VIÊN:']);
-        rows.push(['STT', 'Họ tên giáo viên', 'Số ca ăn', 'Số ca ngủ', 'Thành tiền phát sinh (đ)']);
-
-        currentData.data.forEach((g, idx) => {
-            rows.push([
-                idx + 1,
-                g.ho_ten + (g.is_ngoai ? ' (Ngoài DS)' : ''),
-                g.so_ca_an || 0,
-                g.so_ca_ngu || 0,
-                g.tong_tien || 0
-            ]);
-        });
-        rows.push([
-            '',
-            'TỔNG CỘNG',
-            currentData.summary?.totCaAn || 0,
-            currentData.summary?.totCaNgu || 0,
-            currentData.summary?.totTienPhatSinh || 0
-        ]);
-
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, 'ThongKeGV');
-
-        if (currentData.kyList && currentData.kyList.length > 0) {
-            const kyRows = [
-                ['CÁC KỲ TRỰC LIÊN QUAN TRONG KHOẢNG THỜI GIAN'],
-                ['STT', 'Tên kỳ', 'Từ ngày', 'Đến ngày', 'Trạng thái', 'Tổng tiền kỳ (đ)']
-            ];
-            currentData.kyList.forEach((k, idx) => {
-                kyRows.push([
-                    idx + 1,
-                    k.ten_ky,
-                    formatDateDMY(k.tu_ngay),
-                    k.den_ngay ? formatDateDMY(k.den_ngay) : 'Đang diễn ra',
-                    k.trang_thai === 'da_chot' ? 'Đã chốt' : 'Đang diễn ra',
-                    k.tong_tien || 0
-                ]);
-            });
-            const wsKy = XLSX.utils.aoa_to_sheet(kyRows);
-            XLSX.utils.book_append_sheet(wb, wsKy, 'KyTrucPhanBo');
-        }
-
-        XLSX.writeFile(wb, `thong-ke-tien-truc_${currentData.tu_ngay || tkTuNgay}_den_${currentData.den_ngay || tkDenNgay}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'BangTienGV');
+        XLSX.writeFile(wb, `bang-luong-gv_${startStr}_den_${endStr}.xlsx`);
     };
 
-    // Xuất PDF Thống kê tổng hợp (Chuẩn văn bản hành chính in ấn - FULL ĐEN)
+    // Xuất PDF Bảng Tiền trực GV theo khoảng ngày (đồng bộ chuẩn với Kỳ chốt tiền trực)
     const exportThongKePDF = async () => {
         let currentData = thongKeData;
         if (!currentData || currentData.tu_ngay !== tkTuNgay || currentData.den_ngay !== tkDenNgay) {
@@ -667,100 +974,121 @@ export default function BaoCao() {
         }
         setExportingTkPdf(true);
         try {
-            const tuNgayDMY = formatDateDMY(currentData.tu_ngay || tkTuNgay);
-            const denNgayDMY = formatDateDMY(currentData.den_ngay || tkDenNgay);
+            const startStr = currentData.tu_ngay || tkTuNgay;
+            const endStr = currentData.den_ngay || tkDenNgay;
+            const tuNgayDMY = formatDateDMY(startStr);
+            const denNgayDMY = formatDateDMY(endStr);
+            const timeLabel = getTimeRangeLabel(startStr, endStr, false);
             const dateStr = `Từ ngày ${tuNgayDMY} đến ngày ${denNgayDMY}`;
             const todayStr = `TP Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+            const dgAn = currentData.don_gia_an || giaAn || 100000;
+            const dgNgu = currentData.don_gia_ngu || giaNgu || 180000;
+            const sumCaAn = currentData.summary?.totCaAn || 0;
+            const sumCaNgu = currentData.summary?.totCaNgu || 0;
+            const sumTien = currentData.summary?.totTienPhatSinh || 0;
 
             let tbody = '';
             currentData.data.forEach((g, i) => {
                 let note = '';
                 if (g.is_ngoai) note += ' (Ngoài DS)';
                 tbody += `<tr>
-                    <td class="tc" style="border:1px solid #000; padding:4px 3px;">${i + 1}</td>
-                    <td class="tl" style="border:1px solid #000; padding:4px 6px;">${g.ho_ten}${note ? `<span style="font-size:8.5pt; font-style:italic;">${note}</span>` : ''}</td>
-                    <td class="tc" style="border:1px solid #000; padding:4px 3px;">${g.so_ca_an || 0}</td>
-                    <td class="tc" style="border:1px solid #000; padding:4px 3px;">${g.so_ca_ngu || 0}</td>
-                    <td class="tr" style="border:1px solid #000; padding:4px 6px; font-weight:bold;">${(g.tong_tien || 0).toLocaleString('vi-VN')} đ</td>
-                </tr>`;
+          <td class="tc">${i + 1}</td>
+          <td class="tl">${g.ho_ten}${note ? ` <span style="font-size:8pt;font-style:italic;">${note}</span>` : ''}</td>
+          <td class="tc">${g.so_ca_an || 0}</td>
+          <td class="tr">${dgAn.toLocaleString('vi-VN')}</td>
+          <td class="tc">${g.so_ca_ngu || 0}</td>
+          <td class="tr">${dgNgu.toLocaleString('vi-VN')}</td>
+          <td class="tr" style="font-weight:bold;">${(g.tong_tien || 0).toLocaleString('vi-VN')} đ</td>
+          <td class="tc"></td>
+        </tr>`;
             });
-
             tbody += `<tr style="background:#ececec; font-weight:bold;">
-                <td colspan="2" class="tc" style="border:1px solid #000; padding:5px 6px;">TỔNG CỘNG</td>
-                <td class="tc" style="border:1px solid #000; padding:5px 3px;">${currentData.summary?.totCaAn || 0}</td>
-                <td class="tc" style="border:1px solid #000; padding:5px 3px;">${currentData.summary?.totCaNgu || 0}</td>
-                <td class="tr" style="border:1px solid #000; padding:5px 6px; font-size:10pt; font-weight:bold;">${(currentData.summary?.totTienPhatSinh || 0).toLocaleString('vi-VN')} đ</td>
-            </tr>`;
+        <td colspan="2" class="tc">TỔNG CỘNG</td>
+        <td class="tc">${sumCaAn || ''}</td>
+        <td class="tc"></td>
+        <td class="tc">${sumCaNgu || ''}</td>
+        <td class="tc"></td>
+        <td class="tr" style="font-size:10pt; font-weight:bold;">${sumTien.toLocaleString('vi-VN')} đ</td>
+        <td class="tc"></td>
+      </tr>`;
 
             const htmlPage = `
-            <div class="hdr-inner-an">
-                <table style="width:100%; border:none; margin-bottom:10px;">
-                    <tr>
-                        <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
-                            <div style="font-size:9pt; text-transform:uppercase;">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</div>
-                            <div style="font-size:9.5pt; font-weight:bold; text-transform:uppercase;">TRƯỜNG THPT LÊ THỊ HỒNG GẤM</div>
-                            <div style="margin: 2px auto 0 auto; width: 110px; border-bottom: 1px solid #000;"></div>
-                        </td>
-                        <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
-                            <div style="font-size:9.5pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                            <div style="font-size:9.5pt; font-weight:bold;">Độc lập - Tự do - Hạnh phúc</div>
-                            <div style="margin: 2px auto 0 auto; width: 130px; border-bottom: 1px solid #000;"></div>
-                        </td>
-                    </tr>
-                </table>
-                <div style="text-align:center; margin:14px 0 10px 0;">
-                    <div style="font-size:13.5pt; font-weight:bold; text-transform:uppercase;">BÁO CÁO THỐNG KÊ TIỀN TRỰC BÁN TRÚ GIÁO VIÊN</div>
-                    <div style="font-size:10pt; font-style:italic; margin-top:3px;">${dateStr}</div>
-                </div>
-                <table class="report-table" style="width:100%; border-collapse:collapse; font-size:9pt; border:1px solid #000;">
-                    <thead>
-                        <tr style="background:#ececec; font-weight:bold;">
-                            <th style="width:38px; border:1px solid #000; padding:5px 3px; text-align:center;">STT</th>
-                            <th style="border:1px solid #000; padding:5px 6px; text-align:left;">Họ tên giáo viên</th>
-                            <th style="width:75px; border:1px solid #000; padding:5px 3px; text-align:center;">Số ca ăn</th>
-                            <th style="width:75px; border:1px solid #000; padding:5px 3px; text-align:center;">Số ca ngủ</th>
-                            <th style="width:140px; border:1px solid #000; padding:5px 6px; text-align:right;">Tiền trực phát sinh</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${tbody}
-                    </tbody>
-                </table>
-                <table style="width:100%; border:none; margin-top:22px; page-break-inside:avoid;">
-                    <tr>
-                        <td style="width:50%; text-align:center; vertical-align:top; border:none;">
-                            <div style="font-weight:bold; font-size:9.5pt;">NGƯỜI LẬP BÁO CÁO</div>
-                            <div style="font-style:italic; font-size:8.5pt;">(Ký, ghi rõ họ tên)</div>
-                            <div style="margin-top:55px; font-weight:bold; font-size:9.5pt;">${keToanName || user?.fullname || ''}</div>
-                        </td>
-                        <td style="width:50%; text-align:center; vertical-align:top; border:none;">
-                            <div style="font-style:italic; font-size:8.5pt;">${todayStr}</div>
-                            <div style="font-weight:bold; font-size:9.5pt; text-transform:uppercase;">GIÁM ĐỐC</div>
-                            <div style="font-style:italic; font-size:8.5pt;">(Ký, đóng dấu)</div>
-                            <div style="margin-top:55px; font-weight:bold; font-size:9.5pt;">${quanLyName || ''}</div>
-                        </td>
-                    </tr>
-                </table>
-            </div>`;
+      <div class="hdr-inner-an">
+        <table style="width:100%; border:none;">
+          <tr>
+            <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+              <div style="font-size:9.5pt;">SỞ GIÁO DỤC VÀ ĐÀO TẠO<br>THÀNH PHỐ HỒ CHÍ MINH</div>
+              <div style="font-size:9.5pt; font-weight:bold;">TRUNG TÂM GIÁO DỤC KỸ THUẬT<br>TỔNG HỢP VÀ HƯỚNG NGHIỆP<br><span style="text-decoration:underline;">LÊ THỊ HỒNG GẤM</span></div>
+            </td>
+            <td style="width:50%; text-align:center; vertical-align:top; border:none; padding:0;">
+              <div style="font-size:9.5pt; font-weight:bold;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div style="font-size:9.5pt; font-weight:bold; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div style="text-align:center; margin: 10px 0 12px;">
+        <h1 style="font-size:15pt; font-weight:bold;">BẢNG TÍNH TIỀN TRỰC BÁN TRÚ GIÁO VIÊN</h1>
+        ${timeLabel ? `<div style="font-size:11pt; font-weight:bold; color:#1e293b; margin-top:2px;">${timeLabel.toUpperCase()}</div>` : ''}
+        <div style="font-size:10pt; margin-top:3px; font-style:italic;">(${dateStr})</div>
+      </div>
 
-            const css = `@page { size: A4 portrait; margin: 12mm 10mm; }
-            * { box-sizing: border-box; color: #000 !important; }
-            body { font-family: "Times New Roman", Times, serif; font-size: 10pt; color: #000; margin: 0; padding: 0; background: #fff; }
-            .tc { text-align: center; } .tl { text-align: left; padding-left: 6px; } .tr { text-align: right; padding-right: 6px; }
-            table.report-table { width: 100%; border-collapse: collapse; border: 1px solid #000 !important; }
-            table.report-table th, table.report-table td { border: 1px solid #000 !important; padding: 4px 6px; color: #000 !important; vertical-align: middle; }
-            table.report-table th { background: #ececec !important; font-weight: bold; }
-            @media print {
-                body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                * { color: #000 !important; }
-                table.report-table th { background: #ececec !important; }
-                table.report-table, table.report-table th, table.report-table td { border: 1px solid #000 !important; }
-                tr { page-break-inside: avoid; break-inside: avoid; }
-            }`;
+      <table class="dt-an">
+        <thead>
+          <tr>
+            <th rowspan="2" style="width:36px;">STT</th>
+            <th rowspan="2" style="text-align:left; padding-left:8px;">Họ và tên Giáo viên</th>
+            <th colspan="2">Trực ca ăn</th>
+            <th colspan="2">Trực ca ngủ</th>
+            <th rowspan="2" style="width:125px;">Thành tiền (VNĐ)</th>
+            <th rowspan="2" style="width:85px;">Ký nhận</th>
+          </tr>
+          <tr>
+            <th style="width:48px;">Số ca</th>
+            <th style="width:78px;">Đơn giá</th>
+            <th style="width:48px;">Số ca</th>
+            <th style="width:78px;">Đơn giá</th>
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>
+      <div class="ft-wrap-an">
+        <div class="ft-left-an">
+          <div style="height: 18px;"></div>
+          <div style="font-weight:bold; margin-top:2px; font-size:10.5pt; text-transform:uppercase;">KẾ TOÁN</div>
+          <div style="font-style:italic; font-size:9.5pt;">(Ký, ghi rõ họ tên)</div>
+          <div class="sig-space-an" style="height: 48px;"></div>
+          <div style="font-weight:bold; font-style:italic; font-size:11pt;">${currentData.ke_toan_name || keToanName || user?.fullname?.trim() || user?.username || ''}</div>
+        </div>
+        <div class="ft-right-an">
+          <div style="font-style:italic; height: 18px; line-height: 18px; font-size:10pt;">${todayStr}</div>
+          <div style="font-weight:bold; margin-top:2px; font-size:10.5pt; text-transform:uppercase;">GIÁM ĐỐC</div>
+          <div style="font-style:italic; font-size:9.5pt;">(Ký, ghi rõ họ tên)</div>
+          <div class="sig-space-an" style="height: 48px;"></div>
+          <div style="font-weight:bold; font-style:italic; font-size:11pt;">${currentData.quan_ly_name || quanLyName || 'Vũ Quốc Phong'}</div>
+        </div>
+      </div>`;
+
+            const css = `* { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Times New Roman',Times,serif; font-size:10pt; color:#000; background:#fff; padding: 10px 15px; }
+      .tc { text-align:center; } .tr { text-align:right; } .tl { text-align:left; padding-left:8px; }
+      .dt-an { width:100%; border-collapse:collapse; margin-bottom: 8px; border: 1px solid #000; }
+      .dt-an th, .dt-an td { border:1px solid #000; padding: 4px 5px; vertical-align:middle; font-size:9.5pt; line-height:1.2; }
+      .dt-an th { text-align:center; background:#ececec; font-weight:bold; }
+      .ft-wrap-an { width:100%; margin-top:10px; font-size:10pt; display:flex; justify-content:space-between; page-break-inside:avoid; break-inside:avoid; }
+      .ft-left-an { flex:1; text-align:center; } .ft-right-an { flex:1; text-align:center; } .sig-space-an { height:48px; }
+      @page { size:A4 portrait; margin: 1.2cm 1.2cm 1.2cm 1.8cm; }
+      @media print {
+        body { padding:0!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        * { color:#000!important; }
+        .dt-an th { background:#ececec!important; }
+        tr { page-break-inside:avoid; break-inside:avoid; }
+        .ft-wrap-an { page-break-inside:avoid; break-inside:avoid; }
+      }`;
 
             const w = window.open('', '_blank');
             if (!w) { alert('Trình duyệt chặn popup!'); return; }
-            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Thống kê tiền trực ${tuNgayDMY} - ${denNgayDMY}</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
+            w.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Bảng thanh toán tiền trực GV (${tuNgayDMY} đến ${denNgayDMY})</title><style>${css}</style></head><body>${htmlPage}<script>window.onload=function(){setTimeout(window.print,400);}</script></body></html>`);
             w.document.close();
         } catch (err) {
             console.error('Lỗi xuất PDF:', err);
@@ -3982,7 +4310,20 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                         }}
                                         style={{ fontWeight: 600, borderRadius: 8 }}
                                     >
-                                        Hết Tháng 9 (30/09)
+                                        Tháng 9 (07/09 - 30/09)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline"
+                                        onClick={() => {
+                                            const endOct = today < '2026-10-31' ? today : '2026-10-31';
+                                            setTkTuNgay('2026-10-01');
+                                            setTkDenNgay(endOct);
+                                            fetchThongKe('2026-10-01', endOct);
+                                        }}
+                                        style={{ fontWeight: 600, borderRadius: 8 }}
+                                    >
+                                        Tháng 10 (01/10 - {formatDateDMY(today < '2026-10-31' ? today : '2026-10-31').slice(0, 5)})
                                     </button>
                                     <button
                                         type="button"
@@ -3998,25 +4339,48 @@ h1{font-size:15pt;font-weight:bold;text-align:center;text-transform:uppercase;ma
                                     </button>
                                 </div>
 
-                                {/* Export buttons for Thống kê */}
-                                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {/* Export buttons for Thống kê (Đồng bộ format với Kỳ chốt tiền trực) */}
+                                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        onClick={exportThongKeCongExcel}
+                                        style={{ color: '#059669', border: '1.5px solid #34d399', backgroundColor: '#ecfdf5', fontWeight: 600, boxShadow: '0 2px 4px rgba(52,211,153,0.1)' }}
+                                        title="Xuất Bảng tính công bán trú (Ăn & Ngủ) khung nằm ngang ra Excel"
+                                    >
+                                        <i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Bảng Công (Excel)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        onClick={exportThongKeCongPDF}
+                                        disabled={exportingTkCongPdf}
+                                        style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600, boxShadow: '0 2px 4px rgba(248,113,113,0.1)' }}
+                                        title="Xuất Bảng tính công bán trú (Ăn & Ngủ) khung nằm ngang A4 Landscape ra PDF"
+                                    >
+                                        {exportingTkCongPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>}
+                                        Bảng Công (PDF)
+                                    </button>
+                                    <div style={{ width: 1, height: 22, background: '#cbd5e1', margin: '0 2px' }}></div>
                                     <button
                                         type="button"
                                         className="btn btn-sm"
                                         onClick={exportThongKeExcel}
-                                        style={{ color: '#059669', border: '1.5px solid #34d399', backgroundColor: '#ecfdf5', fontWeight: 600 }}
+                                        style={{ color: '#16a34a', border: '1.5px solid #86efac', backgroundColor: '#f0fdf4', fontWeight: 600, boxShadow: '0 2px 4px rgba(22,163,74,0.1)' }}
+                                        title="Xuất Bảng tính tiền trực GV ra Excel"
                                     >
-                                        <i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Xuất Thống kê (Excel)
+                                        <i className="fas fa-file-excel" style={{ marginRight: 4 }}></i> Bảng Tiền (Excel)
                                     </button>
                                     <button
                                         type="button"
                                         className="btn btn-sm"
                                         onClick={exportThongKePDF}
                                         disabled={exportingTkPdf}
-                                        style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600 }}
+                                        style={{ color: '#dc2626', border: '1.5px solid #f87171', backgroundColor: '#fef2f2', fontWeight: 600, boxShadow: '0 2px 4px rgba(248,113,113,0.1)' }}
+                                        title="Xuất Bảng tính tiền trực GV ra PDF"
                                     >
                                         {exportingTkPdf ? <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }}></i> : <i className="fas fa-file-pdf" style={{ marginRight: 4 }}></i>}
-                                        Xuất Thống kê (PDF)
+                                        Bảng Tiền (PDF)
                                     </button>
                                 </div>
                             </div>

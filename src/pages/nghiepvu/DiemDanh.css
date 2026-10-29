@@ -355,6 +355,7 @@
   font-size: 0.6rem; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 .dd-room-status-icon.marked { background: #10b981; }
+.dd-room-status-icon.partial-chot { background: #f59e0b; }
 .dd-room-status-icon.unmarked { background: #ef4444; }
 .dd-room-status-icon.auto-chot { background: #ef4444; }
 
@@ -1363,13 +1364,13 @@
   color: #94a3b8 !important;
 }
 .dd-chot-header-badge.warning {
-  background: #fffbeb !important;
+  background: #fef3c7 !important;
   color: #b45309 !important;
-  border: 1px solid #fde68a !important;
-  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15) !important;
+  border: 1.5px solid #f59e0b !important;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.2) !important;
 }
 .dd-chot-header-badge.warning i {
-  color: #f59e0b !important;
+  color: #d97706 !important;
 }
 .dd-chot-header-badge.success {
   background: #ecfdf5 !important;

@@ -1197,8 +1197,13 @@ export default function DiemDanhNgu() {
             }
             return;
         }
-        if (isGiaoVien && status === 'phep') {
-            showAlert('Giáo viên không có quyền ghi Phép khi điểm danh. Thao tác báo nghỉ phép do Ban quản lý/Admin phụ trách.', 'warning');
+        const curSt = overrides[id] ?? (diemDanhDb[id] !== undefined && diemDanhDb[id] !== null ? STATUS_MAP[diemDanhDb[id]] : 'chua_diem_danh');
+        if (!isAdmin && curSt === 'phep') {
+            showAlert('Học sinh đã được Admin duyệt phép. Chỉ Admin mới có thể sửa đổi trạng thái.', 'info');
+            return;
+        }
+        if (!isAdmin && status === 'phep') {
+            showAlert('Chỉ Admin mới có quyền ghi Phép khi điểm danh.', 'warning');
             return;
         }
         setOverrides(p => ({ ...p, [id]: status }));
@@ -1881,18 +1886,20 @@ ${htmlPagesStr}
                                 <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ: <strong>11h00 – 14h00</strong>
                             </span>
                         )}
-                        <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={() => setShowBaoPhepModal(true)}
-                            style={{
-                                color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
-                                fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5,
-                                whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8
-                            }}
-                        >
-                            <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép
-                        </button>
+                        {isAdmin && (
+                            <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => setShowBaoPhepModal(true)}
+                                style={{
+                                    color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
+                                    fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5,
+                                    whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8
+                                }}
+                            >
+                                <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép
+                            </button>
+                        )}
                         <div className="dd-export-btn-group">
                             <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)} style={{ whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8 }}>
                                 <i className="fas fa-print"></i> In / Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
@@ -2125,7 +2132,6 @@ ${htmlPagesStr}
                                                 : '';
                                             const isAuto = Boolean(
                                                 !currentPhongStatus?.is_gv_chot &&
-                                                !Boolean(baoCaoRecords && baoCaoRecords.some(bc => { const rCode = selectedPhong?.ma_phong; if (!rCode) return false; const bcP = String(bc.ma_phong || "").toUpperCase(); return bcP === rCode.toUpperCase() || bcP.includes(rCode.toUpperCase()); })) &&
                                                 (
                                                     currentPhongStatus?.is_auto_chot === true ||
                                                     (currentPhongStatus?.ma_gv_chot_id == null && currentPhongStatus?.ten_nguoi_chot === 'Hệ thống') ||
@@ -2889,14 +2895,16 @@ ${htmlPagesStr}
                 </div>
             )}
 
-            <BaoPhepModal
-                open={showBaoPhepModal}
-                onClose={() => setShowBaoPhepModal(false)}
-                defaultDate={date}
-                defaultLoai="ca_ngay"
-                students={hsList}
-                onSuccess={() => fetchDiemDanh(date, true)}
-            />
+            {isAdmin && (
+                <BaoPhepModal
+                    open={showBaoPhepModal}
+                    onClose={() => setShowBaoPhepModal(false)}
+                    defaultDate={date}
+                    defaultLoai="ca_ngay"
+                    students={hsList}
+                    onSuccess={() => fetchDiemDanh(date, true)}
+                />
+            )}
 
             {/* Modal Quét mã QR */}
             <QRScannerModal

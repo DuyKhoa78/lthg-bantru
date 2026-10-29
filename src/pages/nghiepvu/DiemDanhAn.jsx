@@ -1248,12 +1248,12 @@ export default function DiemDanhAn() {
             return;
         }
         const curSt = overrides[id] ?? (diemDanhDb[id] !== undefined && diemDanhDb[id] !== null ? STATUS_MAP[diemDanhDb[id]] : 'chua_diem_danh');
-        if (isGiaoVien && curSt === 'phep') {
-            showAlert('Học sinh đã được Admin duyệt phép. Giáo viên không thể sửa đổi trạng thái.', 'info');
+        if (!isAdmin && curSt === 'phep') {
+            showAlert('Học sinh đã được Admin duyệt phép. Chỉ Admin mới có thể sửa đổi trạng thái.', 'info');
             return;
         }
-        if (isGiaoVien && st === 'phep') {
-            showAlert('Giáo viên không có quyền ghi Phép khi điểm danh. Thao tác báo nghỉ phép do Ban quản lý/Admin phụ trách.', 'warning');
+        if (!isAdmin && st === 'phep') {
+            showAlert('Chỉ Admin mới có quyền ghi Phép khi điểm danh.', 'warning');
             return;
         }
         setOverrides(p => ({ ...p, [id]: st }));
@@ -2010,18 +2010,20 @@ ${htmlPagesStr}
                                 <i className="fas fa-clock" style={{ color: '#d97706' }}></i> Khung giờ: <strong>11h00 – 14h00</strong>
                             </span>
                         )}
-                        <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={() => setShowBaoPhepModal(true)}
-                            style={{
-                                color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
-                                fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5,
-                                whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8
-                            }}
-                        >
-                            <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép
-                        </button>
+                        {isAdmin && (
+                            <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => setShowBaoPhepModal(true)}
+                                style={{
+                                    color: '#d97706', borderColor: '#fde68a', background: '#fffbeb',
+                                    fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5,
+                                    whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8
+                                }}
+                            >
+                                <i className="fas fa-calendar-check" style={{ color: '#f59e0b' }}></i> Báo phép
+                            </button>
+                        )}
                         <div className="dd-export-btn-group">
                             <button className="btn btn-outline btn-sm" onClick={() => setShowActions(!showActions)} style={{ whiteSpace: 'nowrap', padding: '6px 14px', borderRadius: 8 }}>
                                 <i className="fas fa-print"></i> In / Xuất dữ liệu <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
@@ -2129,8 +2131,10 @@ ${htmlPagesStr}
                                 {visiblePhongList.map(p => {
                                     const count = getStudentsForRoom(p.ma_phong).length;
                                     const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
+                                    const isPartialChot = Boolean(pStatus?.is_partial_chot);
                                     const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
                                     const isAutoChot = Boolean(
+                                        !isPartialChot &&
                                         isChot &&
                                         !pStatus?.is_gv_chot &&
                                         (
@@ -2140,7 +2144,7 @@ ${htmlPagesStr}
                                             (!pStatus?.ten_nguoi_chot && pStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống'))
                                         )
                                     );
-                                    const isGvChot = Boolean(isChot && !isAutoChot);
+                                    const isGvChot = Boolean(!isPartialChot && isChot && !isAutoChot);
                                     return (
                                         <li
                                             key={p.ma_phong}
@@ -2148,12 +2152,14 @@ ${htmlPagesStr}
                                             onClick={() => handleSelectRoom(p)}
                                         >
                                             <div
-                                                className={`dd-room-status-icon ${isGvChot ? 'marked' : isAutoChot ? 'auto-chot' : 'unmarked'}`}
+                                                className={`dd-room-status-icon ${isGvChot ? 'marked' : isPartialChot ? 'partial-chot' : isAutoChot ? 'auto-chot' : 'unmarked'}`}
                                                 title={isGvChot
-                                                    ? `Đã chốt bởi GV${pStatus?.ten_nguoi_chot ? `: ${pStatus.ten_nguoi_chot}` : ''}`
-                                                    : isAutoChot
-                                                        ? 'Hệ thống tự động chốt (GV chưa chốt)'
-                                                        : 'Chưa điểm danh / Chưa chốt'}
+                                                    ? `Đã chốt đủ bởi GV${pStatus?.ten_nguoi_chot ? `: ${pStatus.ten_nguoi_chot}` : ''}`
+                                                    : isPartialChot
+                                                        ? `Đã chốt ${pStatus?.sanh_chot_count || 1}/${pStatus?.sanh_total_sub || 3} danh sách (${pStatus?.ten_nguoi_chot || 'GV'}) — Còn thiếu ${(pStatus?.sanh_total_sub || 3) - (pStatus?.sanh_chot_count || 1)} người chưa chốt`
+                                                        : isAutoChot
+                                                            ? 'Hệ thống tự động chốt (Chưa ai chốt)'
+                                                            : 'Chưa điểm danh / Chưa chốt'}
                                             >
                                                 <i className={isGvChot ? 'fas fa-check' : 'fas fa-exclamation'}></i>
                                             </div>
@@ -2238,13 +2244,14 @@ ${htmlPagesStr}
                                                 </span>
                                             );
                                         })()}
-                                        {!isGopMode && selectedPhong && isDaChot && (() => {
+                                        {!isGopMode && selectedPhong && (isDaChot || currentPhongStatus?.is_partial_chot) && (() => {
                                             const timeStr = currentPhongStatus?.thoi_gian
                                                 ? new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                                                 : '';
+                                            const isPartial = Boolean(currentPhongStatus?.is_partial_chot);
                                             const isAuto = Boolean(
+                                                !isPartial &&
                                                 !currentPhongStatus?.is_gv_chot &&
-                                                !Boolean(baoCaoRecords && baoCaoRecords.some(bc => { const rCode = selectedPhong?.ma_phong; if (!rCode) return false; const bcP = String(bc.ma_phong || "").toUpperCase(); return bcP === rCode.toUpperCase() || bcP.includes(rCode.toUpperCase()); })) &&
                                                 (
                                                     currentPhongStatus?.is_auto_chot === true ||
                                                     (currentPhongStatus?.ma_gv_chot_id == null && currentPhongStatus?.ten_nguoi_chot === 'Hệ thống') ||
@@ -2252,25 +2259,31 @@ ${htmlPagesStr}
                                                     (!currentPhongStatus?.ten_nguoi_chot && currentPhongStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống'))
                                                 )
                                             );
-                                            const rawNguoiChot = currentPhongStatus?.nguoi_chot?.fullname
-                                                || currentPhongStatus?.ten_nguoi_chot
+                                            const rawNguoiChot = currentPhongStatus?.ten_nguoi_chot
+                                                || currentPhongStatus?.nguoi_chot?.fullname
                                                 || currentPhongStatus?.nguoi_chot?.username
                                                 || '';
                                             const nguoiChotName = isAuto ? '' : (rawNguoiChot === 'Hệ thống' ? '' : rawNguoiChot);
                                             const userRole = currentPhongStatus?.nguoi_chot?.role;
                                             const roleText = userRole === 'giao_vien' ? 'GV' : (userRole === 'admin' ? 'Admin' : (userRole === 'hoc_vu' ? 'Học vụ' : ''));
                                             const username = currentPhongStatus?.nguoi_chot?.username || '';
-                                            const tooltipText = isAuto
-                                                ? `Hệ thống tự động chốt sổ (chưa đồng bộ / GV chưa chốt)${timeStr ? ` lúc ${timeStr}` : ''}`
-                                                : `Đã chốt${timeStr ? ` lúc ${timeStr}` : ''}${nguoiChotName ? ` bởi ${roleText ? `${roleText} ` : ''}${nguoiChotName}${username ? ` (tài khoản: ${username})` : ''}` : ''}`;
+                                            const subChotCount = currentPhongStatus?.sanh_chot_count || 1;
+                                            const subTotal = currentPhongStatus?.sanh_total_sub || 3;
+                                            const tooltipText = isPartial
+                                                ? `Mới chốt ${subChotCount}/${subTotal} danh sách${timeStr ? ` lúc ${timeStr}` : ''} bởi ${nguoiChotName} (Còn thiếu ${subTotal - subChotCount} người chưa chốt)`
+                                                : isAuto
+                                                    ? `Hệ thống tự động chốt sổ (chưa ai chốt)${timeStr ? ` lúc ${timeStr}` : ''}`
+                                                    : `Đã chốt${timeStr ? ` lúc ${timeStr}` : ''}${nguoiChotName ? ` bởi ${roleText ? `${roleText} ` : ''}${nguoiChotName}${username ? ` (tài khoản: ${username})` : ''}` : ''}`;
 
                                             return (
                                                 <span
-                                                    className={`dd-chot-header-badge ${isAuto ? 'danger auto-chot' : 'success'}`}
+                                                    className={`dd-chot-header-badge ${isPartial ? 'warning' : isAuto ? 'danger auto-chot' : 'success'}`}
                                                     title={tooltipText}
                                                 >
-                                                    <i className={isAuto ? "fas fa-exclamation-circle" : "fas fa-check-circle"}></i>
-                                                    {isAuto ? 'HỆ THỐNG TỰ CHỐT' : 'ĐÃ CHỐT'} {timeStr ? `(${timeStr})` : ''} {nguoiChotName ? `• ${nguoiChotName}` : ''}
+                                                    <i className={isPartial ? "fas fa-exclamation-circle" : isAuto ? "fas fa-exclamation-circle" : "fas fa-check-circle"}></i>
+                                                    {isPartial
+                                                        ? `ĐÃ CHỐT (${subChotCount}/${subTotal})${timeStr ? ` (${timeStr})` : ''}${nguoiChotName ? ` • ${nguoiChotName}` : ''}`
+                                                        : `${isAuto ? 'HỆ THỐNG TỰ CHỐT' : 'ĐÃ CHỐT'} ${timeStr ? `(${timeStr})` : ''} ${nguoiChotName ? `• ${nguoiChotName}` : ''}`}
                                                 </span>
                                             );
                                         })()}
@@ -3317,14 +3330,16 @@ ${htmlPagesStr}
                 </div>
             )}
 
-            <BaoPhepModal
-                open={showBaoPhepModal}
-                onClose={() => setShowBaoPhepModal(false)}
-                defaultDate={date}
-                defaultLoai="ca_ngay"
-                students={hsList}
-                onSuccess={() => fetchDiemDanh(date, true)}
-            />
+            {isAdmin && (
+                <BaoPhepModal
+                    open={showBaoPhepModal}
+                    onClose={() => setShowBaoPhepModal(false)}
+                    defaultDate={date}
+                    defaultLoai="ca_ngay"
+                    students={hsList}
+                    onSuccess={() => fetchDiemDanh(date, true)}
+                />
+            )}
             {AlertUI}
 
             {/* Modal Gửi Báo Cáo Ca Trực */}
