@@ -2131,11 +2131,13 @@ ${htmlPagesStr}
                                     const pStatus = phongStatuses.find(ps => ps.ma_phong_id === p.ma_phong);
                                     const isChot = pStatus?.trang_thai_chot === 'da_chot' || Boolean(pStatus?.da_diem_danh);
                                     const isAutoChot = Boolean(
-                                        isChot && (
-                                            pStatus?.is_auto_chot ||
+                                        isChot &&
+                                        !pStatus?.is_gv_chot &&
+                                        (
+                                            pStatus?.is_auto_chot === true ||
                                             pStatus?.ma_gv_chot_id == null ||
                                             pStatus?.ten_nguoi_chot === 'Hệ thống' ||
-                                            pStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                            (!pStatus?.ten_nguoi_chot && pStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống'))
                                         )
                                     );
                                     const isGvChot = Boolean(isChot && !isAutoChot);
@@ -2241,15 +2243,20 @@ ${htmlPagesStr}
                                                 ? new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                                                 : '';
                                             const isAuto = Boolean(
-                                                currentPhongStatus?.is_auto_chot ||
-                                                currentPhongStatus?.ma_gv_chot_id == null ||
-                                                currentPhongStatus?.ten_nguoi_chot === 'Hệ thống' ||
-                                                currentPhongStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                                !currentPhongStatus?.is_gv_chot &&
+                                                !isDaBaoCao &&
+                                                (
+                                                    currentPhongStatus?.is_auto_chot === true ||
+                                                    (currentPhongStatus?.ma_gv_chot_id == null && currentPhongStatus?.ten_nguoi_chot === 'Hệ thống') ||
+                                                    currentPhongStatus?.ten_nguoi_chot === 'Hệ thống' ||
+                                                    (!currentPhongStatus?.ten_nguoi_chot && currentPhongStatus?.ghi_chu_chot?.toLowerCase().includes('hệ thống'))
+                                                )
                                             );
-                                            const nguoiChotName = currentPhongStatus?.nguoi_chot?.fullname
+                                            const rawNguoiChot = currentPhongStatus?.nguoi_chot?.fullname
                                                 || currentPhongStatus?.ten_nguoi_chot
                                                 || currentPhongStatus?.nguoi_chot?.username
-                                                || (currentPhongStatus?.ma_gv_chot_id === null ? 'Hệ thống' : '');
+                                                || '';
+                                            const nguoiChotName = isAuto ? '' : (rawNguoiChot === 'Hệ thống' ? '' : rawNguoiChot);
                                             const userRole = currentPhongStatus?.nguoi_chot?.role;
                                             const roleText = userRole === 'giao_vien' ? 'GV' : (userRole === 'admin' ? 'Admin' : (userRole === 'hoc_vu' ? 'Học vụ' : ''));
                                             const username = currentPhongStatus?.nguoi_chot?.username || '';
@@ -2313,11 +2320,13 @@ ${htmlPagesStr}
                                         const pStat = phongStatuses.find(ps => ps.ma_phong_id === subCode);
                                         const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
                                         const isRoomAutoChot = Boolean(
-                                            isRoomChot && (
-                                                pStat?.is_auto_chot ||
+                                            isRoomChot &&
+                                            !pStat?.is_gv_chot &&
+                                            (
+                                                pStat?.is_auto_chot === true ||
                                                 pStat?.ma_gv_chot_id == null ||
                                                 pStat?.ten_nguoi_chot === 'Hệ thống' ||
-                                                pStat?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                                (!pStat?.ten_nguoi_chot && pStat?.ghi_chu_chot?.toLowerCase().includes('hệ thống'))
                                             )
                                         );
                                         const isRoomGvChot = Boolean(isRoomChot && !isRoomAutoChot);
@@ -2387,11 +2396,13 @@ ${htmlPagesStr}
                                         const pStat = phongStatuses.find(ps => ps.ma_phong_id === code);
                                         const isRoomChot = pStat?.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh);
                                         const isRoomAutoChot = Boolean(
-                                            isRoomChot && (
-                                                pStat?.is_auto_chot ||
+                                            isRoomChot &&
+                                            !pStat?.is_gv_chot &&
+                                            (
+                                                pStat?.is_auto_chot === true ||
                                                 pStat?.ma_gv_chot_id == null ||
                                                 pStat?.ten_nguoi_chot === 'Hệ thống' ||
-                                                pStat?.ghi_chu_chot?.toLowerCase().includes('hệ thống')
+                                                (!pStat?.ten_nguoi_chot && pStat?.ghi_chu_chot?.toLowerCase().includes('hệ thống'))
                                             )
                                         );
                                         const isRoomGvChot = Boolean(isRoomChot && !isRoomAutoChot);
