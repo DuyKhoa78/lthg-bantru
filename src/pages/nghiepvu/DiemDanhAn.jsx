@@ -2244,7 +2244,7 @@ ${htmlPagesStr}
                                                 : '';
                                             const isAuto = Boolean(
                                                 !currentPhongStatus?.is_gv_chot &&
-                                                !isDaBaoCao &&
+                                                !Boolean(baoCaoRecords && baoCaoRecords.some(bc => { const rCode = selectedPhong?.ma_phong; if (!rCode) return false; const bcP = String(bc.ma_phong || "").toUpperCase(); return bcP === rCode.toUpperCase() || bcP.includes(rCode.toUpperCase()); })) &&
                                                 (
                                                     currentPhongStatus?.is_auto_chot === true ||
                                                     (currentPhongStatus?.ma_gv_chot_id == null && currentPhongStatus?.ten_nguoi_chot === 'Hệ thống') ||
