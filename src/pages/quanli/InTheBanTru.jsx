@@ -96,15 +96,14 @@ function CardBack({ themeKey = 'red', namHoc }) {
         <img src="/trong-dong-user.png" alt="Trống đồng" />
       </div>
 
-      {/* HEADER NỘI QUY BÁN TRÚ CHÍNH */}
+      {/* HEADER NỘI QUY BÁN TRÚ CHÍNH (CĂN GIỮA, BỎ NĂM HỌC) */}
       <div className="card-back-banner">
         <span className="card-back-banner-text">
           <i className="fas fa-shield-alt"></i> NỘI QUY BÁN TRÚ
         </span>
-        <span className="card-back-year-pill">{namHoc || '2026 - 2027'}</span>
       </div>
 
-      {/* NỘI DUNG QUY ĐỊNH 4 ĐIỀU (ĐÃ BỎ ĐIỀU 5 THEO YÊU CẦU) */}
+      {/* NỘI DUNG QUY ĐỊNH 4 ĐIỀU (BỎ FOOTER HOTLINE, CĂN GIỮA THOÁNG ĐẸP) */}
       <div className="card-back-content">
         <ul className="card-back-rules">
           <li>
@@ -124,13 +123,6 @@ function CardBack({ themeKey = 'red', namHoc }) {
             <span>Bảo quản thẻ sạch sẽ, không bẻ gãy, dán đè hoặc làm trầy xước mã QR quang học.</span>
           </li>
         </ul>
-
-        {/* FOOTER LIÊN HỆ: BỎ ĐỊA CHỈ, CHỈ GIỮ LẠI HOTLINE CĂN GIỮA */}
-        <div className="card-back-footer">
-          <span className="card-back-hotline">
-            <i className="fas fa-phone-alt"></i> HOTLINE BÁN TRÚ: (028) 3829 7460
-          </span>
-        </div>
       </div>
     </div>
   );
