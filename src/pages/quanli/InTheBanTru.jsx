@@ -103,24 +103,24 @@ function CardBack({ themeKey = 'red', namHoc }) {
         </span>
       </div>
 
-      {/* NỘI DUNG QUY ĐỊNH 4 ĐIỀU (BỎ FOOTER HOTLINE, CĂN GIỮA THOÁNG ĐẸP) */}
+      {/* NỘI DUNG NỘI QUY BÁN TRÚ (PHÙ HỢP ĐẶC THÙ THẺ IN GIẤY BỎ BAO ĐEO) */}
       <div className="card-back-content">
         <ul className="card-back-rules">
           <li>
             <span className="rule-num">1.</span>
-            <span>Thẻ được cấp cho học sinh bán trú năm học {namHoc || '2026 - 2027'}, có giá trị sử dụng trong phạm vi nhà trường.</span>
+            <span>Thẻ có giá trị nhận diện học sinh và sử dụng trong toàn bộ các hoạt động bán trú tại trường.</span>
           </li>
           <li>
             <span className="rule-num">2.</span>
-            <span>Học sinh phải luôn mang/đeo thẻ khi vào khu vực phòng ăn và phòng ngủ bán trú để điểm danh.</span>
+            <span>Học sinh phải luôn đeo thẻ (trong bao đeo) khi vào khu vực nhà ăn và phòng nghỉ trưa để quét mã điểm danh.</span>
           </li>
           <li>
             <span className="rule-num">3.</span>
-            <span>Tuyệt đối không cho người khác mượn thẻ hoặc sử dụng thẻ của học sinh khác.</span>
+            <span>Bảo quản thẻ phẳng đẹp trong bao bảo vệ; tránh làm rách, nhàu nát, thấm nước hoặc làm mờ mã QR.</span>
           </li>
           <li>
             <span className="rule-num">4.</span>
-            <span>Bảo quản thẻ sạch sẽ, không bẻ gãy, dán đè hoặc làm trầy xước mã QR quang học.</span>
+            <span>Giữ thẻ sạch đẹp, không tự ý viết vẽ, tẩy xóa; tuyệt đối không cho mượn thẻ hoặc dùng thẻ của học sinh khác.</span>
           </li>
         </ul>
       </div>
