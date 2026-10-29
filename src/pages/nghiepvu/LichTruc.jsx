@@ -19,12 +19,13 @@ const todayStr = dateStr(new Date());
 function GvPill({ pc, gvList }) {
   const g1 = gvList.find(g => g.id === pc.ma_gv_id) || pc.giao_vien;
   const g2 = pc.ma_gv_truc_thay_id ? (gvList.find(g => g.id === pc.ma_gv_truc_thay_id) || pc.giao_vien_truc_thay) : null;
+  const thayTen = pc.ten_gv_truc_thay && pc.ten_gv_truc_thay.trim() ? pc.ten_gv_truc_thay.trim() : (g2?.ho_ten || null);
   if (!g1) return null;
   const initials = n => n.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase();
   return (
-    <span className={`lt-gv-pill${g2 ? ' thay' : ''}`} title={`${g1.ho_ten}${g2 ? ` → thay bởi ${g2.ho_ten}` : ''}`}>
+    <span className={`lt-gv-pill${thayTen ? ' thay' : ''}`} title={`${g1.ho_ten}${thayTen ? ` → thay bởi ${thayTen}` : ''}`}>
       <span className="lt-gv-av">{initials(g1.ho_ten)}</span>
-      <span>{g1.ho_ten.split(' ').pop()}{g2 && <small style={{color:'#f39c12',fontSize:'.68rem'}}> (thay: {g2.ho_ten.split(' ').pop()})</small>}</span>
+      <span>{g1.ho_ten.split(' ').pop()}{thayTen && <small style={{color:'#f39c12',fontSize:'.68rem'}}> (thay: {thayTen.split(' ').pop()})</small>}</span>
       {pc.xac_nhan_truc
         ? <span className="lt-gv-xn ok"><i className="fas fa-check-circle"></i></span>
         : <span className="lt-gv-xn wait"><i className="fas fa-clock"></i></span>}

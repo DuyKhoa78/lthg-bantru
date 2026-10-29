@@ -236,7 +236,7 @@ export default function LichTrucAdmin() {
         ma_phong_id: phong_id,
         ngay,
         loai_truc,
-        nhiem_vu: gvSelected.nhiem_vu ?? 0,
+        nhiem_vu: picker.mode === 'substitute' ? (originalPC?.nhiem_vu ?? 0) : (gvSelected.nhiem_vu ?? 0),
       });
       if (res.data?.ok) {
         await loadWeek(weekStart, true);
@@ -270,7 +270,13 @@ export default function LichTrucAdmin() {
         xac_nhan_truc: true,
       });
       if (res.data?.ok) {
-        showAlert('Đã gán người ngoài danh sách trực thay thành công', 'success');
+        const isOfficial = Boolean(res.data?.record?.ma_gv_truc_thay_id);
+        showAlert(
+          isOfficial 
+            ? `Đã gán GV chính thức ${res.data?.record?.giao_vien_truc_thay?.ho_ten || tenNgoai} trực thay. Hệ thống đã tự động gán phòng và danh sách học sinh cho Thầy/Cô!`
+            : 'Đã gán người ngoài danh sách trực thay thành công', 
+          'success'
+        );
         await loadWeek(weekStart, true);
         setPicker(null);
         setDetailPC(null);
@@ -989,6 +995,26 @@ export default function LichTrucAdmin() {
                       autoFocus
                     />
                   </div>
+                  {(() => {
+                    if (!pickerNgoaiTen || !pickerNgoaiTen.trim()) return null;
+                    const clean = removeAccents(pickerNgoaiTen.toLowerCase().trim());
+                    const matched = (giaoVienList || []).find(g => {
+                      const gName = removeAccents(g.ho_ten.toLowerCase().trim());
+                      return gName === clean || gName.includes(clean);
+                    });
+                    if (matched) {
+                      return (
+                        <div style={{ padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, marginBottom: 12, fontSize: '0.78rem', color: '#1e40af' }}>
+                          <i className="fas fa-magic" style={{ marginRight: 6, color: '#2563eb' }}></i>
+                          Khớp với Giáo viên chính thức: <strong>{matched.ho_ten}</strong>{matched.has_account ? ' (Đã có tài khoản)' : ''}.
+                          <div style={{ marginTop: 2, fontSize: '0.72rem', color: '#3b82f6' }}>
+                            Hệ thống sẽ tự động liên kết tài khoản để Thầy/Cô đăng nhập và nhận trọn vẹn danh sách HS của phòng này.
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: 16 }}>
                     Người này sẽ được lưu trực tiếp vào ca trực và hiển thị trong danh sách tính lương của kế toán.
                   </p>
@@ -1027,7 +1053,15 @@ export default function LichTrucAdmin() {
                         padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer',
                         background: gv.nhiem_vu === 0 ? 'rgba(37,99,235,0.03)' : 'rgba(22,163,74,0.03)'
                       }}>
-                        <span style={{ fontWeight: 500 }}>{gv.ho_ten}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontWeight: 600 }}>{gv.ho_ten}</span>
+                          {picker.mode === 'substitute' && (
+                            <span style={{ fontSize: '0.72rem', color: gv.has_account ? '#16a34a' : '#d97706', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <i className={`fas ${gv.has_account ? 'fa-check-circle' : 'fa-exclamation-triangle'}`}></i>
+                              {gv.has_account ? `Đã có tài khoản (${gv.account_username}) • Tự động nhận danh sách HS` : 'Chưa cấp tài khoản đăng nhập'}
+                            </span>
+                          )}
+                        </div>
                         <span className={`badge ${gv.nhiem_vu === 0 ? 'badge-primary' : 'badge-success'}`} style={{ fontSize: '0.6rem' }}>
                           {gv.nhiem_vu === 0 ? 'Điểm danh' : 'Giám sát'}
                         </span>

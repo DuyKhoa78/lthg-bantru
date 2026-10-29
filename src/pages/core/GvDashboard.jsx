@@ -1071,6 +1071,12 @@ export default function GvDashboard() {
                                                                             <span className="gv-room-label">Phòng phụ trách</span>
                                                                             <span className="gv-room-code">
                                                                                 <i className="fas fa-door-open"></i> {item.ma_phong_id}
+                                                                                {item.is_truc_thay && (
+                                                                                    <span className="badge badge-warning" style={{ marginLeft: 8, fontSize: '0.7rem', padding: '2px 8px', borderRadius: 12, verticalAlign: 'middle', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                                                                                        <i className="fas fa-exchange-alt" style={{ marginRight: 4 }}></i>
+                                                                                        Trực thay {item.thay_cho ? `cho ${item.thay_cho}` : ''}
+                                                                                    </span>
+                                                                                )}
                                                                             </span>
                                                                         </div>
 
