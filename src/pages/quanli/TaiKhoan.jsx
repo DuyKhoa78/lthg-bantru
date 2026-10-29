@@ -176,6 +176,7 @@ export default function TaiKhoan() {
       await api.post('/api/taikhoan/save/', {
         id: u.id, username: u.username, fullname: u.fullname,
         position: u.position, role: u.role, is_active: !u.is_active,
+        giao_vien_id: u.giao_vien_id,
       });
       setData(prev => prev.map(x => x.id === u.id ? { ...x, is_active: !u.is_active } : x));
     } catch (err) {
@@ -388,7 +389,22 @@ export default function TaiKhoan() {
 
               <div className="form-group">
                 <label className="form-label">Họ và tên <span className="required">*</span></label>
-                <input className="form-control" value={form.fullname} onChange={e => setForm({ ...form, fullname: e.target.value })} placeholder="Nguyễn Văn A" />
+                <input
+                  className="form-control"
+                  value={form.fullname}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const matchedGv = !form.giao_vien_id && val.trim()
+                      ? gvList.find(g => g.ho_ten && g.ho_ten.trim().toLowerCase() === val.trim().toLowerCase())
+                      : null;
+                    setForm({
+                      ...form,
+                      fullname: val,
+                      ...(matchedGv ? { giao_vien_id: matchedGv.id } : {}),
+                    });
+                  }}
+                  placeholder="Nguyễn Văn A"
+                />
               </div>
 
               <div className="form-row">

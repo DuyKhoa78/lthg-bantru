@@ -547,11 +547,11 @@ export default function DiemDanhGV() {
                   const hasSubstitute = hasGvThay || hasNgoaiThay;
 
                   // Tên người trực thực tế (Primary display name)
-                  const isNgoai = Boolean(hasNgoaiThay);
-                  const actualName = hasNgoaiThay
+                  const isNgoai = Boolean(!hasGvThay && hasNgoaiThay);
+                  const actualName = hasGvThay
+                    ? (item.giao_vien_truc_thay?.ho_ten || (hasNgoaiThay ? item.ten_gv_truc_thay.trim() : `GV #${item.ma_gv_truc_thay_id}`))
+                    : hasNgoaiThay
                     ? item.ten_gv_truc_thay.trim()
-                    : hasGvThay
-                    ? (item.giao_vien_truc_thay?.ho_ten || `GV #${item.ma_gv_truc_thay_id}`)
                     : (item.giao_vien?.ho_ten || `GV #${item.ma_gv_id}`);
 
                   // Tên GV ban đầu được phân công
