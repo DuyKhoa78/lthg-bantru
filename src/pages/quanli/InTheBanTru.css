@@ -651,7 +651,7 @@
 
 .card-back-content {
   flex: 1;
-  padding: 12px 16px 12px 16px;
+  padding: 12px 18px 12px 18px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -666,14 +666,14 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9.5px;
 }
 
 .card-back-rules li {
-  font-size: 9.0px;
+  font-size: 9.6px;
   color: #1e293b;
   line-height: 1.45;
-  font-weight: 550;
+  font-weight: 600;
   display: flex;
   align-items: flex-start;
   gap: 7px;
@@ -1242,22 +1242,22 @@
     height: 44.5mm !important;
     min-height: 44.5mm !important;
     max-height: 44.5mm !important;
-    padding: 3.5mm 4.2mm 3.5mm 4.2mm !important;
+    padding: 3.5mm 4.5mm 3.5mm 4.5mm !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     box-sizing: border-box !important;
   }
   .card-back-rules {
-    gap: 2.2mm !important;
+    gap: 2.5mm !important;
   }
   .card-back-rules li {
-    font-size: 2.45mm !important;
+    font-size: 2.6mm !important;
     line-height: 1.45 !important;
     gap: 1.8mm !important;
   }
   .card-back-rules .rule-num {
-    font-size: 2.45mm !important;
+    font-size: 2.6mm !important;
     min-width: 3.8mm !important;
   }
 

@@ -2489,8 +2489,9 @@ ${htmlPagesStr}
                                             type="button"
                                             className="dd-qr-scan-btn"
                                             onClick={() => setShowQRModal(true)}
+                                            disabled={!canTeacherOperate}
                                             style={{
-                                                background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                                                background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
                                                 color: '#fff',
                                                 fontWeight: 700,
                                                 borderRadius: 8,
@@ -2499,15 +2500,15 @@ ${htmlPagesStr}
                                                 alignItems: 'center',
                                                 gap: 6,
                                                 border: 'none',
-                                                cursor: 'pointer',
-                                                boxShadow: '0 2px 8px rgba(2,132,199,0.3)',
-                                                opacity: 1,
+                                                cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                boxShadow: !canTeacherOperate ? 'none' : '0 2px 8px rgba(2,132,199,0.3)',
+                                                opacity: !canTeacherOperate ? 0.6 : 1,
                                                 height: 34
                                             }}
-                                            title={!canTeacherOperate ? 'Mở máy quét mã QR để thử nghiệm camera (Không lưu CSDL)' : 'Mở máy quét mã QR học sinh'}
+                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : 'Mở máy quét mã QR học sinh'}
                                         >
                                             <i className="fas fa-qrcode"></i>
-                                            <span>{isGopMode ? 'Quét QR gộp' : isDaChot ? (canTeacherOperate ? 'Quét bổ sung HS' : 'Quét thử QR') : (!canTeacherOperate ? 'Quét thử QR' : 'Quét mã QR')}</span>
+                                            <span>{isGopMode ? 'Quét QR gộp' : isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR'}</span>
                                         </button>
 
                                         {!isGiaoVien && (

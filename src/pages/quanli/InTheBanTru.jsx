@@ -96,31 +96,31 @@ function CardBack({ themeKey = 'red', namHoc }) {
         <img src="/trong-dong-user.png" alt="Trống đồng" />
       </div>
 
-      {/* HEADER NỘI QUY BÁN TRÚ CHÍNH (CĂN GIỮA, BỎ NĂM HỌC) */}
+      {/* HEADER QUY ĐỊNH SỬ DỤNG THẺ (CĂN GIỮA) */}
       <div className="card-back-banner">
         <span className="card-back-banner-text">
-          <i className="fas fa-shield-alt"></i> NỘI QUY BÁN TRÚ
+          <i className="fas fa-shield-alt"></i> QUY ĐỊNH SỬ DỤNG THẺ
         </span>
       </div>
 
-      {/* NỘI DUNG NỘI QUY BÁN TRÚ (PHÙ HỢP ĐẶC THÙ THẺ IN GIẤY BỎ BAO ĐEO) */}
+      {/* NỘI DUNG 4 ĐIỀU QUY ĐỊNH SỬ DỤNG THẺ */}
       <div className="card-back-content">
         <ul className="card-back-rules">
           <li>
             <span className="rule-num">1.</span>
-            <span>Thẻ có giá trị nhận diện học sinh và sử dụng trong toàn bộ các hoạt động bán trú tại trường.</span>
+            <span>Đeo thẻ khi vào nhà ăn, phòng nghỉ trưa.</span>
           </li>
           <li>
             <span className="rule-num">2.</span>
-            <span>Học sinh phải luôn đeo thẻ (trong bao đeo) khi vào khu vực nhà ăn và phòng nghỉ trưa để quét mã điểm danh.</span>
+            <span>Quét mã QR để điểm danh.</span>
           </li>
           <li>
             <span className="rule-num">3.</span>
-            <span>Bảo quản thẻ phẳng đẹp trong bao bảo vệ; tránh làm rách, nhàu nát, thấm nước hoặc làm mờ mã QR.</span>
+            <span>Giữ thẻ sạch, không làm hỏng hoặc mờ mã QR.</span>
           </li>
           <li>
             <span className="rule-num">4.</span>
-            <span>Giữ thẻ sạch đẹp, không tự ý viết vẽ, tẩy xóa; tuyệt đối không cho mượn thẻ hoặc dùng thẻ của học sinh khác.</span>
+            <span>Không cho mượn thẻ hoặc dùng thẻ của người khác.</span>
           </li>
         </ul>
       </div>
