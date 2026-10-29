@@ -91,34 +91,20 @@ function CardBack({ themeKey = 'red', namHoc }) {
 
   return (
     <div className="smart-id-card card-horizontal-view card-back-view" style={cardStyle}>
-      {/* HEADER ĐỒNG BỘ VỚI MẶT TRƯỚC */}
-      <div className="card-h-head card-back-head">
-        <img
-          src="/logo.png"
-          alt="Logo Trường THPT Lê Thị Hồng Gấm"
-          className="head-logo-img"
-          onError={(e) => { e.target.src = '/icons.svg'; }}
-        />
-        <div className="head-titles">
-          <div className="title-sub">SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</div>
-          <div className="title-school">TRƯỜNG THPT LÊ THI HỒNG GẤM</div>
-        </div>
-        <div className="year-tag">{namHoc || '2026 - 2027'}</div>
-      </div>
-
       {/* WATERMARK TRỐNG ĐỒNG BẢO MẬT CHÌM */}
-      <div className="card-watermark-trongdong">
+      <div className="card-watermark-trongdong card-back-watermark">
         <img src="/trong-dong-user.png" alt="Trống đồng" />
       </div>
 
-      {/* BANNER TIÊU ĐỀ MẶT SAU */}
+      {/* HEADER NỘI QUY BÁN TRÚ CHÍNH */}
       <div className="card-back-banner">
         <span className="card-back-banner-text">
-          <i className="fas fa-shield-alt"></i> QUY ĐỊNH SỬ DỤNG THẺ BÁN TRÚ
+          <i className="fas fa-shield-alt"></i> NỘI QUY BÁN TRÚ
         </span>
+        <span className="card-back-year-pill">{namHoc || '2026 - 2027'}</span>
       </div>
 
-      {/* NỘI DUNG QUY ĐỊNH 5 ĐIỀU */}
+      {/* NỘI DUNG QUY ĐỊNH 4 ĐIỀU (ĐÃ BỎ ĐIỀU 5 THEO YÊU CẦU) */}
       <div className="card-back-content">
         <ul className="card-back-rules">
           <li>
@@ -137,21 +123,13 @@ function CardBack({ themeKey = 'red', namHoc }) {
             <span className="rule-num">4.</span>
             <span>Bảo quản thẻ sạch sẽ, không bẻ gãy, dán đè hoặc làm trầy xước mã QR quang học.</span>
           </li>
-          <li>
-            <span className="rule-num">5.</span>
-            <span>Trường hợp làm mất hoặc hư hỏng thẻ, học sinh cần báo ngay cho Ban Bán trú để được cấp lại.</span>
-          </li>
         </ul>
 
-        {/* FOOTER LIÊN HỆ */}
+        {/* FOOTER LIÊN HỆ: BỎ ĐỊA CHỈ, CHỈ GIỮ LẠI HOTLINE CĂN GIỮA */}
         <div className="card-back-footer">
-          <div className="card-back-footer-left">
-            <i className="fas fa-map-marker-alt"></i>
-            <span>147 Pasteur, P. Võ Thị Sáu, Q.3, TP.HCM</span>
-          </div>
-          <div className="card-back-footer-right">
-            <span>Hotline: (028) 3829 7460</span>
-          </div>
+          <span className="card-back-hotline">
+            <i className="fas fa-phone-alt"></i> HOTLINE BÁN TRÚ: (028) 3829 7460
+          </span>
         </div>
       </div>
     </div>
