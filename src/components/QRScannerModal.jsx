@@ -131,6 +131,7 @@ export default function QRScannerModal({
     currentRoomName = '',
     onConfirmStudent,
     scannedIds = new Set(),
+    isTestMode = false,
 }) {
     const scannerRef = useRef(null);
     const html5QrCodeRef = useRef(null);
@@ -172,6 +173,7 @@ export default function QRScannerModal({
         currentRoomName,
         onConfirmStudent,
         scannedIds,
+        isTestMode,
     });
     useEffect(() => {
         propsRef.current = {
@@ -180,6 +182,7 @@ export default function QRScannerModal({
             currentRoomName,
             onConfirmStudent,
             scannedIds,
+            isTestMode,
         };
     });
 
@@ -286,17 +289,20 @@ export default function QRScannerModal({
     // === XÁC NHẬN CÓ MẶT (GV bấm nút xác nhận) ===
     const handleConfirm = useCallback(() => {
         if (!pendingStudent || pendingType !== 'new') return;
-        const { onConfirmStudent: curOnConfirm } = propsRef.current;
+        const { onConfirmStudent: curOnConfirm, isTestMode: curIsTestMode } = propsRef.current;
 
         playChime('confirm');
         if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
 
-        curOnConfirm(pendingStudent);
+        if (!curIsTestMode && typeof curOnConfirm === 'function') {
+            curOnConfirm(pendingStudent);
+        }
 
         setMiniToast({
             name: pendingStudent.ho_ten,
             lop: pendingStudent.lop,
             room: pendingStudent.phong_hien_thi || pendingStudent.phong_an || pendingStudent.phong_ngu,
+            isTest: curIsTestMode,
         });
         setTimeout(() => setMiniToast(null), 2000);
 
@@ -392,8 +398,9 @@ export default function QRScannerModal({
                     fps: 15,
                     qrbox: (viewfinderWidth, viewfinderHeight) => {
                         const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                        const boxSize = Math.max(220, Math.floor(minEdge * 0.80));
-                        return { width: boxSize, height: boxSize };
+                        const boxSize = Math.floor(minEdge * 0.75);
+                        const safeEdge = Math.max(80, Math.min(boxSize, minEdge - 16));
+                        return { width: safeEdge, height: safeEdge };
                     },
                     disableFlip: false,
                 };
@@ -410,32 +417,27 @@ export default function QRScannerModal({
                 // Khởi động camera: Ưu tiên tuyệt đối camera sau trên điện thoại (không dùng webcam máy tính hoặc camera trước)
                 let started = false;
 
-                // Nếu người dùng chủ động chọn một camera trong danh sách
-                if (activeCamIndex >= 0 && availableCameras[activeCamIndex]?.id) {
-                    const chosenCam = availableCameras[activeCamIndex];
+                // 1. Thử camera sau tốt nhất hoặc camera người dùng chọn
+                const preferredCam = (activeCamIndex >= 0 && availableCameras[activeCamIndex]?.id)
+                    ? availableCameras[activeCamIndex]
+                    : targetCam;
+
+                if (preferredCam && preferredCam.id) {
                     try {
-                        const camConfig = {
-                            ...config,
-                            videoConstraints: {
-                                deviceId: { exact: chosenCam.id },
-                                width: { min: 640, ideal: 1280, max: 1920 },
-                                height: { min: 480, ideal: 720, max: 1080 },
-                            },
-                        };
                         await qrScannerInstance.start(
-                            chosenCam.id,
-                            camConfig,
+                            preferredCam.id,
+                            config,
                             onScanSuccess,
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel(chosenCam.label || 'Camera sau');
+                        setCurrentCamLabel(preferredCam.label || 'Camera sau');
                     } catch (exactErr) {
-                        if (import.meta.env.DEV) console.warn('Start camera by chosen ID failed:', exactErr);
+                        if (import.meta.env.DEV) console.warn('Start camera by device ID failed:', exactErr);
                     }
                 }
 
-                // Mặc định: Luôn bắt buộc mở camera sau của điện thoại qua facingMode environment
+                // 2. Fallback sang facingMode environment (chuẩn iOS Safari & Android)
                 if (!started) {
                     try {
                         await qrScannerInstance.start(
@@ -447,26 +449,11 @@ export default function QRScannerModal({
                         started = true;
                         setCurrentCamLabel('Camera sau (Điện thoại)');
                     } catch (envErr) {
-                        if (import.meta.env.DEV) console.warn('facingMode environment failed, checking best rear camera:', envErr);
-                        const backCam = selectBestBackCamera(availableCameras);
-                        if (backCam && backCam.id) {
-                            try {
-                                await qrScannerInstance.start(
-                                    backCam.id,
-                                    config,
-                                    onScanSuccess,
-                                    onScanError
-                                );
-                                started = true;
-                                setCurrentCamLabel(backCam.label || 'Camera');
-                            } catch (backErr) {
-                                if (import.meta.env.DEV) console.warn('Start best back camera failed:', backErr);
-                            }
-                        }
+                        if (import.meta.env.DEV) console.warn('facingMode environment failed:', envErr);
                     }
                 }
 
-                // Fallback chỉ khi thiết bị không hỗ trợ camera sau (ví dụ máy tính / laptop chỉ có webcam đơn)
+                // 3. Fallback sang camera bất kỳ / webcam
                 if (!started) {
                     try {
                         await qrScannerInstance.start(
@@ -476,10 +463,14 @@ export default function QRScannerModal({
                             onScanError
                         );
                         started = true;
-                        setCurrentCamLabel('Webcam máy tính');
+                        setCurrentCamLabel('Camera');
                     } catch (finalErr) {
                         if (import.meta.env.DEV) console.warn('All camera start attempts failed:', finalErr);
                     }
+                }
+
+                if (!started) {
+                    throw new Error('Không thể khởi động camera. Vui lòng cấp quyền truy cập máy ảnh cho trình duyệt và thử lại.');
                 }
 
                 if (currentSession !== sessionIdRef.current) {
@@ -724,6 +715,31 @@ export default function QRScannerModal({
                 />
             )}
 
+            {/* Banner Chế độ Test Camera & QR */}
+            {isTestMode && (
+                <div style={{
+                    position: 'absolute',
+                    top: 56,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(234, 88, 12, 0.94)',
+                    color: '#fff',
+                    padding: '5px 14px',
+                    borderRadius: 20,
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    zIndex: 60,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '0.2px'
+                }}>
+                    <span>🧪 Chế độ thử camera & quét QR (Không lưu CSDL)</span>
+                </div>
+            )}
+
             {/* 2. Top Header (Zalo style) */}
             <div className="zalo-top-bar" onClick={(e) => e.stopPropagation()}>
                 <button className="zalo-btn-icon" onClick={onClose} title="Đóng máy quét">
@@ -801,12 +817,12 @@ export default function QRScannerModal({
             {/* 3. Mini toast xác nhận thành công */}
             {miniToast && (
                 <div className="zalo-scan-toast success">
-                    <div className="zalo-toast-avatar">✅</div>
+                    <div className="zalo-toast-avatar">{miniToast.isTest ? '🧪' : '✅'}</div>
                     <div className="zalo-toast-text">
                         <strong className="zalo-toast-name">{miniToast.name}</strong>
                         <span className="zalo-toast-sub">
                             {miniToast.room && <strong style={{ color: '#bae6fd', marginRight: 5 }}>[P.{miniToast.room}]</strong>}
-                            Lớp {miniToast.lop} — ĐÃ XÁC NHẬN CÓ MẶT
+                            Lớp {miniToast.lop} — {miniToast.isTest ? 'QUÉT THỬ CAMERA THÀNH CÔNG (TEST)' : 'ĐÃ XÁC NHẬN CÓ MẶT'}
                         </span>
                     </div>
                 </div>
@@ -921,7 +937,7 @@ export default function QRScannerModal({
                                 </div>
                                 <div className="zalo-confirm-actions">
                                     <button className="zalo-confirm-btn primary" onClick={handleConfirm}>
-                                        ✓ Xác nhận có mặt
+                                        {isTestMode ? '✓ Kiểm tra nhận diện (Thử nghiệm)' : '✓ Xác nhận có mặt'}
                                     </button>
                                     <button className="zalo-confirm-btn secondary" onClick={handleDismiss}>
                                         Bỏ qua
