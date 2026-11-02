@@ -198,8 +198,8 @@ export default function DiemDanhNgu() {
     const [showMonthExportModal, setShowMonthExportModal] = useState(false);
     const [exportMonth, setExportMonth] = useState(new Date().getMonth() + 1);
     const [exportYear, setExportYear] = useState(new Date().getFullYear());
-    const [exportSelectedWeek, setExportSelectedWeek] = useState(0); // single week index
-    const [exportT6, setExportT6] = useState(false);               // T6 for that week
+    const [exportWeeksActive, setExportWeeksActive] = useState([0, 1]); // Mặc định chọn 2 tuần
+    const [exportWeeksT6, setExportWeeksT6] = useState([]);             // Các tuần có dạy bù T6
     const [exportRooms, setExportRooms] = useState([]);
 
     const [nguoiPhuTrach, setNguoiPhuTrach] = useState('Người phụ trách');
@@ -1526,11 +1526,17 @@ ${htmlPages}
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [exportMonth, exportYear]);
     useEffect(() => {
-        setExportSelectedWeek(0);
-        setExportT6(false);
+        if (weekLabelsForModal.length >= 2) {
+            setExportWeeksActive([0, 1]);
+        } else if (weekLabelsForModal.length === 1) {
+            setExportWeeksActive([0]);
+        } else {
+            setExportWeeksActive([]);
+        }
+        setExportWeeksT6([]);
     }, [weekLabelsForModal]);
 
-    // Auto-detect tuần hiện tại khi mở modal
+    // Auto-detect 2 tuần liên tiếp từ ngày hiện tại khi mở modal
     useEffect(() => {
         if (!showMonthExportModal) return;
         const d = new Date(date + 'T00:00:00');
@@ -1543,8 +1549,18 @@ ${htmlPages}
         const mon = new Date(d); mon.setDate(d.getDate() - dow + 1);
         const monStr = mon.getFullYear() + '-' + p2(mon.getMonth() + 1) + '-' + p2(mon.getDate());
         const idx = allMons.indexOf(monStr);
-        setExportSelectedWeek(idx >= 0 ? idx : 0);
-        setExportT6(false);
+        let defaultWeeks = [0, 1].filter(i => i < allMons.length);
+        if (idx >= 0) {
+            if (idx + 1 < allMons.length) {
+                defaultWeeks = [idx, idx + 1];
+            } else if (idx - 1 >= 0) {
+                defaultWeeks = [idx - 1, idx];
+            } else {
+                defaultWeeks = [idx];
+            }
+        }
+        setExportWeeksActive(defaultWeeks);
+        setExportWeeksT6([]);
         const targetMon = (idx >= 0 ? allMons[idx] : allMons[0]) || monStr;
         const roomsWithStudents = phongList
             .filter(p => getStudentsForRoom(p.ma_phong, targetMon).length > 0)
@@ -1553,15 +1569,32 @@ ${htmlPages}
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showMonthExportModal, date, phongList]);
 
-    // ── XUẤT EXCEL THEO TUẦN (NGỦ) ───────────────────────────────────
+    // ── XUẤT EXCEL THEO TUẦN (NGỦ - HỖ TRỢ IN 2 TUẦN / NHIỀU TUẦN) ────
     const exportWeekExcel = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng!', 'warning');
+        if (exportWeeksActive.length === 0) return showAlert('Vui lòng chọn ít nhất 1 tuần để xuất!', 'warning');
+
         const allWeekMons = computeWeekMondayStrs(exportMonth, exportYear);
-        const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT6);
+        const activeWeekIndices = allWeekMons.map((_, i) => i).filter(i => exportWeeksActive.includes(i));
+
+        const weeksData = activeWeekIndices.map(wIndex => {
+            const inclT6 = exportWeeksT6.includes(wIndex);
+            const wd = getWeekDays(allWeekMons[wIndex], inclT6);
+            const mon = wd[0];
+            const fri = wd[wd.length - 1];
+            const label = `Tuần ${wIndex + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)} – ${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
+            return { wIndex, days: wd, label };
+        });
+
+        const weekDays = weeksData.flatMap(w => w.days);
         const numDays = weekDays.length;
-        const NC = 7 + numDays + 1;
+        const NC = 7 + numDays;
         const mon = weekDays[0], fri = weekDays[weekDays.length - 1];
-        const weekLabel = `Tuần ${exportSelectedWeek + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)} – ${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}/${exportYear}`;
+        const weekLabel = weeksData.length === 1
+            ? `${weeksData[0].label}/${exportYear}`
+            : weeksData.length === 2
+                ? `${weeksData[0].label} & ${weeksData[1].label}/${exportYear}`
+                : `Tháng ${exportMonth}/${exportYear} (${p2(mon.getDate())}/${p2(mon.getMonth() + 1)} – ${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}/${exportYear})`;
         const toISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 
         // Fetch dữ liệu điểm danh thực tế
@@ -1593,7 +1626,6 @@ ${htmlPages}
             const h1 = ['STT', 'Mã\nsố BT', 'HỌ VÀ TÊN', 'GT', 'LỚP', 'P.\nNGỦ', 'P.\nĂN'];
             const h2 = ['', '', '', '', '', '', ''];
             weekDays.forEach(d => { h1.push(`${d.getDate()}/${d.getMonth() + 1}`); h2.push(`T${d.getDay() === 0 ? 'CN' : d.getDay() + 1}`); });
-            h1.push('Ghi\nchú'); h2.push('');
 
             const phongInfo = phongList.find(p => p.ma_phong === ma_phong);
             const numTeachers = phongInfo?.sl_diem_danh || 1;
@@ -1612,10 +1644,10 @@ ${htmlPages}
                     chunk.forEach((s, i) => {
                         const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
                         const dayCells = weekDays.map(d => getSym(s.id, d));
-                        aoa.push([offset + i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells, '']);
+                        aoa.push([offset + i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells]);
                     });
                     const ws = XLSX.utils.aoa_to_sheet(aoa);
-                    ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 }), { wch: 12 }];
+                    ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 })];
                     ws['!merges'] = [
                         { s: { r: 0, c: 0 }, e: { r: 2, c: 2 } }, { s: { r: 0, c: 3 }, e: { r: 0, c: NC - 1 } },
                         { s: { r: 1, c: 3 }, e: { r: 1, c: NC - 1 } }, { s: { r: 2, c: 3 }, e: { r: 2, c: NC - 1 } },
@@ -1634,10 +1666,10 @@ ${htmlPages}
                 roomStudents.forEach((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
                     const dayCells = weekDays.map(d => getSym(s.id, d));
-                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells, '']);
+                    aoa.push([i + 1, s.id, s.ho_ten, gt, s.lop, s.phong_ngu || ma_phong, s.phong_an || '', ...dayCells]);
                 });
                 const ws = XLSX.utils.aoa_to_sheet(aoa);
-                ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 }), { wch: 12 }];
+                ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 28 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, ...Array(numDays).fill({ wch: 5 })];
                 ws['!merges'] = [
                     { s: { r: 0, c: 0 }, e: { r: 2, c: 2 } }, { s: { r: 0, c: 3 }, e: { r: 0, c: NC - 1 } },
                     { s: { r: 1, c: 3 }, e: { r: 1, c: NC - 1 } }, { s: { r: 2, c: 3 }, e: { r: 2, c: NC - 1 } },
@@ -1646,19 +1678,37 @@ ${htmlPages}
                 XLSX.utils.book_append_sheet(wb, ws, `Phong_${ma_phong}`.substring(0, 31));
             }
         });
-        XLSX.writeFile(wb, `DiemDanhNgu_Tuan${exportSelectedWeek + 1}_Thang${exportMonth}_${exportYear}.xlsx`);
+        const weekFileTag = activeWeekIndices.map(i => i + 1).join('_');
+        XLSX.writeFile(wb, `DiemDanhNgu_Tuan${weekFileTag}_Thang${exportMonth}_${exportYear}.xlsx`);
         setShowMonthExportModal(false);
     };
 
 
-    // ── XUẤT PDF THEO TUẦN (NGỦ) ─────────────────────────────────────
+    // ── XUẤT PDF THEO TUẦN (NGỦ - HỖ TRỢ IN 2 TUẦN / NHIỀU TUẦN) ──────
     const exportWeekPDF = async () => {
         if (exportRooms.length === 0) return showAlert('Vui lòng chọn ít nhất 1 phòng!', 'warning');
+        if (exportWeeksActive.length === 0) return showAlert('Vui lòng chọn ít nhất 1 tuần để xuất!', 'warning');
+
         const allWeekMons = computeWeekMondayStrs(exportMonth, exportYear);
-        const weekDays = getWeekDays(allWeekMons[exportSelectedWeek], exportT6);
-        const numDays = weekDays.length;
+        const activeWeekIndices = allWeekMons.map((_, i) => i).filter(i => exportWeeksActive.includes(i));
+
+        const weeksData = activeWeekIndices.map(wIndex => {
+            const inclT6 = exportWeeksT6.includes(wIndex);
+            const wd = getWeekDays(allWeekMons[wIndex], inclT6);
+            const mon = wd[0];
+            const fri = wd[wd.length - 1];
+            const label = `Tuần ${wIndex + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
+            return { wIndex, days: wd, label };
+        });
+
+        const weekDays = weeksData.flatMap(w => w.days);
+        const totalDays = weekDays.length;
         const mon = weekDays[0], fri = weekDays[weekDays.length - 1];
-        const weekLabel = `Tuần ${exportSelectedWeek + 1}: ${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)}`;
+        const weekLabel = weeksData.length === 1
+            ? weeksData[0].label
+            : weeksData.length === 2
+                ? `${weeksData[0].label} & ${weeksData[1].label}`
+                : `Tháng ${exportMonth}/${exportYear} (${p2(mon.getDate())}/${p2(mon.getMonth() + 1)}–${p2(fri.getDate())}/${p2(fri.getMonth() + 1)})`;
         const toISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 
         // Fetch dữ liệu điểm danh thực tế
@@ -1668,11 +1718,14 @@ ${htmlPages}
             if (rRes.data?.ok) ddMap = rRes.data.map;
         } catch { /* bỏ qua */ }
 
-
-
         const DOWS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-        const dayTH = weekDays.map((d, di) =>
-            `<th class="col-day"${di === 0 ? ' style="border-left:1.5px solid #333;"' : ''}>${d.getDate()}/${p2(d.getMonth() + 1)}<br><small>${DOWS[d.getDay()]}</small></th>`
+        const weekTH1 = weeksData.map(w =>
+            `<th colspan="${w.days.length}" style="white-space:nowrap;border-left:1.5px solid #333;">${w.label}</th>`
+        ).join('');
+        const dayTH = weeksData.map(w =>
+            w.days.map((d, di) =>
+                `<th class="col-day"${di === 0 ? ' style="border-left:1.5px solid #333;"' : ''}>${d.getDate()}/${p2(d.getMonth() + 1)}<br><small>${DOWS[d.getDay()]}</small></th>`
+            ).join('')
         ).join('');
         const monStr = toISO(weekDays[0]);
         const htmlPages = exportRooms.flatMap(ma_phong => {
@@ -1722,15 +1775,18 @@ ${htmlPages}
 
                 const dataRows = chunk.map((s, i) => {
                     const gt = s.gioi_tinh === 0 ? 'Nam' : 'Nữ';
-                    const dayCells = weekDays.map((d, di) =>
-                        `<td class="col-day"${di === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${getSymForRoom(s.id, d)}</td>`).join('');
+                    const dayCells = weeksData.map(w =>
+                        w.days.map((d, di) =>
+                            `<td class="col-day"${di === 0 ? ' style="border-left:1.5px solid #555;"' : ''}>${getSymForRoom(s.id, d)}</td>`
+                        ).join('')
+                    ).join('');
                     return `<tr>
           <td class="col-stt">${globalOffset + i + 1}</td><td class="col-msbt">${s.id}</td>
-          <td style="text-align:left;padding-left:6px;">${s.ho_ten}</td>
+          <td class="col-ten" style="text-align:left;padding-left:6px;">${s.ho_ten}</td>
           <td class="col-gt">${gt}</td><td class="col-lop">${s.lop}</td>
           <td class="col-phong">${s.phong_ngu || ma_phong}</td>
           <td class="col-phong">${s.phong_an || ''}</td>
-          ${dayCells}<td class="col-ghichu"></td>
+          ${dayCells}
         </tr>`;
                 }).join('');
                 return `<div class="room-block">
@@ -1749,13 +1805,12 @@ ${htmlPages}
   <tr>
     <th rowspan="2" class="col-stt">ST<br>T</th>
     <th rowspan="2" class="col-msbt" style="color:#c00;">Mã<br>số<br>BT</th>
-    <th rowspan="2" style="width:24%;">HỌ VÀ TÊN</th>
+    <th rowspan="2" class="col-ten">HỌ VÀ TÊN</th>
     <th rowspan="2" class="col-gt">GT</th>
     <th rowspan="2" class="col-lop">LớP</th>
     <th rowspan="2" class="col-phong">P.<br>NGỦ</th>
     <th rowspan="2" class="col-phong">P.<br>ĂN</th>
-    <th colspan="${numDays}" style="white-space:nowrap;">${weekLabel}</th>
-    <th rowspan="2" class="col-ghichu">Ghi<br>chú</th>
+    ${weekTH1}
   </tr>
   <tr>${dayTH}</tr>
 </thead><tbody>${dataRows}</tbody></table>
@@ -1782,9 +1837,10 @@ ${htmlPages}
 </div>`;
             });
         });
+        const dayColWidth = totalDays > 10 ? '6.8mm' : (totalDays > 5 ? '9mm' : '11mm');
         const css = `
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
+body { font-family:'Times New Roman',Times,serif; font-size:${totalDays > 10 ? '10pt' : '10.5pt'}; color:#000; }
 .mk-c { color:#16a34a; font-weight:bold; }
 .mk-v { color:#dc2626; font-weight:bold; }
 .mk-p { color:#d97706; font-weight:bold; }
@@ -1800,12 +1856,12 @@ body { font-family:'Times New Roman',Times,serif; font-size:11pt; color:#000; }
 .hdr-title h2 { font-size:11pt; font-weight:bold; margin-top:2px; line-height:1.2; text-align:center; }
 .hdr-title .nh { font-size:10pt; margin-top:2px; text-align:center; }
 .hdr-dummy { width:22%; }
-.dt th { border:0.8px solid #333; padding:3px 1px; text-align:center; background:#ececec; font-weight:bold; font-size:9pt; }
-.dt td { border:0.8px solid #555; padding:4px 1px; vertical-align:middle; font-size:11pt; }
-.col-stt{width:4mm;text-align:center}.col-msbt{width:8mm;text-align:center;font-weight:bold}
-.col-gt{width:6mm;text-align:center}.col-lop{width:9mm;text-align:center}
-.col-phong{width:9mm;text-align:center}.col-day{width:9mm;text-align:center;height:22px}
-.col-ghichu{width:10mm}
+.dt th { border:0.8px solid #333; padding:2.5px 1px; text-align:center; background:#ececec; font-weight:bold; font-size:${totalDays > 10 ? '8pt' : '8.5pt'}; line-height:1.15; word-break:keep-all; }
+.dt td { border:0.8px solid #555; padding:3.5px 1px; vertical-align:middle; font-size:${totalDays > 10 ? '9.5pt' : '10.5pt'}; }
+.col-stt{width:5mm;text-align:center}.col-msbt{width:9mm;text-align:center;font-weight:bold}
+.col-ten{width:${totalDays > 10 ? '42mm' : '48mm'};}
+.col-gt{width:6.5mm;text-align:center}.col-lop{width:9.5mm;text-align:center}
+.col-phong{width:9mm;text-align:center}.col-day{width:${dayColWidth};text-align:center;height:22px;white-space:nowrap}
 .ft-wrap{width:100%;margin-top:8px;font-size:9pt;display:flex;justify-content:space-between;page-break-inside:avoid}
 .ft-left{flex:1;line-height:1.5}.ft-right{flex:1;text-align:center}
 .sig-title{font-weight:bold;margin-top:4px}.sig-space{height:44px}.sig-name{font-weight:bold;font-style:italic}
@@ -2777,8 +2833,8 @@ ${htmlPagesStr}
                         <div className="export-modal-header">
                             <div className="icon" style={{ background: 'linear-gradient(135deg,#6c5ce7,#a29bfe)' }}><i className="fas fa-bed"></i></div>
                             <div>
-                                <h3>Xuất PDF/Excel – Điểm danh Ngủ theo tuần</h3>
-                                <p>Chọn tháng, tuần cần xuất và các phòng ngủ</p>
+                                <h3>Xuất PDF/Excel – Điểm danh Ngủ (2 tuần / theo tuần)</h3>
+                                <p>Mặc định chọn 2 tuần liên tiếp (có thể tích chọn/bỏ chọn các tuần cần in)</p>
                             </div>
                         </div>
                         <div className="export-modal-body">
@@ -2800,12 +2856,31 @@ ${htmlPagesStr}
 
                             {/* CHỌN TUẦN */}
                             <div className="export-modal-group">
-                                <div className="export-modal-section-title">
-                                    <i className="fas fa-calendar-week" style={{ color: '#6c5ce7' }}></i> CHỌN TUẦN XUẤT
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                    <div className="export-modal-section-title" style={{ margin: 0 }}>
+                                        <i className="fas fa-calendar-week" style={{ color: '#6c5ce7' }}></i> CHỌN TUẦN IN ({exportWeeksActive.length} tuần)
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button
+                                            style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 4, border: '1px solid #6c5ce7', background: '#f0eeff', color: '#6c5ce7', cursor: 'pointer', fontWeight: 600 }}
+                                            onClick={() => {
+                                                const firstIdx = exportWeeksActive.length > 0 ? Math.min(...exportWeeksActive) : 0;
+                                                const pair = firstIdx + 1 < weekLabelsForModal.length
+                                                    ? [firstIdx, firstIdx + 1]
+                                                    : [Math.max(0, weekLabelsForModal.length - 2), weekLabelsForModal.length - 1];
+                                                setExportWeeksActive([...new Set(pair)]);
+                                            }}>Chọn 2 tuần</button>
+                                        <button
+                                            style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', cursor: 'pointer', fontWeight: 600 }}
+                                            onClick={() => setExportWeeksActive(weekLabelsForModal.map((_, i) => i))}>Chọn tất cả</button>
+                                        <button
+                                            style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 4, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', cursor: 'pointer' }}
+                                            onClick={() => { setExportWeeksActive([]); setExportWeeksT6([]); }}>Bỏ chọn</button>
+                                    </div>
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
                                     {weekLabelsForModal.map((lbl, wIndex) => {
-                                        const sel = exportSelectedWeek === wIndex;
+                                        const sel = exportWeeksActive.includes(wIndex);
                                         return (
                                             <label key={wIndex} style={{
                                                 display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
@@ -2814,9 +2889,15 @@ ${htmlPagesStr}
                                                 border: `1.5px solid ${sel ? '#6c5ce7' : '#e2e8f0'}`,
                                                 fontWeight: sel ? 600 : 400, color: sel ? '#6c5ce7' : '#64748b',
                                             }}>
-                                                <input type="radio" name="exportWeek" checked={sel}
+                                                <input type="checkbox" checked={sel}
                                                     style={{ accentColor: '#6c5ce7' }}
-                                                    onChange={() => { setExportSelectedWeek(wIndex); setExportT6(false); }} />
+                                                    onChange={e => {
+                                                        if (e.target.checked) setExportWeeksActive(prev => [...prev, wIndex].sort((a, b) => a - b));
+                                                        else {
+                                                            setExportWeeksActive(prev => prev.filter(w => w !== wIndex));
+                                                            setExportWeeksT6(prev => prev.filter(w => w !== wIndex));
+                                                        }
+                                                    }} />
                                                 <span style={{ fontSize: '0.82rem' }}>
                                                     <span style={{ fontWeight: 700 }}>{lbl.split(':')[0]}</span>
                                                     <span style={{ fontWeight: 400, fontSize: '0.75rem', marginLeft: 4, color: sel ? '#6c5ce7' : '#94a3b8' }}>{lbl.split(': ')[1]}</span>
@@ -2829,16 +2910,26 @@ ${htmlPagesStr}
 
                             {/* DẠY BÙ T6 */}
                             <div className="export-modal-group">
-                                <label style={{
-                                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none',
-                                    padding: '8px 12px', borderRadius: 7, border: '1.5px solid #e2e8f0', background: '#f8fafc'
-                                }}>
-                                    <input type="checkbox" checked={exportT6} style={{ accentColor: '#10b981' }}
-                                        onChange={e => setExportT6(e.target.checked)} />
-                                    <span style={{ fontWeight: 600, color: '#10b981' }}>
-                                        <i className="fas fa-calendar-plus"></i> Tuần này có dạy bù Thứ Sáu (T6)
-                                    </span>
-                                </label>
+                                <div className="export-modal-section-title">
+                                    <i className="fas fa-calendar-plus" style={{ color: '#10b981' }}></i> DẠY BÙ THỨ SÁU (T6)
+                                </div>
+                                <div className="export-t5-box">
+                                    <div className="export-t5-grid">
+                                        {weekLabelsForModal.map((_, i) => i).filter(i => exportWeeksActive.includes(i)).map(wIndex => (
+                                            <label key={wIndex} className="export-t5-label">
+                                                <input type="checkbox" checked={exportWeeksT6.includes(wIndex)}
+                                                    onChange={e => {
+                                                        if (e.target.checked) setExportWeeksT6(prev => [...prev, wIndex]);
+                                                        else setExportWeeksT6(prev => prev.filter(w => w !== wIndex));
+                                                    }} />
+                                                {weekLabelsForModal[wIndex]?.split(':')[0] || `Tuần ${wIndex + 1}`}
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 10 }}>
+                                        Tích vào tuần nào có lịch dạy bù Thứ Sáu
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Ghi chú chia tờ theo GV điểm danh */}
@@ -2853,7 +2944,8 @@ ${htmlPagesStr}
                                     <div className="export-room-actions">
                                         <button onClick={() => {
                                             const allMons = computeWeekMondayStrs(exportMonth, exportYear);
-                                            const curMon = allMons[exportSelectedWeek] || allMons[0];
+                                            const firstSelected = exportWeeksActive.length > 0 ? Math.min(...exportWeeksActive) : 0;
+                                            const curMon = allMons[firstSelected] || allMons[0];
                                             const withHs = phongList.filter(p => getStudentsForRoom(p.ma_phong, curMon).length > 0).map(p => p.ma_phong);
                                             setExportRooms(withHs.length > 0 ? withHs : phongList.map(p => p.ma_phong));
                                         }}>Chọn phòng có HS</button>
@@ -2864,7 +2956,8 @@ ${htmlPagesStr}
                                 <div className="export-room-grid">
                                     {phongList.map(p => {
                                         const allMons = computeWeekMondayStrs(exportMonth, exportYear);
-                                        const curMon = allMons[exportSelectedWeek] || allMons[0];
+                                        const firstSelected = exportWeeksActive.length > 0 ? Math.min(...exportWeeksActive) : 0;
+                                        const curMon = allMons[firstSelected] || allMons[0];
                                         const count = getStudentsForRoom(p.ma_phong, curMon).length;
                                         const isSelected = exportRooms.includes(p.ma_phong);
                                         const isEmpty = count === 0;
