@@ -53,8 +53,8 @@ export default function GiamSatChot() {
             }
             return { status, remaining, startLabel: '10:55', endLabel: '11:30', name: 'Ca Ăn' };
         } else {
-            const start = 690; // 11h30
-            const end = 725;   // 12h05
+            const start = 680; // 11h20
+            const end = 720;   // 12h00
             let status = 'sap_den';
             let remaining = 0;
             if (mins >= start && mins < end) {
@@ -63,7 +63,7 @@ export default function GiamSatChot() {
             } else if (mins >= end) {
                 status = 'da_qua_gio';
             }
-            return { status, remaining, startLabel: '11:30', endLabel: '12:05', name: 'Ca Ngủ' };
+            return { status, remaining, startLabel: '11:20', endLabel: '12:00', name: 'Ca Ngủ' };
         }
     }, [currentTime, chotLoai]);
 
@@ -306,7 +306,7 @@ export default function GiamSatChot() {
                         }}
                         onClick={() => setChotLoai('1')}
                     >
-                        <i className="fas fa-bed"></i> Trực Ngủ (11:30 – 12:05)
+                        <i className="fas fa-bed"></i> Trực Ngủ (11:20 – 12:00)
                     </button>
                 </div>
             </div>

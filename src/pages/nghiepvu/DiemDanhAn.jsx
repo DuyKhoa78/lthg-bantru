@@ -406,6 +406,23 @@ export default function DiemDanhAn() {
         return sortStudentsForRoom([...base, ...extraFiltered], queryPhong);
     }, [studentsByRoomMap, hsList, extraHsList, phongTamAn, cauhinhNgay, isHsAllowed, date, roomSnapshotDb]);
 
+    // Nhiệm vụ của GV (0: Điểm danh, 1: Hỗ trợ / Giám sát & VSATTP)
+    const currentDuty = useMemo(() => {
+        if (!isGiaoVien || !myAssignments) return 0;
+        if (myAssignments.length > 0 && myAssignments.every(a => Number(a.nhiem_vu) !== 0)) {
+            return 1;
+        }
+        if (isGopMode) {
+            const hasAttendanceDuty = myAssignments.some(a => Number(a.nhiem_vu) === 0);
+            return hasAttendanceDuty ? 0 : 1;
+        }
+        if (!selectedPhong) return 0;
+        const pc = myAssignments.find(a => a.ma_phong_id === selectedPhong.ma_phong || (selectedPhong.base_phong && a.ma_phong_id === selectedPhong.base_phong));
+        return pc ? Number(pc.nhiem_vu) : 0;
+    }, [isGiaoVien, myAssignments, selectedPhong, isGopMode]);
+
+    const isGiamSatOnly = isGiaoVien && currentDuty !== 0;
+
     const visiblePhongList = useMemo(() => {
         let list = phongList;
         if (cauhinhNgay) {
@@ -422,10 +439,11 @@ export default function DiemDanhAn() {
             }
         }
         // Đối với Giáo viên & Học vụ: Khóa chỉ hiển thị phòng được phân công trực
-        // Riêng phòng SANH tách thành SANH_1, SANH_2, SANH_3 ngay trên giao diện GV (Admin giữ nguyên SANH)
+        // Riêng phòng SANH tách thành SANH_1, SANH_2, SANH_3 ngay trên giao diện GV điểm danh (Admin hoặc GV Hỗ trợ giữ nguyên SANH)
         if (isGiaoVien) {
             if (!Array.isArray(assignedRoomCodes)) return [];
             const filtered = list.filter(p => assignedRoomCodes.includes(p.ma_phong));
+            if (isGiamSatOnly) return filtered;
             const expanded = [];
             filtered.forEach(p => {
                 if (p.ma_phong === 'SANH') {
@@ -445,7 +463,7 @@ export default function DiemDanhAn() {
             return expanded;
         }
         return list;
-    }, [phongList, phongTamAn, cauhinhNgay, extraHsList, getStudentsForRoom, isGiaoVien, assignedRoomCodes]);
+    }, [phongList, phongTamAn, cauhinhNgay, extraHsList, getStudentsForRoom, isGiaoVien, assignedRoomCodes, isGiamSatOnly]);
 
     useEffect(() => {
         fetchDiemDanh(date);
@@ -484,17 +502,18 @@ export default function DiemDanhAn() {
 
     // Quyền thao tác:
     // Admin: có toàn quyền thao tác và cập nhật điểm danh bất cứ lúc nào (ngày hiện tại và ngày quá khứ).
-    // Giáo viên & Học vụ: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực VÀ đúng ngày hôm nay VÀ trong khung giờ ca trực.
+    // Giáo viên & Học vụ: CHỈ ĐƯỢC THAO TÁC khi có lịch phân công trực Điểm danh (không phải Hỗ trợ) VÀ đúng ngày hôm nay VÀ trong khung giờ ca trực.
     const canTeacherOperate = useMemo(() => {
         if (date > todayVN()) return false;
         if (isAdmin) return true;
+        if (isGiamSatOnly) return false;
         if (!hasTeacherDuty) return false;
         return isDateToday && shiftTiming.state === 'dang_dien_ra';
-    }, [isAdmin, hasTeacherDuty, isDateToday, shiftTiming.state, date]);
+    }, [isAdmin, isGiamSatOnly, hasTeacherDuty, isDateToday, shiftTiming.state, date]);
 
-    // Toàn bộ học sinh thuộc tất cả các phòng phụ trách (chỉ dành cho GV khi có phân công)
+    // Toàn bộ học sinh thuộc tất cả các phòng phụ trách (chỉ dành cho GV khi có phân công Điểm danh)
     const allAssignedStudents = useMemo(() => {
-        if (!isGiaoVien || myDutyRooms.length === 0) return [];
+        if (!isGiaoVien || isGiamSatOnly || myDutyRooms.length === 0) return [];
         const list = [];
         myDutyRooms.forEach(maPhong => {
             if (maPhong === 'SANH') {
@@ -521,7 +540,7 @@ export default function DiemDanhAn() {
             }
         });
         return sortStudentsForRoom(list, 'ALL');
-    }, [isGiaoVien, myDutyRooms, getStudentsForRoom]);
+    }, [isGiaoVien, isGiamSatOnly, myDutyRooms, getStudentsForRoom]);
 
     // Tự động chọn phòng hoặc chế độ gộp
     useEffect(() => {
@@ -742,8 +761,9 @@ export default function DiemDanhAn() {
 
     const isDaChot = currentPhongStatus?.trang_thai_chot === 'da_chot' || Boolean(currentPhongStatus?.da_diem_danh);
 
-    // Danh sách học sinh trong phòng hoặc chế độ gộp
+    // Danh sách học sinh trong phòng hoặc chế độ gộp (GV Hỗ trợ giám sát không hiện danh sách HS)
     const students = useMemo(() => {
+        if (isGiamSatOnly) return [];
         if (isGopMode) {
             let baseList = allAssignedStudents;
             if (filterSubPhong && filterSubPhong !== 'ALL') {
@@ -785,7 +805,7 @@ export default function DiemDanhAn() {
                     trang_thai: st,
                 };
             });
-    }, [isGopMode, filterSubPhong, allAssignedStudents, selectedPhong, overrides, diemDanhDb, roomChotMap, isDaChot, getStudentsForRoom]);
+    }, [isGiamSatOnly, isGopMode, filterSubPhong, allAssignedStudents, selectedPhong, overrides, diemDanhDb, roomChotMap, isDaChot, getStudentsForRoom]);
 
     const scannedIds = useMemo(() => new Set(students.filter(s => s.trang_thai === 'comat').map(s => s.id)), [students]);
 
@@ -829,21 +849,6 @@ export default function DiemDanhAn() {
             };
         });
     }, [isGopMode, isGiaoVien, myDutyRooms, allAssignedStudents, overrides, diemDanhDb, phongStatuses]);
-
-    // Nhiệm vụ của GV
-    const currentDuty = useMemo(() => {
-        if (!isGiaoVien || !myAssignments) return 0;
-        if (isGopMode) {
-            // Nếu có ít nhất 1 phòng điểm danh thì coi như có quyền điểm danh
-            const hasAttendanceDuty = myAssignments.some(a => a.nhiem_vu === 0);
-            return hasAttendanceDuty ? 0 : 1;
-        }
-        if (!selectedPhong) return 0;
-        const pc = myAssignments.find(a => a.ma_phong_id === selectedPhong.ma_phong || (selectedPhong.base_phong && a.ma_phong_id === selectedPhong.base_phong));
-        return pc ? pc.nhiem_vu : 0;
-    }, [isGiaoVien, myAssignments, selectedPhong, isGopMode]);
-
-    const isGiamSatOnly = isGiaoVien && currentDuty !== 0;
 
     // ── AUTOSAVE (TỰ ĐỘNG LƯU BẢN NHÁP CHO GIÁO VIÊN) ──
     // Mỗi khi giáo viên chọn/đổi trạng thái (bằng tay, quét QR, hoặc chọn tất cả):
@@ -2103,13 +2108,15 @@ ${htmlPagesStr}
                     </div>
                     {hasSchedule && (
                         <>
-                            <div className="dd-room-stats">
-                                <span>Đã điểm: <span className="marked">{roomStats.markedCount}</span></span>
-                                <span>Chưa điểm: <span className="unmarked">{roomStats.unmarkedCount}</span></span>
-                            </div>
+                            {!isGiamSatOnly && (
+                                <div className="dd-room-stats">
+                                    <span>Đã điểm: <span className="marked">{roomStats.markedCount}</span></span>
+                                    <span>Chưa điểm: <span className="unmarked">{roomStats.unmarkedCount}</span></span>
+                                </div>
+                            )}
                             <ul className="dd-room-list">
                                 {/* Mục Tất cả phòng phụ trách chỉ hiển thị cho Giáo viên khi được phân công từ 2 phòng trở lên */}
-                                {isGiaoVien && myDutyRooms && myDutyRooms.length >= 2 && (
+                                {isGiaoVien && !isGiamSatOnly && myDutyRooms && myDutyRooms.length >= 2 && (
                                     <li
                                         className={`dd-group-room-card ${isGopMode ? 'active' : ''}`}
                                         onClick={handleSelectGop}
@@ -2152,16 +2159,18 @@ ${htmlPagesStr}
                                             onClick={() => handleSelectRoom(p)}
                                         >
                                             <div
-                                                className={`dd-room-status-icon ${isGvChot ? 'marked' : isPartialChot ? 'partial-chot' : isAutoChot ? 'auto-chot' : 'unmarked'}`}
-                                                title={isGvChot
-                                                    ? `Đã chốt đủ bởi GV${pStatus?.ten_nguoi_chot ? `: ${pStatus.ten_nguoi_chot}` : ''}`
-                                                    : isPartialChot
-                                                        ? `Đã chốt ${pStatus?.sanh_chot_count || 1}/${pStatus?.sanh_total_sub || 3} danh sách (${pStatus?.ten_nguoi_chot || 'GV'}) — Còn thiếu ${(pStatus?.sanh_total_sub || 3) - (pStatus?.sanh_chot_count || 1)} người chưa chốt`
-                                                        : isAutoChot
-                                                            ? 'Hệ thống tự động chốt (Chưa ai chốt)'
-                                                            : 'Chưa điểm danh / Chưa chốt'}
+                                                className={`dd-room-status-icon ${isGiamSatOnly ? 'marked' : isGvChot ? 'marked' : isPartialChot ? 'partial-chot' : isAutoChot ? 'auto-chot' : 'unmarked'}`}
+                                                title={isGiamSatOnly
+                                                    ? 'Phòng phân công Hỗ trợ / Giám sát'
+                                                    : isGvChot
+                                                        ? `Đã chốt đủ bởi GV${pStatus?.ten_nguoi_chot ? `: ${pStatus.ten_nguoi_chot}` : ''}`
+                                                        : isPartialChot
+                                                            ? `Đã chốt ${pStatus?.sanh_chot_count || 1}/${pStatus?.sanh_total_sub || 3} danh sách (${pStatus?.ten_nguoi_chot || 'GV'}) — Còn thiếu ${(pStatus?.sanh_total_sub || 3) - (pStatus?.sanh_chot_count || 1)} người chưa chốt`
+                                                            : isAutoChot
+                                                                ? 'Hệ thống tự động chốt (Chưa ai chốt)'
+                                                                : 'Chưa điểm danh / Chưa chốt'}
                                             >
-                                                <i className={isGvChot ? 'fas fa-check' : 'fas fa-exclamation'}></i>
+                                                <i className={isGiamSatOnly ? 'fas fa-eye' : isGvChot ? 'fas fa-check' : 'fas fa-exclamation'}></i>
                                             </div>
                                             <div className="dd-room-item-name">
                                                 <i className="fas fa-door-open"></i>
@@ -2170,7 +2179,7 @@ ${htmlPagesStr}
                                                     <span style={{ marginLeft: 4, fontSize: '0.65rem', background: '#0ea5e9', color: '#fff', borderRadius: 3, padding: '1px 4px', fontWeight: 700 }}>TẠM</span>
                                                 )}
                                             </div>
-                                            <span className="dd-room-count">{count} HS</span>
+                                            <span className="dd-room-count">{isGiamSatOnly ? 'Hỗ trợ' : `${count} HS`}</span>
                                         </li>
                                     );
                                 })}
@@ -2223,7 +2232,12 @@ ${htmlPagesStr}
                                 <div className="dd-main-header-info">
                                     <div className="dd-main-header-title-row">
                                         <h3>
-                                            {isGopMode ? (
+                                            {isGiamSatOnly ? (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                                    <i className="fas fa-eye" style={{ color: '#8b5cf6' }}></i>
+                                                    Hỗ trợ / Giám sát Ca Ăn ({myDutyRooms.join(' • ') || selectedPhong?.ma_phong || ''})
+                                                </span>
+                                            ) : isGopMode ? (
                                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                                                     <i className="fas fa-layer-group" style={{ color: '#0284c7' }}></i>
                                                     Điểm danh gộp ({myDutyRooms.join(' • ')})
@@ -2233,7 +2247,7 @@ ${htmlPagesStr}
                                             ) : 'Chọn phòng để xem'}
                                         </h3>
                                         {/* Nếu là chế độ gộp, hiện huy hiệu tổng kết chốt */}
-                                        {isGopMode && (() => {
+                                        {!isGiamSatOnly && isGopMode && (() => {
                                             const totalR = myDutyRooms.length;
                                             const chotR = multiRoomSummary.filter(r => r.isChot).length;
                                             const allChot = chotR === totalR && totalR > 0;
@@ -2244,7 +2258,7 @@ ${htmlPagesStr}
                                                 </span>
                                             );
                                         })()}
-                                        {!isGopMode && selectedPhong && (isDaChot || currentPhongStatus?.is_partial_chot) && (() => {
+                                        {!isGiamSatOnly && !isGopMode && selectedPhong && (isDaChot || currentPhongStatus?.is_partial_chot) && (() => {
                                             const timeStr = currentPhongStatus?.thoi_gian
                                                 ? new Date(currentPhongStatus.thoi_gian).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                                                 : '';
@@ -2289,11 +2303,13 @@ ${htmlPagesStr}
                                         })()}
                                     </div>
                                     <p>
-                                        {isGopMode 
-                                            ? `Chế độ gộp ${myDutyRooms.length} phòng — Ngày: ${fmtDate(date)} — Tổng cộng: ${students.length} học sinh` 
-                                            : selectedPhong 
-                                                ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh${selectedPhong.ds_classes ? ` (Các lớp: ${selectedPhong.ds_classes})` : ''}` 
-                                                : 'Nhấn vào phòng bên trái để bắt đầu điểm danh'}
+                                        {isGiamSatOnly
+                                            ? `Ngày: ${fmtDate(date)} — Nhiệm vụ: Hỗ trợ / Giám sát phòng ăn (${myDutyRooms.join(', ')})`
+                                            : isGopMode 
+                                                ? `Chế độ gộp ${myDutyRooms.length} phòng — Ngày: ${fmtDate(date)} — Tổng cộng: ${students.length} học sinh` 
+                                                : selectedPhong 
+                                                    ? `Ngày: ${fmtDate(date)} — ${students.length} học sinh${selectedPhong.ds_classes ? ` (Các lớp: ${selectedPhong.ds_classes})` : ''}` 
+                                                    : 'Nhấn vào phòng bên trái để bắt đầu điểm danh'}
                                     </p>
                                 </div>
                                 {!isGiaoVien && (selectedPhong || isGopMode) && (
@@ -2322,7 +2338,7 @@ ${htmlPagesStr}
                             </div>
 
                             {/* ── THANH CHỌN DANH SÁCH SANH_1 / SANH_2 / SANH_3 DÀNH CHO GIÁO VIÊN TRỰC SẢNH ── */}
-                            {isGiaoVien && !isGopMode && (selectedPhong?.base_phong === 'SANH' || String(selectedPhong?.ma_phong || '').startsWith('SANH_')) && (
+                            {isGiaoVien && !isGiamSatOnly && !isGopMode && (selectedPhong?.base_phong === 'SANH' || String(selectedPhong?.ma_phong || '').startsWith('SANH_')) && (
                                 <div className="dd-subroom-filter-bar" style={{ background: '#f0f9ff', borderColor: '#bae6fd', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                     <span className="filter-label" style={{ color: '#0369a1', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                         <i className="fas fa-list-ol" style={{ color: '#0284c7' }}></i> Chọn DS Sảnh:
@@ -2391,7 +2407,7 @@ ${htmlPagesStr}
                             )}
 
                             {/* ── BỘ LỌC NHANH THEO PHÒNG TRONG CHẾ ĐỘ GỘP ── */}
-                            {isGopMode && myDutyRooms.length > 1 && (
+                            {!isGiamSatOnly && isGopMode && myDutyRooms.length > 1 && (
                                 <div className="dd-subroom-filter-bar">
                                     <span className="filter-label"><i className="fas fa-filter" style={{ color: '#0284c7' }}></i> Lọc phòng:</span>
                                     <button
@@ -2440,7 +2456,7 @@ ${htmlPagesStr}
                             )}
 
                             {/* ── THÔNG BÁO CA TRỰC & BẢO TOÀN DỮ LIỆU DÀNH CHO GIÁO VIÊN ── */}
-                            {(selectedPhong || isGopMode) && isGiaoVien && (
+                            {(selectedPhong || isGopMode) && isGiaoVien && !isGiamSatOnly && (
                                 <>
                                     {!hasTeacherDuty ? (
                                         <div className="dd-shift-notice-banner pending">
@@ -2494,13 +2510,6 @@ ${htmlPagesStr}
                                             <span>{draftRestoredMsg}</span>
                                         </div>
                                     )}
-
-                                    {isGiamSatOnly && (
-                                        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', color: '#92400e', padding: '10px 16px', borderRadius: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <i className="fas fa-exclamation-triangle" style={{ fontSize: '1.2rem' }}></i>
-                                            <span>Thầy/Cô được phân công <strong>Giám sát ca ăn</strong>. Theo quy định, chỉ GV được phân công <strong>Điểm danh</strong> mới thực hiện điểm danh ca ăn.</span>
-                                        </div>
-                                    )}
                                 </>
                             )}
 
@@ -2508,141 +2517,120 @@ ${htmlPagesStr}
                             {/* Chỉ hiển thị khi có phòng chọn/gộp, là GV VÀ CÓ LỊCH TRỰC (nếu không có lịch trực thì ẩn hoàn toàn) */}
                             {(selectedPhong || isGopMode) && isGiaoVien && hasTeacherDuty && (
                                 <div className="dd-teacher-actions-bar">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                                        <button
-                                            type="button"
-                                            className="dd-qr-scan-btn"
-                                            onClick={() => setShowQRModal(true)}
-                                            disabled={!canTeacherOperate}
-                                            style={{
-                                                background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
-                                                color: '#fff',
-                                                fontWeight: 700,
-                                                borderRadius: 8,
-                                                padding: '6px 14px',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: 6,
-                                                border: 'none',
-                                                cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
-                                                boxShadow: !canTeacherOperate ? 'none' : '0 2px 8px rgba(2,132,199,0.3)',
-                                                opacity: !canTeacherOperate ? 0.6 : 1,
-                                                height: 34
-                                            }}
-                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : 'Mở máy quét mã QR học sinh'}
-                                        >
-                                            <i className="fas fa-qrcode"></i>
-                                            <span>{isGopMode ? 'Quét QR gộp' : isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR'}</span>
-                                        </button>
-
-                                        {!isGiaoVien && (
+                                    {!isGiamSatOnly && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                             <button
                                                 type="button"
-                                                className="btn btn-outline"
-                                                onClick={() => setAll('comat')}
+                                                className="dd-qr-scan-btn"
+                                                onClick={() => setShowQRModal(true)}
                                                 disabled={!canTeacherOperate}
                                                 style={{
+                                                    background: !canTeacherOperate ? '#94a3b8' : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                                                    color: '#fff',
                                                     fontWeight: 700,
-                                                    padding: '6px 12px',
                                                     borderRadius: 8,
+                                                    padding: '6px 14px',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
                                                     gap: 6,
-                                                    borderColor: '#86efac',
-                                                    color: '#166534',
-                                                    background: '#f0fdf4',
+                                                    border: 'none',
                                                     cursor: !canTeacherOperate ? 'not-allowed' : 'pointer',
+                                                    boxShadow: !canTeacherOperate ? 'none' : '0 2px 8px rgba(2,132,199,0.3)',
                                                     opacity: !canTeacherOperate ? 0.6 : 1,
                                                     height: 34
                                                 }}
-                                                title={isGopMode ? 'Đánh dấu tất cả học sinh đang hiển thị có mặt' : 'Đánh dấu tất cả học sinh trong phòng có mặt'}
+                                                title={!canTeacherOperate ? 'Chế độ chỉ đọc' : 'Mở máy quét mã QR học sinh'}
                                             >
-                                                <i className="fas fa-check-double"></i>
-                                                <span>Tất cả có mặt</span>
+                                                <i className="fas fa-qrcode"></i>
+                                                <span>{isGopMode ? 'Quét QR gộp' : isDaChot ? 'Quét bổ sung HS' : 'Quét mã QR'}</span>
                                             </button>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexShrink: 0, flexWrap: 'nowrap' }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{
-                                                fontWeight: 600,
-                                                padding: '5px 10px',
-                                                borderRadius: 8,
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: 5,
-                                                borderColor: '#60a5fa',
-                                                color: '#1d4ed8',
-                                                background: '#eff6ff',
-                                                cursor: (!canTeacherOperate || saving) ? 'not-allowed' : 'pointer',
-                                                opacity: (!canTeacherOperate && !saving) ? 0.6 : 1,
-                                                height: 32,
-                                                fontSize: '0.82rem',
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                            onClick={handleSave}
-                                            disabled={saving || !canTeacherOperate}
-                                            title={!canTeacherOperate ? 'Chế độ chỉ đọc' : (activeSingleRoom ? `Lưu tạm điểm danh phòng ${activeSingleRoom} (chỉ lưu HS đã tích, chưa chọn để trống)` : `Lưu tạm cả ${myDutyRooms.length} phòng phụ trách`)}
-                                        >
-                                            {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
-                                            <span>
-                                                {saved 
-                                                    ? 'Đã lưu tạm!' 
-                                                    : saving 
-                                                        ? 'Đang lưu...' 
-                                                        : (activeSingleRoom ? `Lưu tạm ${activeSingleRoom}` : (myDutyRooms.length > 0 ? `Lưu tạm (${myDutyRooms.length}P)` : 'Lưu tạm'))}
-                                            </span>
-                                        </button>
-
-                                        {(() => {
-                                            const pStat = activeSingleRoom ? phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom) : null;
-                                            const isSingleChot = pStat ? (pStat.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh)) : isDaChot;
-                                            const isAllChot = multiRoomSummary.length > 0 && multiRoomSummary.every(r => r.isChot);
-                                            const isButtonChotDone = activeSingleRoom ? isSingleChot : isAllChot;
-
-                                            return (
+                                        {!isGiamSatOnly && (
+                                            <>
                                                 <button
                                                     type="button"
-                                                    className="btn btn-success"
-                                                    onClick={() => activeSingleRoom ? setShowChotConfirmModal(true) : setShowMultiChotModal(true)}
-                                                    disabled={chotting || saving || !canTeacherOperate}
+                                                    className="btn btn-outline"
                                                     style={{
-                                                        fontWeight: 700,
-                                                        padding: '5px 12px',
+                                                        fontWeight: 600,
+                                                        padding: '5px 10px',
                                                         borderRadius: 8,
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         gap: 5,
-                                                        background: isButtonChotDone ? '#059669' : '#16a34a',
-                                                        borderColor: isButtonChotDone ? '#059669' : '#16a34a',
-                                                        color: '#fff',
-                                                        boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
-                                                        cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
-                                                        opacity: (!canTeacherOperate && !isButtonChotDone) ? 0.6 : 1,
+                                                        borderColor: '#60a5fa',
+                                                        color: '#1d4ed8',
+                                                        background: '#eff6ff',
+                                                        cursor: (!canTeacherOperate || saving) ? 'not-allowed' : 'pointer',
+                                                        opacity: (!canTeacherOperate && !saving) ? 0.6 : 1,
                                                         height: 32,
                                                         fontSize: '0.82rem',
                                                         whiteSpace: 'nowrap'
                                                     }}
-                                                    title={activeSingleRoom ? `Chốt danh sách phòng ${activeSingleRoom} gửi lên Tổng` : `Chốt sổ đồng thời cả ${myDutyRooms.length} phòng phụ trách gửi lên Tổng`}
+                                                    onClick={handleSave}
+                                                    disabled={saving || !canTeacherOperate}
+                                                    title={!canTeacherOperate ? 'Chế độ chỉ đọc' : (activeSingleRoom ? `Lưu tạm điểm danh phòng ${activeSingleRoom} (chỉ lưu HS đã tích, chưa chọn để trống)` : `Lưu tạm cả ${myDutyRooms.length} phòng phụ trách`)}
                                                 >
-                                                    {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                                    {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas ${saved ? 'fa-check' : 'fa-save'}`}></i>}
                                                     <span>
-                                                        {activeSingleRoom
-                                                            ? (isSingleChot ? `Cập nhật ${activeSingleRoom}` : `Chốt ${activeSingleRoom}`)
-                                                            : (isAllChot ? `Cập nhật (${myDutyRooms.length}P)` : `Chốt (${myDutyRooms.length} phòng)`)}
+                                                        {saved 
+                                                            ? 'Đã lưu tạm!' 
+                                                            : saving 
+                                                                ? 'Đang lưu...' 
+                                                                : (activeSingleRoom ? `Lưu tạm ${activeSingleRoom}` : (myDutyRooms.length > 0 ? `Lưu tạm (${myDutyRooms.length}P)` : 'Lưu tạm'))}
                                                     </span>
                                                 </button>
-                                            );
-                                        })()}
+
+                                                {(() => {
+                                                    const pStat = activeSingleRoom ? phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom) : null;
+                                                    const isSingleChot = pStat ? (pStat.trang_thai_chot === 'da_chot' || Boolean(pStat?.da_diem_danh)) : isDaChot;
+                                                    const isAllChot = multiRoomSummary.length > 0 && multiRoomSummary.every(r => r.isChot);
+                                                    const isButtonChotDone = activeSingleRoom ? isSingleChot : isAllChot;
+
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-success"
+                                                            onClick={() => activeSingleRoom ? setShowChotConfirmModal(true) : setShowMultiChotModal(true)}
+                                                            disabled={chotting || saving || !canTeacherOperate}
+                                                            style={{
+                                                                fontWeight: 700,
+                                                                padding: '5px 12px',
+                                                                borderRadius: 8,
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 5,
+                                                                background: isButtonChotDone ? '#059669' : '#16a34a',
+                                                                borderColor: isButtonChotDone ? '#059669' : '#16a34a',
+                                                                color: '#fff',
+                                                                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
+                                                                cursor: (!canTeacherOperate || chotting || saving) ? 'not-allowed' : 'pointer',
+                                                                opacity: (!canTeacherOperate && !isButtonChotDone) ? 0.6 : 1,
+                                                                height: 32,
+                                                                fontSize: '0.82rem',
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                            title={activeSingleRoom ? `Chốt danh sách phòng ${activeSingleRoom} gửi lên Tổng` : `Chốt sổ đồng thời cả ${myDutyRooms.length} phòng phụ trách gửi lên Tổng`}
+                                                        >
+                                                            {chotting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clipboard-check"></i>}
+                                                            <span>
+                                                                {activeSingleRoom
+                                                                    ? (isSingleChot ? `Cập nhật ${activeSingleRoom}` : `Chốt ${activeSingleRoom}`)
+                                                                    : (isAllChot ? `Cập nhật (${myDutyRooms.length}P)` : `Chốt (${myDutyRooms.length} phòng)`)}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })()}
+                                            </>
+                                        )}
 
                                         {(() => {
                                             const isChotDone = activeSingleRoom
                                                 ? Boolean(phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom)?.trang_thai_chot === 'da_chot' || phongStatuses.find(ps => ps.ma_phong_id === activeSingleRoom)?.da_diem_danh)
                                                 : (isGopMode ? (multiRoomSummary.length > 0 && multiRoomSummary.every(r => r.isChot)) : isDaChot);
-                                            const canReport = !isGiaoVien || isChotDone;
+                                            const canReport = !isGiaoVien || isGiamSatOnly || isChotDone;
 
                                             // 1. Kiểm tra đã hết giờ báo cáo ca trực chưa (Ca ăn: 11h45 = 705 phút)
                                             const checkIsHetGio = () => {
@@ -2657,8 +2645,8 @@ ${htmlPagesStr}
                                             const isHetGio = checkIsHetGio();
 
                                             // 2. Kiểm tra đã có báo cáo ca trực cho phòng/cụm phòng này chưa
-                                            const targetReportPhong = isGopMode ? myDutyRooms.join(', ') : (activeSingleRoom || selectedPhong?.ma_phong || '');
-                                            const targetRoomCodes = isGopMode
+                                            const targetReportPhong = (isGopMode || isGiamSatOnly) ? myDutyRooms.join(', ') : (activeSingleRoom || selectedPhong?.ma_phong || '');
+                                            const targetRoomCodes = (isGopMode || isGiamSatOnly)
                                                 ? myDutyRooms.map(s => String(s).toUpperCase().trim())
                                                 : [String(activeSingleRoom || selectedPhong?.ma_phong || '').toUpperCase().trim()].filter(Boolean);
 
@@ -2674,7 +2662,7 @@ ${htmlPagesStr}
                                                         const parts = bcPhong.split(',').map(s => s.trim());
                                                         const matchPhong = bcPhong === code || parts.includes(code) || (isSanhCode && (bcPhong === 'SANH' || parts.includes('SANH')));
                                                         if (!matchPhong) return false;
-                                                        if (isGiaoVien && isSanhCode && myName) {
+                                                        if (isGiaoVien && (isSanhCode || isGiamSatOnly) && myName) {
                                                             return String(bc.ho_ten_gv || '').trim() === myName;
                                                         }
                                                         return true;
@@ -2684,17 +2672,19 @@ ${htmlPagesStr}
 
                                             const isDaBaoCao = Boolean(
                                                 baoCaoRecords && baoCaoRecords.length > 0 && targetRoomCodes.length > 0 && (
-                                                    targetRoomCodes.length <= 1
-                                                        ? isRoomReported(targetRoomCodes[0])
-                                                        : (
-                                                            // Chế độ gộp: Hoặc có 1 báo cáo chung chứa đủ các phòng, HOẶC từng phòng trong cụm đều đã được gửi báo cáo
-                                                            baoCaoRecords.some(bc => {
-                                                                const bcPhong = String(bc.ma_phong || '').toUpperCase().trim();
-                                                                if (targetReportPhong && bcPhong === targetReportPhong.toUpperCase().trim()) return true;
-                                                                return targetRoomCodes.every(c => bcPhong.includes(c));
-                                                            }) ||
-                                                            targetRoomCodes.every(roomCode => isRoomReported(roomCode))
-                                                        )
+                                                    isGiamSatOnly
+                                                        ? baoCaoRecords.some(bc => String(bc.ho_ten_gv || '').trim() === String(user?.fullname || user?.username || '').trim())
+                                                        : targetRoomCodes.length <= 1
+                                                            ? isRoomReported(targetRoomCodes[0])
+                                                            : (
+                                                                // Chế độ gộp: Hoặc có 1 báo cáo chung chứa đủ các phòng, HOẶC từng phòng trong cụm đều đã được gửi báo cáo
+                                                                baoCaoRecords.some(bc => {
+                                                                    const bcPhong = String(bc.ma_phong || '').toUpperCase().trim();
+                                                                    if (targetReportPhong && bcPhong === targetReportPhong.toUpperCase().trim()) return true;
+                                                                    return targetRoomCodes.every(c => bcPhong.includes(c));
+                                                                }) ||
+                                                                targetRoomCodes.every(roomCode => isRoomReported(roomCode))
+                                                            )
                                                 )
                                             );
 
@@ -2873,8 +2863,8 @@ ${htmlPagesStr}
                                 </div>
                             )}
 
-                            {/* ── THANH TÌM KIẾM HỌC SINH (CHỈ ÁP DỤNG CHO GIÁO VIÊN - ĐẶT NGAY PHÍA TRÊN DANH SÁCH HS) ── */}
-                            {isGiaoVien && (selectedPhong || isGopMode) && (
+                            {/* ── THANH TÌM KIẾM HỌC SINH (CHỈ ÁP DỤNG CHO GIÁO VIÊN ĐIỂM DANH - ĐẶT NGAY PHÍA TRÊN DANH SÁCH HS) ── */}
+                            {isGiaoVien && !isGiamSatOnly && (selectedPhong || isGopMode) && (
                                 <div className="dd-search-box-wrap" style={{ padding: '0 10px', boxSizing: 'border-box' }}>
                                     <div className="dd-search-box" style={{ maxWidth: '100%', width: '100%', boxSizing: 'border-box' }}>
                                         <i className="fas fa-search dd-search-icon"></i>
@@ -2905,7 +2895,73 @@ ${htmlPagesStr}
                             )}
 
                             <div id="dd-student-area">
-                                {!selectedPhong && !isGopMode ? (
+                                {isGiaoVien && isGiamSatOnly ? (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        padding: '60px 24px',
+                                        background: '#fff',
+                                        borderRadius: 12,
+                                        border: '1px solid #e2e8f0',
+                                        margin: '8px 10px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <div style={{
+                                            width: 68, height: 68, borderRadius: '50%',
+                                            background: '#f5f3ff', color: '#7c3aed',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '2rem', marginBottom: 16
+                                        }}>
+                                            <i className="fas fa-file-signature"></i>
+                                        </div>
+                                        <h3 style={{ color: '#1e293b', fontSize: '1.25rem', fontWeight: 700, marginBottom: 8 }}>
+                                            Nhiệm vụ Hỗ trợ / Giám sát & VSATTP ({myDutyRooms.join(', ')})
+                                        </h3>
+                                        <p style={{ color: '#64748b', fontSize: '0.95rem', maxWidth: 500, lineHeight: 1.6, marginBottom: 24 }}>
+                                            Thầy/Cô được phân công <b>Hỗ trợ / Giám sát trực ăn</b> tại <b>{myDutyRooms.join(', ')}</b> trong ngày <b>{fmtDate(date)}</b>. Thầy/Cô chỉ cần thực hiện gửi <b>Báo cáo Vệ sinh ATTP & Giám sát</b>.
+                                        </p>
+                                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            <button
+                                                type="button"
+                                                className="btn"
+                                                onClick={() => setShowBaoCaoModal(true)}
+                                                style={{
+                                                    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                                                    color: '#fff',
+                                                    fontWeight: 700,
+                                                    padding: '10px 22px',
+                                                    borderRadius: 8,
+                                                    border: 'none',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 8,
+                                                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <i className="fas fa-file-signature"></i>
+                                                Báo cáo Giám sát & VSATTP ({myDutyRooms.join(', ')})
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline"
+                                                onClick={() => navigate(`/diemdanh-ngu?ngay=${date}`)}
+                                                style={{
+                                                    fontWeight: 600,
+                                                    padding: '10px 18px',
+                                                    borderRadius: 8,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 8
+                                                }}
+                                            >
+                                                <i className="fas fa-bed"></i> Sang Điểm danh Ca Ngủ
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : !selectedPhong && !isGopMode ? (
                                     <div className="dd-empty">
                                         <i className="fas fa-hand-pointer"></i>
                                         <h3>Chọn một phòng ăn</h3>
@@ -3348,8 +3404,9 @@ ${htmlPagesStr}
                 onClose={() => setShowBaoCaoModal(false)}
                 onSuccess={() => fetchDiemDanh(date, true)}
                 initialNgay={date}
-                initialCaTruc={0}
-                initialMaPhong={isGopMode ? myDutyRooms.join(', ') : (selectedPhong?.ma_phong || '')}
+                initialCaTruc={isGiamSatOnly ? 2 : 0}
+                initialMaPhong={(isGopMode || isGiamSatOnly) ? myDutyRooms.join(', ') : (selectedPhong?.ma_phong || '')}
+                isGiamSat={isGiamSatOnly}
                 roomList={phongList}
             />
         </div>

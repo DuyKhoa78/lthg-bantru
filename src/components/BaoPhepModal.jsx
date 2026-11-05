@@ -199,11 +199,11 @@ export default function BaoPhepModal({
         }
     }, [open, activeTab, weekMonday, fetchWeekPhepList]);
 
-    // Danh sách 5 ngày trong tuần (T2 - T6) kèm thống kê số lượng
+    // Danh sách 4 ngày bán trú trong tuần (T2 - T5) kèm thống kê số lượng
     const weekDays = useMemo(() => {
-        const DOW_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6'];
+        const DOW_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5'];
         const mon = new Date(weekMonday + 'T00:00:00');
-        return [0, 1, 2, 3, 4].map(i => {
+        return [0, 1, 2, 3].map(i => {
             const d = new Date(mon);
             d.setDate(mon.getDate() + i);
             const iso = toISO(d);
@@ -321,12 +321,17 @@ export default function BaoPhepModal({
         if (!window.confirm(`Bạn có chắc muốn hủy vắng phép cho học sinh ${item.hoc_sinh?.ho_ten || item.ma_hs_id} ngày ${fmtDate(item.ngay)}?`)) {
             return;
         }
+        const caToCancel = (item.diem_danh_an === 2 && item.diem_danh_ngu === 2)
+            ? 'ca_ngay'
+            : item.diem_danh_an === 2
+            ? 'an'
+            : 'ngu';
         setCancellingId(item.id);
         try {
             const res = await api.post('/api/diemdanh/huy-phep/', {
                 ma_hs_id: item.ma_hs_id,
                 ngay: item.ngay,
-                ca: 'ca_ngay',
+                ca: caToCancel,
             });
             if (res.data?.ok) {
                 showAlert('Đã hủy vắng phép thành công!', 'success');
@@ -795,7 +800,7 @@ export default function BaoPhepModal({
                                 {/* BỘ THỐNG KÊ TUẦN (Bấm từng ngày để lọc danh sách) */}
                                 <div style={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(6, 1fr)',
+                                    gridTemplateColumns: 'repeat(5, 1fr)',
                                     gap: 8,
                                     marginBottom: 16
                                 }}>
@@ -825,7 +830,7 @@ export default function BaoPhepModal({
                                         </div>
                                     </div>
 
-                                    {/* 5 ngày T2 - T6 */}
+                                    {/* 4 ngày T2 - T5 */}
                                     {weekDays.map(wd => {
                                         const isSelected = dayFilter === wd.iso;
                                         const hasCount = wd.count > 0;

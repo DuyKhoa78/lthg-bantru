@@ -129,11 +129,11 @@ export default function DiemDanhNgu() {
         return () => clearInterval(timer);
     }, []);
 
-    // Khung giờ trực ca ngủ: 11h30 (690) -> 12h05 (725)
+    // Khung giờ trực ca ngủ: 11h20 (680) -> 12h00 (720)
     const shiftTiming = useMemo(() => {
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
-        const start = 690;
-        const end = 725;
+        const start = 680;
+        const end = 720;
         let state;
         let remainingMins = 0;
         if (mins < start) {
@@ -144,7 +144,7 @@ export default function DiemDanhNgu() {
         } else {
             state = 'da_qua_gio';
         }
-        return { state, remainingMins, startLabel: '11:30', endLabel: '12:05' };
+        return { state, remainingMins, startLabel: '11:20', endLabel: '12:00' };
     }, [currentTime]);
 
     const isDateToday = useMemo(() => {
@@ -543,7 +543,7 @@ export default function DiemDanhNgu() {
         if (isAdmin) return true;
         const mins = currentTime.getHours() * 60 + currentTime.getMinutes();
         if (user?.role === 'giao_vien' || user?.role === 'hoc_vu') {
-            return isDateToday && mins >= 690 && mins < 725; // 11:30 - 12:05
+            return isDateToday && mins >= 680 && mins < 720; // 11:20 - 12:00
         }
         return true;
     }, [isAdmin, user, currentTime, isDateToday]);
@@ -1139,8 +1139,8 @@ export default function DiemDanhNgu() {
                 if (!canTeacherOperate) {
                     if (isGiaoVien) {
                         if (!hasTeacherDuty) showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
-                        else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h30 đến 12h05 ngày ${fmtDate(date)}.`, 'warning');
-                        else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h30.`, 'warning');
+                        else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h20 đến 12h00 ngày ${fmtDate(date)}.`, 'warning');
+                        else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h20.`, 'warning');
                         else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
                     }
                     return;
@@ -1191,8 +1191,8 @@ export default function DiemDanhNgu() {
             }
             if (isGiaoVien) {
                 if (!hasTeacherDuty) showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
-                else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h30 đến 12h05 ngày ${fmtDate(date)}.`, 'warning');
-                else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h30.`, 'warning');
+                else if (!isDateToday) showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h20 đến 12h00 ngày ${fmtDate(date)}.`, 'warning');
+                else if (shiftTiming.state === 'sap_den') showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h20.`, 'warning');
                 else if (shiftTiming.state === 'da_qua_gio') showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
             }
             return;
@@ -1240,14 +1240,14 @@ export default function DiemDanhNgu() {
             }
             if (isGiaoVien) {
                 if (!hasTeacherDuty) return showAlert(`Thầy/Cô không có lịch phân công trực trong ngày ${fmtDate(date)}.`, 'warning');
-                if (!isDateToday) return showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h30 đến 12h05 ngày ${fmtDate(date)}.`, 'warning');
-                if (shiftTiming.state === 'sap_den') return showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h30.`, 'warning');
+                if (!isDateToday) return showAlert(`Theo quy định, hệ thống chỉ mở điểm danh vào đúng khung giờ ngủ từ 11h20 đến 12h00 ngày ${fmtDate(date)}.`, 'warning');
+                if (shiftTiming.state === 'sap_den') return showAlert(`Chưa đến giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống sẽ mở lúc 11h20.`, 'warning');
                 if (shiftTiming.state === 'da_qua_gio') return showAlert(`Đã hết khung giờ điểm danh ca ngủ (${shiftTiming.startLabel} – ${shiftTiming.endLabel}). Hệ thống đã tự động khóa sổ.`, 'warning');
             }
             return;
         }
         if (!isAllowedTime()) {
-            return showAlert('Ngoài khung giờ điểm danh quy định (11h30 – 12h05)!', 'warning');
+            return showAlert('Ngoài khung giờ điểm danh quy định (11h20 – 12h00)!', 'warning');
         }
 
         // TÁCH BẠCH RÕ RÀNG:
@@ -2311,21 +2311,21 @@ ${htmlPagesStr}
                                         <div className="dd-shift-notice-banner danger">
                                             <i className="fas fa-lock"></i>
                                             <div>
-                                                <strong>Khóa điểm danh ca trực {fmtDate(date)}:</strong> Theo quy định, hệ thống chỉ mở vào đúng khung giờ ngủ từ <b>11h30 đến 12h05</b> ngày <b>{fmtDate(date)}</b>.
+                                                <strong>Khóa điểm danh ca trực {fmtDate(date)}:</strong> Theo quy định, hệ thống chỉ mở vào đúng khung giờ ngủ từ <b>11h20 đến 12h00</b> ngày <b>{fmtDate(date)}</b>.
                                             </div>
                                         </div>
                                     ) : shiftTiming.state === 'sap_den' ? (
                                         <div className="dd-shift-notice-banner pending">
                                             <i className="fas fa-hourglass-half"></i>
                                             <div>
-                                                <strong>Chưa đến giờ điểm danh ca ngủ (11h30 – 12h05):</strong> Hệ thống mở quét QR lúc 11h30. Hiện tại: <b><LiveClock /></b>.
+                                                <strong>Chưa đến giờ điểm danh ca ngủ (11h20 – 12h00):</strong> Hệ thống mở quét QR lúc 11h20. Hiện tại: <b><LiveClock /></b>.
                                             </div>
                                         </div>
                                     ) : (shiftTiming.state === 'da_qua_gio' && !isAdmin) ? (
                                         <div className="dd-shift-notice-banner danger">
                                             <i className="fas fa-lock"></i>
                                             <div>
-                                                <strong>Đã hết khung giờ điểm danh ca ngủ (11h30 – 12h05):</strong> Hệ thống đã tự động khóa chỉnh sửa đối với giáo viên trực.
+                                                <strong>Đã hết khung giờ điểm danh ca ngủ (11h20 – 12h00):</strong> Hệ thống đã tự động khóa chỉnh sửa đối với giáo viên trực.
                                             </div>
                                         </div>
                                     ) : (

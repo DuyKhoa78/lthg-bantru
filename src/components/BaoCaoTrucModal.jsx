@@ -120,7 +120,11 @@ export default function BaoCaoTrucModal({
                 setLinkGoogleForm(data.link_google_form || 'https://forms.gle/6B4GC5aG1KyEuQTaA');
                 setDaBaoCao(Boolean(data.da_bao_cao));
                 setDaBaoCaoBoiAi(data.da_bao_cao_boi_ai || '');
-                setUserIsGiamSat(Boolean(data.is_giam_sat || isGiamSat));
+                const isSupportOnly = Boolean(data.is_ho_tro_an_only || isGiamSat);
+                setUserIsGiamSat(isSupportOnly);
+                if (isSupportOnly && targetCa !== 1) {
+                    setCaTruc(2);
+                }
 
                 // Cập nhật ràng buộc khung giờ & điểm danh
                 setKhungGio(data.khung_gio_quy_dinh || null);
@@ -137,7 +141,7 @@ export default function BaoCaoTrucModal({
                     setTinhHinh(bc.tinh_hinh || 'Tốt');
                     setHsViPham(bc.hs_vi_pham || '');
                     setGhiChu(bc.ghi_chu || '');
-                    setVsatThucPham(bc.vsat_thuc_pham || '');
+                    setVsatThucPham(bc.vsat_thuc_pham || ((targetCa === 2 || isSupportOnly) ? 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ' : ''));
                     setThoiGianBaoCao(bc.created_at);
                 } else {
                     setSiSo(cleanSiSoText(live.si_so || data.si_so || '', targetPhong));
@@ -147,7 +151,7 @@ export default function BaoCaoTrucModal({
                     setTinhHinh('Tốt');
                     setHsViPham('');
                     setGhiChu('');
-                    setVsatThucPham(targetCa === 2 ? 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ' : '');
+                    setVsatThucPham((targetCa === 2 || isSupportOnly) ? 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ' : '');
                     setThoiGianBaoCao(null);
                 }
             }
@@ -166,7 +170,7 @@ export default function BaoCaoTrucModal({
     // Đồng bộ và tải số liệu khi mở modal hoặc thay đổi phòng/ca trực từ props
     useEffect(() => {
         if (isOpen) {
-            const currentCa = initialCaTruc !== undefined ? initialCaTruc : 0;
+            const currentCa = (isGiamSat && initialCaTruc !== 1) ? 2 : (initialCaTruc !== undefined ? initialCaTruc : 0);
             const currentNgay = initialNgay || new Date().toISOString().split('T')[0];
             let currentPhong = initialMaPhong || (roomList[0]?.ma_phong || roomList[0]?.ma_phong_id || '');
             if (currentCa === 0 && String(currentPhong).toUpperCase().trim() === 'SANH') {
@@ -181,7 +185,7 @@ export default function BaoCaoTrucModal({
             setCaTruc(currentCa);
             setNgay(currentNgay);
             setMaPhong(currentPhong);
-            setUserIsGiamSat(Boolean(isGiamSat));
+            setUserIsGiamSat(Boolean(isGiamSat || currentCa === 2));
             setErrorMessage('');
             setSuccessMessage('');
 
@@ -292,13 +296,13 @@ export default function BaoCaoTrucModal({
     const modalTitle = isCaNgu
         ? 'Báo Cáo Phòng Ngủ'
         : isCaGiamSat
-            ? 'Báo Cáo Giám Sát'
+            ? 'Báo Cáo Giám Sát & VSATTP'
             : 'Báo Cáo Ca Ăn Trưa';
 
     const modalSub = isCaNgu
         ? 'Báo cáo & tình hình nề nếp phòng ngủ'
         : isCaGiamSat
-            ? 'Giám sát nề nếp toàn trường & ATTP'
+            ? 'Báo cáo vệ sinh an toàn thực phẩm & giám sát trực ăn'
             : 'Báo cáo sĩ số & tình hình bữa ăn';
 
     const headerIcon = isCaNgu ? 'fas fa-bed' : isCaGiamSat ? 'fas fa-user-shield' : 'fas fa-utensils';
@@ -379,30 +383,9 @@ export default function BaoCaoTrucModal({
                         </div>
                     )}
 
-                    {/* ĐỐI VỚI CA ĂN: NẾU VÀ CHỈ NẾU LÀ GV GIÁM SÁT THÌ MỚI CÓ NÚT CHUYỂN GIÁM SÁT.
-                        NẾU LÀ GV TRỰC ĂN BÌNH THƯỜNG -> RA THẲNG BÁO CÁO ĂN, KHÔNG HIỆN NÚT NÀY.
-                        CÒN LẠI CA NGỦ -> RA THẲNG BÁO DANH NGỦ, KHÔNG CÓ TAB ĂN/NGỦ GÌ LẪN LỘN */}
-                    {!isCaNgu && userIsGiamSat && (
-                        <div className="bct-an-role-toggle">
-                            <span className="bct-role-label">Chọn nhiệm vụ ca ăn:</span>
-                            <div className="bct-role-buttons">
-                                <button
-                                    type="button"
-                                    className={`bct-role-btn ${caTruc === 0 ? 'active' : ''}`}
-                                    onClick={() => handleSwitchCaTruc(0)}
-                                >
-                                    <i className="fas fa-utensils"></i> Báo Cáo Trực Ăn
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`bct-role-btn ${caTruc === 2 ? 'active' : ''}`}
-                                    onClick={() => handleSwitchCaTruc(2)}
-                                >
-                                    <i className="fas fa-user-shield"></i> Giáo Viên Giám Sát (ATTP)
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    {/* ĐỐI VỚI CA ĂN:
+                        - GV Điểm danh ca ăn (caTruc === 0): hiển thị thẳng Báo Cáo Trực Ăn.
+                        - GV Hỗ trợ / Giám sát trực ăn (caTruc === 2): hiển thị thẳng Báo Cáo Giám Sát & VSATTP, không hiện danh sách học sinh / sĩ số. */}
 
                     {/* ══════════════════════════════════════════════════════════
                         1. BÁO CÁO TRỰC ĂN (Ra thẳng báo cáo ăn)
@@ -710,19 +693,19 @@ export default function BaoCaoTrucModal({
                     )}
 
                     {/* ══════════════════════════════════════════════════════════
-                        3. BÁO CÁO GIÁM SÁT (Chỉ khi GV chọn Giám sát ca ăn)
+                        3. BÁO CÁO GIÁM SÁT & VSATTP (Dành cho GV Hỗ trợ / Giám sát ca ăn)
                         ══════════════════════════════════════════════════════════ */}
                     {!isCaNgu && caTruc === 2 && (
                         <div className="bct-form-fields-group">
                             <div className="bct-group-title text-purple">
-                                <i className="fas fa-user-shield"></i> Giám Sát Ca Trực & ATTP
+                                <i className="fas fa-user-shield"></i> Báo Cáo Vệ Sinh ATTP & Giám Sát Trực Ăn
                             </div>
 
                             {/* 1 & 2. Họ tên & Khu vực (Gộp 1 hàng 2 cột gọn trên mobile) */}
                             <div className="bct-inline-2cols">
                                 <div className="bct-field-item">
                                     <label className="bct-field-label">
-                                        <span>Cán bộ GS <span className="text-danger">*</span></span>
+                                        <span>GV giám sát <span className="text-danger">*</span></span>
                                     </label>
                                     <input
                                         type="text"
@@ -734,11 +717,11 @@ export default function BaoCaoTrucModal({
                                 </div>
                                 <div className="bct-field-item">
                                     <label className="bct-field-label">
-                                        <span>Khu vực <span className="text-danger">*</span></span>
+                                        <span>Khu vực / Phòng <span className="text-danger">*</span></span>
                                     </label>
                                     <input
                                         type="text"
-                                        className="bct-input-text"
+                                        className="bct-input-text bg-locked font-bold text-indigo text-center"
                                         value={maPhong}
                                         onChange={(e) => setMaPhong(e.target.value)}
                                         placeholder="Nhà ăn, P5..."
@@ -748,11 +731,32 @@ export default function BaoCaoTrucModal({
                                 </div>
                             </div>
 
-                            {/* 3. Tình hình nề nếp */}
+                            {/* 3. Vệ sinh an toàn thực phẩm */}
                             <div className="bct-field-item">
                                 <label className="bct-field-label">
-                                    <span>Nề nếp toàn trường <span className="text-danger">*</span></span>
+                                    <span>Vệ sinh ATTP & lưu mẫu thức ăn <span className="text-danger">*</span></span>
                                     {isInputsDisabled && <span className="bct-locked-tag"><i className="fas fa-lock"></i> Đã khóa</span>}
+                                </label>
+                                <textarea
+                                    className={`bct-textarea ${isInputsDisabled ? 'bg-locked' : ''}`}
+                                    rows={2}
+                                    value={vsatThucPham}
+                                    onChange={(e) => setVsatThucPham(e.target.value)}
+                                    placeholder="Đạt tiêu chuẩn, lưu mẫu đầy đủ..."
+                                    required
+                                    disabled={isInputsDisabled}
+                                />
+                                <div className="bct-quick-chips">
+                                    <span className="bct-chips-hint">Chọn nhanh:</span>
+                                    <button type="button" disabled={isInputsDisabled} className={`bct-chip ${vsatThucPham === 'Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ' ? 'chip-active' : ''}`} onClick={() => setVsatThucPham('Đạt tiêu chuẩn, lưu mẫu thức ăn đầy đủ')}>Đạt chuẩn & lưu mẫu đủ</button>
+                                    <button type="button" disabled={isInputsDisabled} className={`bct-chip ${vsatThucPham === 'Vệ sinh sạch sẽ, khẩu phần ăn đảm bảo' ? 'chip-active' : ''}`} onClick={() => setVsatThucPham('Vệ sinh sạch sẽ, khẩu phần ăn đảm bảo')}>Sạch sẽ, đảm bảo</button>
+                                </div>
+                            </div>
+
+                            {/* 4. Tình hình nề nếp */}
+                            <div className="bct-field-item">
+                                <label className="bct-field-label">
+                                    <span>Tình hình nề nếp khu vực ăn <span className="text-danger">*</span></span>
                                 </label>
                                 <input
                                     type="text"
@@ -764,26 +768,11 @@ export default function BaoCaoTrucModal({
                                     disabled={isInputsDisabled}
                                 />
                                 <div className="bct-quick-chips">
-                                    <span className="bct-chips-hint">Gợi ý:</span>
-                                    <button type="button" disabled={isInputsDisabled} className="bct-chip" onClick={() => setTinhHinh('Tốt')}>Tốt</button>
-                                    <button type="button" disabled={isInputsDisabled} className="bct-chip" onClick={() => setTinhHinh('Bình thường')}>Bình thường</button>
-                                    <button type="button" disabled={isInputsDisabled} className="bct-chip" onClick={() => setTinhHinh('Toàn trường ổn định')}>Toàn trường ổn định</button>
+                                    <span className="bct-chips-hint">Chọn nhanh:</span>
+                                    <button type="button" disabled={isInputsDisabled} className={`bct-chip ${tinhHinh === 'Tốt' ? 'chip-active' : ''}`} onClick={() => setTinhHinh('Tốt')}>Tốt</button>
+                                    <button type="button" disabled={isInputsDisabled} className={`bct-chip ${tinhHinh === 'Bình thường' ? 'chip-active' : ''}`} onClick={() => setTinhHinh('Bình thường')}>Bình thường</button>
+                                    <button type="button" disabled={isInputsDisabled} className={`bct-chip ${tinhHinh === 'Ổn định, trật tự' ? 'chip-active' : ''}`} onClick={() => setTinhHinh('Ổn định, trật tự')}>Ổn định, trật tự</button>
                                 </div>
-                            </div>
-
-                            {/* 4. Vệ sinh an toàn thực phẩm */}
-                            <div className="bct-field-item">
-                                <label className="bct-field-label">
-                                    <span>Vệ sinh ATTP & lưu mẫu</span>
-                                </label>
-                                <textarea
-                                    className={`bct-textarea ${isInputsDisabled ? 'bg-locked' : ''}`}
-                                    rows={1}
-                                    value={vsatThucPham}
-                                    onChange={(e) => setVsatThucPham(e.target.value)}
-                                    placeholder="Đạt tiêu chuẩn, lưu mẫu đầy đủ..."
-                                    disabled={isInputsDisabled}
-                                />
                             </div>
 
                             {/* 5. Ghi chú/Góp ý */}
@@ -796,7 +785,7 @@ export default function BaoCaoTrucModal({
                                     rows={1}
                                     value={ghiChu}
                                     onChange={(e) => setGhiChu(e.target.value)}
-                                    placeholder="Đề xuất, phản ánh khác..."
+                                    placeholder="Đề xuất, phản ánh khác (nếu có)..."
                                     disabled={isInputsDisabled}
                                 />
                             </div>

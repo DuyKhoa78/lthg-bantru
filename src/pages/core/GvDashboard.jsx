@@ -73,14 +73,14 @@ export default function GvDashboard() {
         else if (curMins >= endMins) timeState = 'da_qua_gio';
 
         const targetItems = (dutyData?.assignments || []).filter(a => {
-            if (a.loai_truc !== loaiTruc) return false;
+            if (loaiTruc === 2 ? a.loai_truc !== 0 : a.loai_truc !== loaiTruc) return false;
             if (roomCodes && roomCodes.length > 0 && !roomCodes.includes(a.ma_phong_id)) return false;
             return true;
         });
 
-        // Phòng đã chốt khi trang_thai_chot === 'da_chot' hoặc da_diem_danh hoặc is_chot
+        // Phòng đã chốt khi trang_thai_chot === 'da_chot' hoặc da_diem_danh hoặc is_chot (GV Hỗ trợ ăn không cần đợi chốt)
         const unchotRooms = targetItems
-            .filter(a => !(a.trang_thai_chot === 'da_chot' || a.da_diem_danh || a.is_chot))
+            .filter(a => !(a.loai_truc === 0 && a.nhiem_vu !== 0) && !(a.trang_thai_chot === 'da_chot' || a.da_diem_danh || a.is_chot))
             .map(a => a.ma_phong_id);
 
         const allChot = targetItems.length > 0 && unchotRooms.length === 0;
@@ -181,12 +181,12 @@ export default function GvDashboard() {
         const m = currentTime.getMinutes();
         const totalMinutes = h * 60 + m;
 
-        // 10:55 (655m) - 11:30 (690m): Điểm danh Ca Ăn
-        if (totalMinutes >= 655 && totalMinutes <= 690) return 'an';
-        // 11:30 (690m) - 12:05 (725m): Điểm danh Phòng Ngủ
-        if (totalMinutes > 690 && totalMinutes <= 725) return 'diemdanh_ngu';
-        // 11:45 (705m) - 13:15 (795m): Học sinh ngủ trưa
-        if (totalMinutes > 725 && totalMinutes <= 795) return 'hs_ngu';
+        // 10:55 (655m) - 11:20 (680m): Điểm danh Ca Ăn
+        if (totalMinutes >= 655 && totalMinutes < 680) return 'an';
+        // 11:20 (680m) - 12:00 (720m): Điểm danh Phòng Ngủ
+        if (totalMinutes >= 680 && totalMinutes <= 720) return 'diemdanh_ngu';
+        // 12:00 (720m) - 13:15 (795m): Học sinh ngủ trưa
+        if (totalMinutes > 720 && totalMinutes <= 795) return 'hs_ngu';
         // 13:15 (795m) - 13:30 (810m): Báo thức chiều
         if (totalMinutes > 795 && totalMinutes <= 810) return 'thuc';
         return null;
@@ -254,8 +254,11 @@ export default function GvDashboard() {
         // ════════════ CA ĂN ════════════
         if (hasAn) {
             const anRoomsStr = anItems.map(i => i.ma_phong_id).join(', ');
-            // 1. Sắp tới giờ điểm danh: 10:30 -> 10:55 (630 -> 655)
-            if (curMins >= 630 && curMins < 655) {
+            const hasAnDiemDanh = anItems.some(i => i.nhiem_vu === 0);
+            const isAnHoTroOnly = !hasAnDiemDanh;
+
+            // 1. Sắp tới giờ điểm danh: 10:30 -> 10:55 (630 -> 655) - chỉ hiện cho GV Điểm danh
+            if (hasAnDiemDanh && curMins >= 630 && curMins < 655) {
                 reminders.push({
                     id: 'an_sap_diemdanh',
                     type: 'info',
@@ -267,8 +270,8 @@ export default function GvDashboard() {
                     actionText: null
                 });
             }
-            // 2. Trong giờ điểm danh nhưng chưa đến giờ báo cáo: 10:55 -> 11:15 (655 -> 675)
-            else if (curMins >= 655 && curMins < 675) {
+            // 2. Trong giờ điểm danh nhưng chưa đến giờ báo cáo: 10:55 -> 11:15 (655 -> 675) - chỉ hiện cho GV Điểm danh
+            else if (hasAnDiemDanh && curMins >= 655 && curMins < 675) {
                 if (!anDiemDanhDone) {
                     reminders.push({
                         id: 'an_dang_diemdanh_chua_xong',
@@ -298,7 +301,7 @@ export default function GvDashboard() {
             // 3. Trong khung giờ báo cáo ca ăn: 11:15 -> 12:00 (675 -> 720)
             else if (curMins >= 675 && curMins <= 720) {
                 const minsLeft = 720 - curMins;
-                if (!anDiemDanhDone) {
+                if (hasAnDiemDanh && !anDiemDanhDone) {
                     // Chưa điểm danh -> cảnh báo nghiêm ngặt
                     reminders.push({
                         id: 'an_trong_gio_baocao_chua_diemdanh',
@@ -313,19 +316,19 @@ export default function GvDashboard() {
                         actionText: 'Vào điểm danh phòng ăn ngay'
                     });
                 } else if (!anBaoCaoDone) {
-                    // Đã điểm danh nhưng chưa gửi báo cáo
+                    // Đã điểm danh (hoặc GV Hỗ trợ) nhưng chưa gửi báo cáo
                     const isUrgent = minsLeft <= 15;
                     reminders.push({
                         id: 'an_can_gui_baocao',
                         type: isUrgent ? 'danger-pulse' : 'warning-pulse',
                         icon: isUrgent ? 'fas fa-exclamation-circle' : 'fas fa-paper-plane',
-                        title: isUrgent ? `🚨 SẮP HẾT HẠN BÁO CÁO CA ĂN! (Đóng lúc 12:00)` : `🔔 Đang trong khung giờ Báo Cáo Ca Ăn (11:15 – 12:00)`,
-                        content: `Còn ${minsLeft} phút để gửi báo cáo ca ăn lên Ban Quản Lý. Sau 12:00 hệ thống sẽ khóa và không thể gửi báo cáo!`,
+                        title: isUrgent ? `🚨 SẮP HẾT HẠN BÁO CÁO CA ĂN! (Đóng lúc 12:00)` : `🔔 Đang trong khung giờ Báo Cáo ${isAnHoTroOnly ? 'Giám Sát & VSATTP' : 'Ca Ăn'} (11:15 – 12:00)`,
+                        content: `Còn ${minsLeft} phút để gửi báo cáo ${isAnHoTroOnly ? 'vệ sinh ATTP & giám sát ăn' : 'ca ăn'} lên Ban Quản Lý. Sau 12:00 hệ thống sẽ khóa và không thể gửi báo cáo!`,
                         badge: `Còn ${minsLeft} phút`,
-                        ca: 0,
+                        ca: isAnHoTroOnly ? 2 : 0,
                         actionType: 'baocao',
-                        actionTarget: { ca: 0, phong: anRoomsStr },
-                        actionText: 'Gửi báo cáo ca ăn ngay'
+                        actionTarget: { ca: isAnHoTroOnly ? 2 : 0, phong: anRoomsStr, isGiamSat: isAnHoTroOnly },
+                        actionText: isAnHoTroOnly ? 'Gửi báo cáo Giám sát & VSATTP' : 'Gửi báo cáo ca ăn ngay'
                     });
                 } else {
                     // Đã báo cáo rồi -> thông báo có thể chỉnh sửa/cập nhật trước 12:00
@@ -333,13 +336,13 @@ export default function GvDashboard() {
                         id: 'an_da_baocao',
                         type: 'success',
                         icon: 'fas fa-check-circle',
-                        title: '✓ Đã gửi Báo Cáo Ca Ăn thành công',
+                        title: `✓ Đã gửi Báo Cáo ${isAnHoTroOnly ? 'Giám Sát & VSATTP' : 'Ca Ăn'} thành công`,
                         content: `Thầy/Cô có thể chỉnh sửa và cập nhật lại thông tin báo cáo nếu cần (cổng đóng lúc 12:00, còn ${minsLeft} phút).`,
                         badge: `Có thể cập nhật đến 12:00`,
-                        ca: 0,
+                        ca: isAnHoTroOnly ? 2 : 0,
                         actionType: 'baocao',
-                        actionTarget: { ca: 0, phong: anRoomsStr },
-                        actionText: 'Cập nhật báo cáo ca ăn'
+                        actionTarget: { ca: isAnHoTroOnly ? 2 : 0, phong: anRoomsStr, isGiamSat: isAnHoTroOnly },
+                        actionText: isAnHoTroOnly ? 'Cập nhật báo cáo VSATTP' : 'Cập nhật báo cáo ca ăn'
                     });
                 }
             }
@@ -363,27 +366,27 @@ export default function GvDashboard() {
         // ════════════ CA NGỦ ════════════
         if (hasNgu) {
             const nguRoomsStr = nguItems.map(i => i.ma_phong_id).join(', ');
-            // 1. Sắp tới giờ điểm danh: 11:10 -> 11:30 (670 -> 690)
-            if (curMins >= 670 && curMins < 690) {
+            // 1. Sắp tới giờ điểm danh: 11:00 -> 11:20 (660 -> 680)
+            if (curMins >= 660 && curMins < 680) {
                 reminders.push({
                     id: 'ngu_sap_diemdanh',
                     type: 'info',
                     icon: 'fas fa-bell',
-                    title: 'Sắp tới giờ điểm danh Ca Ngủ (11:30 – 12:05)',
-                    content: `Còn ${690 - curMins} phút nữa hệ thống sẽ mở cổng điểm danh cho phòng ${nguRoomsStr}. Thầy/Cô chuẩn bị nhận phòng ngủ!`,
-                    badge: `Mở lúc 11:30 (còn ${690 - curMins}p)`,
+                    title: 'Sắp tới giờ điểm danh Ca Ngủ (11:20 – 12:00)',
+                    content: `Còn ${680 - curMins} phút nữa hệ thống sẽ mở cổng điểm danh cho phòng ${nguRoomsStr}. Thầy/Cô chuẩn bị nhận phòng ngủ!`,
+                    badge: `Mở lúc 11:20 (còn ${680 - curMins}p)`,
                     ca: 1,
                     actionText: null
                 });
             }
-            // 2. Trong giờ điểm danh nhưng chưa đến giờ báo cáo: 11:30 -> 11:45 (690 -> 705)
-            else if (curMins >= 690 && curMins < 705) {
+            // 2. Trong giờ điểm danh nhưng chưa đến giờ báo cáo: 11:20 -> 11:45 (680 -> 705)
+            else if (curMins >= 680 && curMins < 705) {
                 if (!nguDiemDanhDone) {
                     reminders.push({
                         id: 'ngu_dang_diemdanh_chua_xong',
                         type: 'warning',
                         icon: 'fas fa-qrcode',
-                        title: 'Đang trong giờ điểm danh Ca Ngủ (11:30 – 12:05)',
+                        title: 'Đang trong giờ điểm danh Ca Ngủ (11:20 – 12:00)',
                         content: `Thầy/Cô vui lòng thực hiện điểm danh học sinh phòng ${nguRoomsStr}. Lưu ý: Phải điểm danh xong mới được báo danh phòng ngủ!`,
                         badge: 'Cần điểm danh trước',
                         ca: 1,
@@ -618,7 +621,7 @@ export default function GvDashboard() {
                                 </div>
                                 <div className="gv-quick-meta">
                                     <h4>Khung giờ bán trú</h4>
-                                    <p>Điểm danh 11:30–12:05 • Ngủ 11:45–13:15</p>
+                                    <p>Điểm danh 11:20–12:00 • Ngủ 11:45–13:15</p>
                                 </div>
                                 <i className="fas fa-info-circle gv-quick-arrow"></i>
                             </div>
@@ -665,7 +668,7 @@ export default function GvDashboard() {
                                 <div className="gv-step-content">
                                     <div className="gv-step-top">
                                         <strong className="gv-step-name">2. Điểm Danh Nghỉ Trưa</strong>
-                                        <span className="gv-step-hours">11:30 – 12:05</span>
+                                        <span className="gv-step-hours">11:20 – 12:00</span>
                                     </div>
                                     <p className="gv-step-desc">
                                         Giáo viên điểm danh học sinh tại phòng ngủ, ổn định chỗ nằm và chốt sĩ số lên Ban Quản Lý.
@@ -737,10 +740,17 @@ export default function GvDashboard() {
                         {(() => {
                             const hasAnyReportDone = dutyData.assignments.some(a => a.bao_cao?.da_bao_cao);
                             const anyCanReport = dutyData.assignments.some(a => {
-                                const chk = checkCanReport(a.loai_truc, [a.ma_phong_id]);
+                                const isHoTro = a.loai_truc === 0 && a.nhiem_vu !== 0;
+                                const chk = checkCanReport(isHoTro ? 2 : a.loai_truc, [a.ma_phong_id]);
                                 return chk.canReport;
                             });
-                            const firstCa = dutyData.assignments[0]?.loai_truc || 0;
+                            const firstItem = dutyData.assignments[0];
+                            const firstIsHoTro = firstItem?.loai_truc === 0 && firstItem?.nhiem_vu !== 0;
+                            const firstCa = firstIsHoTro ? 2 : (firstItem?.loai_truc || 0);
+                            const firstRooms = dutyData.assignments
+                                .filter(a => a.loai_truc === (firstItem?.loai_truc || 0))
+                                .map(a => a.ma_phong_id)
+                                .join(', ');
                             const firstCheck = checkCanReport(firstCa);
 
                             return (
@@ -748,10 +758,10 @@ export default function GvDashboard() {
                                     type="button"
                                     className={`btn gv-btn-header-baocao ${hasAnyReportDone ? 'btn-header-baocao-done' : ''} ${!anyCanReport ? 'btn-baocao-dimmed' : 'btn-baocao-active'}`}
                                     onClick={() => handleOpenBaoCao(
-                                        dutyData.assignments[0]?.loai_truc || 0,
-                                        dutyData.assignments[0]?.ma_phong_id || '',
+                                        firstCa,
+                                        firstRooms || firstItem?.ma_phong_id || '',
                                         dutyData.today,
-                                        false,
+                                        firstIsHoTro,
                                         anyCanReport ? null : firstCheck
                                     )}
                                     title={!anyCanReport ? (firstCheck.reason || 'Chưa đủ điều kiện mở báo cáo') : (hasAnyReportDone ? 'Chỉnh sửa / Cập nhật báo cáo ca trực' : 'Gửi báo cáo ca trực cho Ban Quản Lý')}
@@ -797,7 +807,7 @@ export default function GvDashboard() {
                                                 <button
                                                     type="button"
                                                     className="btn gv-btn-rem-action btn-baocao-action"
-                                                    onClick={() => handleOpenBaoCao(rem.actionTarget?.ca, rem.actionTarget?.phong, dutyData.today)}
+                                                    onClick={() => handleOpenBaoCao(rem.actionTarget?.ca, rem.actionTarget?.phong, dutyData.today, Boolean(rem.actionTarget?.isGiamSat))}
                                                 >
                                                     <i className={`fas ${rem.type === 'success' ? 'fa-sync-alt' : 'fa-paper-plane'}`}></i>
                                                     <span>{rem.actionText}</span>
@@ -836,6 +846,7 @@ export default function GvDashboard() {
 
                         return Object.values(shiftGroups).map(shift => {
                             const hasMultipleRooms = shift.items.length >= 2;
+                            const isShiftHoTroOnly = shift.isAn && shift.items.every(i => i.nhiem_vu !== 0);
                             const totalStudents = shift.items.reduce((sum, i) => sum + (i.total_students || 0), 0);
                             const totalDraft = shift.items.reduce((sum, i) => sum + (i.draft_count || 0), 0);
                             const totalCoMat = shift.items.reduce((sum, i) => sum + (i.so_co_mat || 0), 0);
@@ -863,7 +874,9 @@ export default function GvDashboard() {
                                                     </div>
                                                     <div className="gv-shift-titles">
                                                         <div className="gv-shift-title-line">
-                                                            <h4 className="gv-shift-title-text">{shift.title}</h4>
+                                                            <h4 className="gv-shift-title-text">
+                                                                {isShiftHoTroOnly ? `${shift.title} (Hỗ trợ)` : shift.title}
+                                                            </h4>
                                                             {hasMultipleRooms && (
                                                                 <span className="gv-consolidated-badge">
                                                                     <i className="fas fa-layer-group"></i> {shift.items.length} PHÒNG
@@ -884,7 +897,7 @@ export default function GvDashboard() {
                                             </div>
 
                                             <div className="gv-room-chips-list">
-                                                <span className="gv-room-chips-label">Phụ trách:</span>
+                                                <span className="gv-room-chips-label">{isShiftHoTroOnly ? 'Phòng hỗ trợ:' : 'Phụ trách:'}</span>
                                                 {roomCodes.map(c => (
                                                     <span key={c} className="gv-room-mini-chip">
                                                         <i className="fas fa-door-open"></i> {c}
@@ -894,46 +907,63 @@ export default function GvDashboard() {
                                         </div>
 
                                         <div className="gv-consolidated-body">
-                                            <div className="gv-consolidated-stats-grid">
-                                                <div className="gv-cstat-item stat-siso">
-                                                    <span className="label">Tổng sĩ số</span>
-                                                    <span className="val font-bold">{totalStudents} HS</span>
-                                                </div>
-                                                <div className="gv-cstat-item stat-diemdanh">
-                                                    <span className="label">Đã điểm danh</span>
-                                                    <span className="val font-bold">
-                                                        {allChot ? `${totalCoMat} em` : `${totalDiemDanh > 0 ? totalDiemDanh : totalDraft}/${totalStudents} em`}
-                                                    </span>
-                                                </div>
-                                                {allChot ? (
-                                                    <div className={`gv-cstat-item ${totalVang > 0 ? 'stat-vang' : 'stat-vang-zero'}`}>
-                                                        <span className="label">HS vắng</span>
-                                                        <span className="val font-bold">
-                                                            {totalVang} em
+                                            {isShiftHoTroOnly ? (
+                                                <div className="gv-consolidated-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                                                    <div className="gv-cstat-item stat-siso">
+                                                        <span className="label">Nhiệm vụ được giao</span>
+                                                        <span className="val font-bold" style={{ color: '#7c3aed' }}>
+                                                            👁 Hỗ trợ / Giám sát ăn ({roomCodesStr})
                                                         </span>
                                                     </div>
-                                                ) : (
-                                                    <div className="gv-cstat-item stat-nhap">
-                                                        <span className="label">Đang lưu nháp</span>
-                                                        <span className="val font-bold">{totalDraft} em</span>
+                                                    <div className={`gv-cstat-item ${shiftReportDone ? 'stat-baocao-done' : 'stat-baocao-pending'}`} title={shiftReportDone ? 'Đã hoàn thành gửi báo cáo ca trực' : 'Chưa gửi báo cáo ca trực'}>
+                                                        <span className="label">Báo cáo ca trực</span>
+                                                        <span className="val font-bold">
+                                                            {shiftReportDone ? '✓ Đã gửi' : '⏳ Chưa gửi'}
+                                                        </span>
                                                     </div>
-                                                )}
-                                                <div className={`gv-cstat-item ${allChot ? 'stat-chot-done' : chotCount > 0 ? 'stat-chot-partial' : 'stat-chot-pending'}`}>
-                                                    <span className="label">Tiến độ chốt sổ</span>
-                                                    <span className="val font-bold">
-                                                        {allChot ? '✓ Đã chốt' : `${chotCount}/${shift.items.length} phòng chốt`}
-                                                    </span>
                                                 </div>
-                                                <div className={`gv-cstat-item ${shiftReportDone ? 'stat-baocao-done' : 'stat-baocao-pending'}`} title={shiftReportDone ? 'Đã hoàn thành gửi báo cáo ca trực' : 'Chưa gửi báo cáo ca trực'}>
-                                                    <span className="label">Báo cáo ca trực</span>
-                                                    <span className="val font-bold">
-                                                        {shiftReportDone ? '✓ Đã gửi' : '⏳ Chưa gửi'}
-                                                    </span>
+                                            ) : (
+                                                <div className="gv-consolidated-stats-grid">
+                                                    <div className="gv-cstat-item stat-siso">
+                                                        <span className="label">Tổng sĩ số</span>
+                                                        <span className="val font-bold">{totalStudents} HS</span>
+                                                    </div>
+                                                    <div className="gv-cstat-item stat-diemdanh">
+                                                        <span className="label">Đã điểm danh</span>
+                                                        <span className="val font-bold">
+                                                            {allChot ? `${totalCoMat} em` : `${totalDiemDanh > 0 ? totalDiemDanh : totalDraft}/${totalStudents} em`}
+                                                        </span>
+                                                    </div>
+                                                    {allChot ? (
+                                                        <div className={`gv-cstat-item ${totalVang > 0 ? 'stat-vang' : 'stat-vang-zero'}`}>
+                                                            <span className="label">HS vắng</span>
+                                                            <span className="val font-bold">
+                                                                {totalVang} em
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="gv-cstat-item stat-nhap">
+                                                            <span className="label">Đang lưu nháp</span>
+                                                            <span className="val font-bold">{totalDraft} em</span>
+                                                        </div>
+                                                    )}
+                                                    <div className={`gv-cstat-item ${allChot ? 'stat-chot-done' : chotCount > 0 ? 'stat-chot-partial' : 'stat-chot-pending'}`}>
+                                                        <span className="label">Tiến độ chốt sổ</span>
+                                                        <span className="val font-bold">
+                                                            {allChot ? '✓ Đã chốt' : `${chotCount}/${shift.items.length} phòng chốt`}
+                                                        </span>
+                                                    </div>
+                                                    <div className={`gv-cstat-item ${shiftReportDone ? 'stat-baocao-done' : 'stat-baocao-pending'}`} title={shiftReportDone ? 'Đã hoàn thành gửi báo cáo ca trực' : 'Chưa gửi báo cáo ca trực'}>
+                                                        <span className="label">Báo cáo ca trực</span>
+                                                        <span className="val font-bold">
+                                                            {shiftReportDone ? '✓ Đã gửi' : '⏳ Chưa gửi'}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {/* HIỂN THỊ CHI TIẾT SĨ SỐ VÀ DANH SÁCH HS VẮNG SAU KHI ĐÃ CHỐT SỔ */}
-                                            {allChot && (
+                                            {!isShiftHoTroOnly && allChot && (
                                                 <div className="gv-consolidated-chot-banner">
                                                     <div className="gv-chot-banner-header">
                                                         <div className="gv-chot-banner-title">
@@ -968,45 +998,51 @@ export default function GvDashboard() {
                                             )}
 
                                             {(() => {
-                                                const shiftCheck = checkCanReport(shift.loai_truc, roomCodes);
+                                                const shiftCheck = checkCanReport(isShiftHoTroOnly ? 2 : shift.loai_truc, roomCodes);
+                                                const canOpenReport = allChot || isShiftHoTroOnly;
                                                 return (
                                                     <div className="gv-consolidated-action-row">
                                                         <div className="gv-consolidated-btns-wrap">
+                                                            {!isShiftHoTroOnly && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn gv-btn-consolidated"
+                                                                    onClick={() => {
+                                                                        if (hasMultipleRooms) {
+                                                                            navigate(`${shift.path}?ngay=${shift.ngay}&gop=1`);
+                                                                        } else {
+                                                                            navigate(`${shift.path}?ngay=${shift.ngay}&phong=${roomCodes[0]}`);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <i className="fas fa-qrcode"></i>
+                                                                    <span>VÀO ĐIỂM DANH ({roomCodesStr})</span>
+                                                                    <i className="fas fa-arrow-right"></i>
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
-                                                                className="btn gv-btn-consolidated"
-                                                                onClick={() => {
-                                                                    if (hasMultipleRooms) {
-                                                                        navigate(`${shift.path}?ngay=${shift.ngay}&gop=1`);
-                                                                    } else {
-                                                                        navigate(`${shift.path}?ngay=${shift.ngay}&phong=${roomCodes[0]}`);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <i className="fas fa-qrcode"></i>
-                                                                <span>VÀO ĐIỂM DANH ({roomCodesStr})</span>
-                                                                <i className="fas fa-arrow-right"></i>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className={`btn gv-btn-consolidated-baocao ${shiftReportDone ? 'btn-baocao-submitted' : ''} ${!allChot ? 'btn-baocao-dimmed' : 'btn-baocao-active'}`}
-                                                                onClick={() => handleOpenBaoCao(shift.loai_truc, roomCodes.join(', '), shift.ngay, shift.items.some(i => i.nhiem_vu === 1), shiftCheck)}
+                                                                className={`btn gv-btn-consolidated-baocao ${shiftReportDone ? 'btn-baocao-submitted' : ''} ${!canOpenReport ? 'btn-baocao-dimmed' : 'btn-baocao-active'}`}
+                                                                onClick={() => handleOpenBaoCao(isShiftHoTroOnly ? 2 : shift.loai_truc, roomCodes.join(', '), shift.ngay, isShiftHoTroOnly || shift.items.some(i => i.nhiem_vu === 1), shiftCheck)}
                                                                 style={{
-                                                                    opacity: allChot || shiftReportDone ? 1 : 0.6,
-                                                                    cursor: allChot || shiftReportDone ? 'pointer' : 'not-allowed',
+                                                                    opacity: canOpenReport || shiftReportDone ? 1 : 0.6,
+                                                                    cursor: canOpenReport || shiftReportDone ? 'pointer' : 'not-allowed',
+                                                                    ...(isShiftHoTroOnly ? { width: '100%', justifyContent: 'center' } : {})
                                                                 }}
-                                                                title={!allChot ? 'Thầy/Cô phải hoàn thành điểm danh và Chốt sổ trước khi gửi Báo cáo ca' : (shiftReportDone ? 'Cập nhật báo cáo' : 'Mở biểu mẫu báo cáo')}
+                                                                title={!canOpenReport ? 'Thầy/Cô phải hoàn thành điểm danh và Chốt sổ trước khi gửi Báo cáo ca' : (shiftReportDone ? 'Cập nhật báo cáo' : 'Mở biểu mẫu báo cáo')}
                                                             >
                                                                 <i className={`fas ${shiftReportDone ? 'fa-sync-alt' : 'fa-file-signature'}`}></i>
                                                                 <span>
                                                                     {shiftReportDone
                                                                         ? (shiftCheck.timeState === 'da_qua_gio' ? 'XEM BÁO CÁO' : 'CẬP NHẬT BÁO CÁO')
-                                                                        : (shift.isAn ? 'BÁO CÁO CA ĂN' : 'BÁO CÁO CA NGỦ')
+                                                                        : (isShiftHoTroOnly
+                                                                            ? `BÁO CÁO GIÁM SÁT & VSATTP (${roomCodesStr})`
+                                                                            : (shift.isAn ? `BÁO CÁO CA ĂN (${roomCodesStr})` : 'BÁO CÁO CA NGỦ'))
                                                                     }
                                                                 </span>
                                                             </button>
                                                         </div>
-                                                        {hasMultipleRooms && (
+                                                        {!isShiftHoTroOnly && hasMultipleRooms && (
                                                             <small className="gv-consolidated-hint">
                                                                 <i className="fas fa-magic"></i> Quét mã QR liên tục cho cả {shift.items.length} phòng, không lo nhầm phòng!
                                                             </small>
@@ -1018,7 +1054,7 @@ export default function GvDashboard() {
                                     </div>
 
                                     {/* DANH SÁCH CHI TIẾT TỪNG PHÒNG RIÊNG LẺ (MẶC ĐỊNH ẨN - KHI NÀO CHỌN CHI TIẾT MỚI HIỆN RA) */}
-                                    {hasMultipleRooms && (
+                                    {!isShiftHoTroOnly && hasMultipleRooms && (
                                         <div className="gv-toggle-detail-container">
                                             <button
                                                 type="button"
@@ -1244,7 +1280,7 @@ export default function GvDashboard() {
                             <div className="gv-rule-item">
                                 <div className="gv-rule-badge indigo">2. Điểm Danh Ngủ</div>
                                 <div className="gv-rule-detail">
-                                    <strong>11:30 – 12:05</strong>
+                                    <strong>11:20 – 12:00</strong>
                                     <p>Hệ thống mở cổng điểm danh cho Giáo viên phụ trách phòng ngủ. Ổn định chỗ nằm, giữ trật tự và chốt sĩ số lên Ban Quản Lý.</p>
                                 </div>
                             </div>
